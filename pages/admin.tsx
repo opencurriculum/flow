@@ -28,7 +28,7 @@ const Admin: NextPage = ({ db, userID }: AppProps) => {
     useEffect(() => {
         getDoc(doc(db, "users", userID)).then(docSnapshot => {
             var user = docSnapshot.data(),
-                appIDs = user.apps
+                appIDs = user.apps || []
 
             setUser(user)
             nameRef.current.value = user.name || ''
