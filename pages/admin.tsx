@@ -34,11 +34,13 @@ const Admin: NextPage = ({ db, userID }: AppProps) => {
             nameRef.current.value = user.name || ''
             websiteRef.current.value = user.website || ''
 
-            getDocs(query(collection(db, "apps"), where(documentId(), 'in', appIDs))).then(docsSnapshot => {
-                var unsortedApps = []
-                docsSnapshot.forEach(doc => unsortedApps.push({ id: doc.id, ...doc.data() }))
-                setApps(unsortedApps.sort(app => appIDs.indexOf(app.id)))
-            })
+            if (appIDs.length){
+                getDocs(query(collection(db, "apps"), where(documentId(), 'in', appIDs))).then(docsSnapshot => {
+                    var unsortedApps = []
+                    docsSnapshot.forEach(doc => unsortedApps.push({ id: doc.id, ...doc.data() }))
+                    setApps(unsortedApps.sort(app => appIDs.indexOf(app.id)))
+                })
+            }
         })
     }, [])
 
