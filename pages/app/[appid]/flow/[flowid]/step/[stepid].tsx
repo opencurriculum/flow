@@ -21,7 +21,7 @@ const StepWrapper: NextPage = ({ app, userID }: AppProps) => {
           firebase_screen: 'step',
         })
 
-        logEvent(app.analytics, 'step_shown', { stepID });
+        logEvent(app.analytics, 'step_shown', { stepID: router.query.stepid });
     }
 
     if (!(app && app.db))
@@ -124,7 +124,15 @@ const Step = ({ db, userID }) => {
 
                             // Get the next step and move to it.
                             var indexOfCurrentStep = flowSteps.findIndex(step => step.id === router.query.stepid)
-                            router.push(`/app/${router.query.appid}/flow/${router.query.flowid}/step/${flowSteps[indexOfCurrentStep + 1].id}`)
+
+                            if (indexOfCurrentStep === flowSteps.length - 1){
+                                alert('You are all wrapped up with this level!')
+                                router.push(`/app/${router.query.appid}`)
+                                
+                            } else {
+                                router.push(`/app/${router.query.appid}/flow/${router.query.flowid}/step/${flowSteps[indexOfCurrentStep + 1].id}`)
+                            }
+
                         } else {
                             alert('That\'s not right. Try again!')
                             updateDoc(flowProgressRef, {
