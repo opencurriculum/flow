@@ -1,6 +1,6 @@
 import type { NextPage } from 'next'
 import type { AppProps } from 'next/app'
-import {useState, useEffect} from 'react'
+import {useState, useEffect, useRef} from 'react'
 import { collection, getDocs, setDoc, getDoc, doc, updateDoc, getCollection, arrayUnion } from "firebase/firestore"
 import { useRouter } from 'next/router'
 import Link from 'next/link'
@@ -20,7 +20,10 @@ const FlowWrapper: NextPage = ({ app, userID }: AppProps) => {
 
 
 const Flow: NextPage = ({ db, userID }: AppProps) => {
+    var [flow, setFlow] = useState()
     var [steps, setSteps] = useState()
+    var nameRef = useRef()
+
     const router = useRouter()
 
     useEffect(() => {
@@ -33,10 +36,17 @@ const Flow: NextPage = ({ db, userID }: AppProps) => {
             })
 
         } else {
-            getDocs(collection(db, "flows", router.query.flowid, 'steps')).then(docsSnapshot => {
-                var unsortedSteps = []
-                docsSnapshot.forEach(doc => unsortedSteps.push({ id: doc.id, ...doc.data() }))
-                setSteps(unsortedSteps.sort((a, b) => a.position - b.position))
+            getDoc(doc(db, "flows", router.query.flowid)).then(docSnapshot => {
+                var flowData = docSnapshot.data()
+
+                setFlow(flowData)
+                nameRef.current.value = flowData.name || ''
+
+                getDocs(collection(db, "flows", router.query.flowid, 'steps')).then(docsSnapshot => {
+                    var unsortedSteps = []
+                    docsSnapshot.forEach(doc => unsortedSteps.push({ id: doc.id, ...doc.data() }))
+                    setSteps(unsortedSteps.sort((a, b) => a.position - b.position))
+                })
             })
         }
     }, [])
@@ -56,6 +66,23 @@ const Flow: NextPage = ({ db, userID }: AppProps) => {
                 query: { appid: router.query.appid, flowid: router.query.flowid, stepid: 'new', duplicate: step.id }
             }}><a>(Duplicate)</a></Link>
         </li>)}</ul> : null}
+
+        <div className='max-w-xs mx-auto'>
+          <label htmlFor="email" className="block text-sm font-medium text-gray-700">
+            Name
+          </label>
+          <div className="mt-1">
+            <input
+              ref={nameRef}
+              type="text"
+              name="name"
+              className="shadow-sm focus:ring-indigo-500 focus:border-indigo-500 block w-full sm:text-sm border-gray-300 rounded-md"
+              placeholder="Flow name"
+              onBlur={(event) => updateDoc(doc(db, "flows", router.query.flowid), { name: event.target.value })}
+            />
+          </div>
+        </div>
+
     </div>
 }
 

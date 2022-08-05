@@ -1,6 +1,6 @@
 import type { NextPage } from 'next'
 import type { AppProps } from 'next/app'
-import {useState, useEffect} from 'react'
+import {useState, useEffect, useRef} from 'react'
 import { collection, query, where, getDocs, setDoc, getDoc, doc, updateDoc, getCollection, documentId, arrayUnion } from "firebase/firestore"
 import { useRouter } from 'next/router'
 import Link from 'next/link'
@@ -22,6 +22,9 @@ const UserAppWrapper: NextPage = ({ app, userID }: AppProps) => {
 const UserApp: NextPage = ({ db, userID }: AppProps) => {
     var [app, setApp] = useState()
     var [flows, setFlows] = useState()
+
+    var nameRef = useRef()
+
     const router = useRouter()
 
     useEffect(() => {
@@ -35,7 +38,9 @@ const UserApp: NextPage = ({ db, userID }: AppProps) => {
         } else {
             getDoc(doc(db, "apps", router.query.appid)).then(docSnapshot => {
                 var appData = docSnapshot.data()
+
                 setApp(appData)
+                nameRef.current.value = appData.name || ''
 
                 if (appData.flows){
                     getDocs(query(collection(db, "flows"), where(documentId(), 'in', appData.flows))).then(docsSnapshot => {
@@ -59,6 +64,21 @@ const UserApp: NextPage = ({ db, userID }: AppProps) => {
             query: { appid: router.query.appid, flowid: flow.id }
         }}><a>{flow.name}</a></Link></li>)}</ul> : null}
 
+        <div className='max-w-xs mx-auto'>
+          <label htmlFor="email" className="block text-sm font-medium text-gray-700">
+            Name
+          </label>
+          <div className="mt-1">
+            <input
+              ref={nameRef}
+              type="text"
+              name="name"
+              className="shadow-sm focus:ring-indigo-500 focus:border-indigo-500 block w-full sm:text-sm border-gray-300 rounded-md"
+              placeholder="App name"
+              onBlur={(event) => updateDoc(doc(db, "apps", router.query.appid), { name: event.target.value })}
+            />
+          </div>
+        </div>
     </div>
 }
 
