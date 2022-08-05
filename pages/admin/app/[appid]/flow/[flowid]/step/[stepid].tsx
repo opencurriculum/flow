@@ -61,7 +61,7 @@ const Step: NextPage = ({ db, userID }) => {
     const [contentFormatting, setContentFormatting] = useState(null)
     const contentFormattingRef = useRef(null)
 
-    const [isContentBeingDragged, setIsContentBeingDragged] = useState()
+    const [isContentBeingDragged, setIsContentBeingDragged] = useState(false)
 
     const router = useRouter()
 
@@ -162,40 +162,25 @@ const Step: NextPage = ({ db, userID }) => {
         contentFormattingRef.current = contentFormatting
     }, [contentFormatting])
 
-
     var updateLayoutContent = (id, value) => {
-        if (layoutContent.hasOwnProperty(id)){
-            layoutContent[id] = { ...layoutContent[id], ...value }
+        if (value){
+            if (layoutContent.hasOwnProperty(id)){
+                layoutContent[id] = { ...layoutContent[id], ...value }
+            } else {
+                layoutContent[id] = value
+            }
         } else {
-            layoutContent[id] = value
+            delete layoutContent[id]
         }
         setLayoutContent({ ...layoutContent })
     }
 
-    var applyFormatting = (prop, e) => {
-        var value = e.target.value
-        if (prop === 'fontSize'){
-            value = parseFloat(value)
-        }
-
-        if (value){
-            if (prop === 'fontSize'){
-                value = value + 'px'
-            }
-
-            setContentFormatting({ ...(contentFormatting || {}), [selectedContent] : {
-                ...(contentFormatting && contentFormatting[selectedContent] ? contentFormatting[selectedContent] : {}),
-                [prop]: value
-            }})
-        }
-    }
-
     var onDragContentBegin = () => {
-        setIsContentBeingDragged(false)
+        setIsContentBeingDragged(true)
     }
 
     var onDragContentEnd = () => {
-        setIsContentBeingDragged(true)
+        setIsContentBeingDragged(false)
     }
 
     return <div>
@@ -235,7 +220,7 @@ const Step: NextPage = ({ db, userID }) => {
               onDrop={(newLayout, layoutItem) => {
                   setLayout({ body: newLayout, changed: true })
               }}
-              isDroppable={isContentBeingDragged}
+              isDroppable={!isContentBeingDragged}
             >
                 {layout.body.map(box => <div key={box.i}>
                     <DroppableContentContainer id={box.i}
@@ -278,20 +263,85 @@ const Step: NextPage = ({ db, userID }) => {
             setResponseCheck={setResponseCheck}
             responseCheck={responseCheck}
         /> : null}
-        {selectedContent ? <div>EDIT FORMATTING for {selectedContent}
-            <div>Font size</div>
-            <input type='text' defaultValue={contentFormatting && contentFormatting[selectedContent] && contentFormatting[selectedContent].fontSize && parseFloat(contentFormatting[selectedContent].fontSize)}
-                onChange={applyFormatting.bind(this, 'fontSize')}/>
+        {selectedContent ? <Formatting
+            selectedContent={selectedContent}
+            contentFormatting={contentFormatting}
+            setContentFormatting={setContentFormatting}
+        /> : null}
+    </div>
+}
 
-            <div>Text align</div>
-            <select defaultValue={contentFormatting && contentFormatting[selectedContent] && contentFormatting[selectedContent].textAlign}
-                onChange={applyFormatting.bind(this, 'textAlign')}>
-                <option value="left">Left</option>
-                <option value="center">Center</option>
-                <option value="right">Right</option>
-            </select>
 
-        </div> : null}
+const Formatting = ({ selectedContent, contentFormatting, setContentFormatting }) => {
+    var properties =  [
+        { name: 'Font size', property: 'fontSize', type: 'text', valueType: 'number' },
+        { name: 'Text align', property: 'textAlign', type: 'select', valueType: 'string' }
+    ]
+
+    return <div>EDIT FORMATTING for {selectedContent}
+        {properties.map((prop, i) => <FormattingProperty {...prop} key={i}
+            content={selectedContent}
+            update={(property, value) => {
+                setContentFormatting({ ...(contentFormatting || {}), [selectedContent] : {
+                    ...(contentFormatting && contentFormatting[selectedContent] ? contentFormatting[selectedContent] : {}),
+                    [property]: value
+                }})
+            }}
+            value={contentFormatting && contentFormatting[selectedContent] && contentFormatting[selectedContent][prop.property]}
+        />)}
+    </div>
+}
+
+
+const FormattingProperty = ({ content, name, property, type, valueType, value, update }) => {
+    const contentRef = useRef(null),
+          elRef = useRef(null)
+
+    useEffect(() => {
+      if (content && contentRef.current !== content){
+          if (value){
+              elRef.current.value = valueType === 'number' ? value && parseFloat(value) : value
+          } else {
+              elRef.current.value = null
+          }
+      }
+
+      contentRef.current = content
+    }, [content])
+
+    var applyFormatting = (e) => {
+      var value = e.target.value
+      if (property === 'fontSize'){
+          value = parseFloat(value)
+      }
+
+      if (value){
+          if (property === 'fontSize'){
+              value = value + 'px'
+          }
+
+          update(property, value)
+      }
+    }
+
+     var body;
+     if (type === 'text'){
+         body = <input type='text' ref={elRef}
+            defaultValue={valueType === 'number' ? value && parseFloat(value) : value}
+            onChange={applyFormatting}
+        />
+    } else if (type === 'select'){
+        body = <select defaultValue={value} ref={elRef}
+            onChange={applyFormatting}>
+            <option value="left">Left</option>
+            <option value="center">Center</option>
+            <option value="right">Right</option>
+        </select>
+    }
+
+    return <div>
+        <div>{name}</div>
+        {body}
     </div>
 }
 
@@ -342,6 +392,7 @@ const DroppableContentContainer = ({ id,
                 toggleSelectedContent={toggleSelectedContent}
                 contentFormatting={contentFormatting}
             />
+            <button onClick={() => updateLayoutContent(id)}>Remove</button>
             {layoutContent[id].name === 'Response' ? <button onClick={changeResponseFormat}>Change format</button> : null}
         </div> : 'Drop'}
     </div>
@@ -399,7 +450,7 @@ const ResponseTemplateMaker = ({ id, closeChangeResponseFormat, updateLayoutCont
 
 const ResponseTemplate = ({ id, content, responseItemSelected, toggleSelectedResourceTemplateItems, updateLayoutContent }) => {
     return <div>
-        {content.body && content.body.map((responseItem, i) => <div key={i} onClick={() => toggleSelectedResourceTemplateItems(responseItem)}>
+        {content && content.body && content.body.map((responseItem, i) => <div key={i} onClick={() => toggleSelectedResourceTemplateItems(responseItem)}>
             {responseItem.kind === 'text' ? <ContentInput name='text' body={responseItem.body} updateBody={(body) => {
                 var newBody = [...content.body]
                 newBody[i] = { ...responseItem, body }
