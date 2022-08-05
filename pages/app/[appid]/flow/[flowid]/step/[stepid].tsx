@@ -1,7 +1,7 @@
 import type { NextPage } from 'next'
 import type { AppProps } from 'next/app'
 import {useState, useEffect, useRef} from 'react'
-import { collection, getDocs, getDoc, doc, updateDoc, arrayUnion, increment } from "firebase/firestore"
+import { collection, getDocs, getDoc, doc, updateDoc, setDoc, arrayUnion, increment } from "firebase/firestore"
 import 'react-grid-layout/css/styles.css'
 import GridLayout from "react-grid-layout"
 import {Editor, EditorState, ContentState, convertFromRaw } from 'draft-js';
@@ -128,7 +128,7 @@ const Step = ({ db, userID }) => {
                             if (indexOfCurrentStep === flowSteps.length - 1){
                                 alert('You are all wrapped up with this level!')
                                 router.push(`/app/${router.query.appid}`)
-                                
+
                             } else {
                                 router.push(`/app/${router.query.appid}/flow/${router.query.flowid}/step/${flowSteps[indexOfCurrentStep + 1].id}`)
                             }
