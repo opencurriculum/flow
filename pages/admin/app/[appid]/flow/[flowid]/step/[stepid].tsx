@@ -109,7 +109,9 @@ const Step: NextPage = ({ db, userID }) => {
                 } else {
                     var sortedFlowSteps = flowSteps.sort((a, b) => a.position - b.position)
 
-                    setDoc(doc(db, "flows", router.query.flowid, 'steps', newStepID), { duration: 0, position: sortedFlowSteps[sortedFlowSteps.length - 1].position + 1 }).then(() => {
+                    setDoc(doc(db, "flows", router.query.flowid, 'steps', newStepID), { position: (
+                            sortedFlowSteps.length ? (sortedFlowSteps[sortedFlowSteps.length - 1].position + 1) : 0
+                        ) }).then(() => {
                         router.replace(`/admin/app/${router.query.flowid}/flow/${router.query.flowid}/step/${newStepID}`)
                     })
                 }
