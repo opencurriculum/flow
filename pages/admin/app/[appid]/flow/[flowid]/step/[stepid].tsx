@@ -14,6 +14,9 @@ import { HTML5Backend } from 'react-dnd-html5-backend'
 import { v4 as uuidv4 } from 'uuid'
 import 'draft-js/dist/Draft.css';
 import {blockStyleFn} from '../../../../../../../utils/common.tsx'
+import { ArrowUpIcon, ArrowDownIcon, ChevronRightIcon, HomeIcon } from '@heroicons/react/solid'
+import update from 'immutability-helper'
+import Link from 'next/link'
 
 
 const StepWrapper: NextPage = ({ app, userID }: AppProps) => {
@@ -86,33 +89,47 @@ const Step: NextPage = ({ db, userID }) => {
 
             // If there is a duplicate param, use that to make this new step.
             var newStepID = uuidv4().substring(0, 8)
+
             getDocs(collection(db, "flows", router.query.flowid, 'steps')).then(docsSnapshot => {
                 var flowSteps = []
                 docsSnapshot.forEach(doc => flowSteps.push({ id: doc.id, ...doc.data() }))
+                var sortedFlowSteps = flowSteps.sort((a, b) => a.position - b.position)
 
                 if (router.query.duplicate){
-                    var duplicatable = flowSteps.find(step => step.id === router.query.duplicate)
-                    var stepsAfterDuplicatable = flowSteps.filter(step => step.position > duplicatable.position)
+                    if (router.query.fromFlow){
+                        getDoc(doc(db, "flows", router.query.fromFlow, 'steps', router.query.duplicate)).then(docSnapshot => {
+                            setDoc(doc(db, "flows", router.query.flowid, 'steps', newStepID), {
+                                ...docSnapshot.data(),
+                                position: (
+                                    sortedFlowSteps.length ? (sortedFlowSteps[sortedFlowSteps.length - 1].position + 1) : 0
+                                )
+                            }).then(() => {
+                                router.replace(`/admin/app/${router.query.appid}/flow/${router.query.flowid}/step/${newStepID}`)
+                            })
+                        })
 
-                    const batch = writeBatch(db)
-                    stepsAfterDuplicatable.forEach(step => {
-                        updateDoc(doc(db, "flows", router.query.flowid, 'steps', step.id), { position: step.position + 1 })
-                    })
+                    } else {
+                        var duplicatable = flowSteps.find(step => step.id === router.query.duplicate)
+                        var stepsAfterDuplicatable = flowSteps.filter(step => step.position > duplicatable.position)
 
-                    var newStepData = { ...duplicatable, position: duplicatable.position + 1 }
-                    delete newStepData.id
-                    setDoc(doc(db, "flows", router.query.flowid, 'steps', newStepID), newStepData)
-                    batch.commit().then(() => {
-                        router.replace(`/admin/app/${router.query.flowid}/flow/${router.query.flowid}/step/${newStepID}`)
-                    })
+                        const batch = writeBatch(db)
+                        stepsAfterDuplicatable.forEach(step => {
+                            updateDoc(doc(db, "flows", router.query.flowid, 'steps', step.id), { position: step.position + 1 })
+                        })
+
+                        var newStepData = { ...duplicatable, position: duplicatable.position + 1 }
+                        delete newStepData.id
+                        setDoc(doc(db, "flows", router.query.flowid, 'steps', newStepID), newStepData)
+                        batch.commit().then(() => {
+                            router.replace(`/admin/app/${router.query.appid}/flow/${router.query.flowid}/step/${newStepID}`)
+                        })
+                    }
 
                 } else {
-                    var sortedFlowSteps = flowSteps.sort((a, b) => a.position - b.position)
-
                     setDoc(doc(db, "flows", router.query.flowid, 'steps', newStepID), { position: (
                             sortedFlowSteps.length ? (sortedFlowSteps[sortedFlowSteps.length - 1].position + 1) : 0
                         ) }).then(() => {
-                        router.replace(`/admin/app/${router.query.flowid}/flow/${router.query.flowid}/step/${newStepID}`)
+                        router.replace(`/admin/app/${router.query.appid}/flow/${router.query.flowid}/step/${newStepID}`)
                     })
                 }
             })
@@ -170,6 +187,12 @@ const Step: NextPage = ({ db, userID }) => {
                 layoutContent[id] = value
             }
         } else {
+            if (contentFormatting.hasOwnProperty(layoutContent[id].name)){
+                var newContentFormatting = {...contentFormatting}
+                delete newContentFormatting[layoutContent[id].name]
+                setContentFormatting(newContentFormatting)
+            }
+
             delete layoutContent[id]
         }
         setLayoutContent({ ...layoutContent })
@@ -183,7 +206,39 @@ const Step: NextPage = ({ db, userID }) => {
         setIsContentBeingDragged(false)
     }
 
+    const pages = [
+      { name: 'App', href: `/admin/app/${router.query.appid}`, current: false },
+      { name: 'Flow', href: `/admin/app/${router.query.appid}/flow/${router.query.flowid}`, current: false },
+      { name: 'Step', href: `/admin/app/${router.query.appid}/flow/${router.query.flowid}/${router.query.stepid}`, current: true },
+    ]
+
     return <div>
+        <nav className="flex" aria-label="Breadcrumb">
+          <ol role="list" className="flex items-center space-x-4">
+            <li>
+              <div>
+                <Link href="/admin"><a className="text-gray-400 hover:text-gray-500">
+                  <HomeIcon className="flex-shrink-0 h-5 w-5" aria-hidden="true" />
+                  <span className="sr-only">Home</span>
+                </a></Link>
+              </div>
+            </li>
+            {pages.map((page) => (
+              <li key={page.name}>
+                <div className="flex items-center">
+                  <ChevronRightIcon className="flex-shrink-0 h-5 w-5 text-gray-400" aria-hidden="true" />
+                  <Link href={page.href}><a
+                    className="ml-4 text-sm font-medium text-gray-500 hover:text-gray-700"
+                    aria-current={page.current ? 'page' : undefined}
+                  >
+                    {page.name}
+                  </a></Link>
+                </div>
+              </li>
+            ))}
+          </ol>
+        </nav>
+
         <button className='p-2' onClick={() => setLayout(initialLayout)}>Reset layout</button>
         <ul>
             <li><DraggableContent name='Prompt' onDragBegin={onDragContentBegin} onDragEnd={onDragContentEnd} /></li>
@@ -218,6 +273,11 @@ const Step: NextPage = ({ db, userID }) => {
               rowHeight={30}
               width={800}
               onDrop={(newLayout, layoutItem) => {
+                  var indexOfNewLayoutItem = newLayout.indexOf(layoutItem)
+                  newLayout[indexOfNewLayoutItem] = {
+                      ...newLayout[indexOfNewLayoutItem], i: uuidv4().substring(0, 4)
+                  }
+                  delete newLayout[indexOfNewLayoutItem].isDraggable
                   setLayout({ body: newLayout, changed: true })
               }}
               isDroppable={!isContentBeingDragged}
@@ -255,6 +315,7 @@ const Step: NextPage = ({ db, userID }) => {
             `}</style>}
         </div> : null}
         {responseChangeOpen ? <ResponseTemplateMaker id={responseChangeOpen}
+            content={layoutContent[responseChangeOpen]}
             closeChangeResponseFormat={() => setResponseChangeOpen(null)}
             updateLayoutContent={updateLayoutContent}
         /> : null}
@@ -375,7 +436,18 @@ const DroppableContentContainer = ({ id,
     const [{ canDrop, isOver }, dropRef] = useDrop(() => ({
         accept: 'content',
         drop: (item) => {
-            updateLayoutContent(id, { name: item.id })
+            var numberOfSuchContentAlreadyCreated = 0
+            for (var layoutID in layoutContent){
+                var nameMatch = layoutContent[layoutID].name.match(new RegExp(`${item.id} (?<number>\\d)`))
+                if (nameMatch){
+                    numberOfSuchContentAlreadyCreated = nameMatch.groups.number
+                } else if (layoutContent[layoutID].name === item.id){
+                    numberOfSuchContentAlreadyCreated = 1
+                }
+            }
+
+            updateLayoutContent(id, { name: numberOfSuchContentAlreadyCreated ? (
+                `${item.id} ${numberOfSuchContentAlreadyCreated + 1}`) : item.id })
             return ({ name: 'Droppable-Content' });
         },
         collect: (monitor) => ({
@@ -393,7 +465,7 @@ const DroppableContentContainer = ({ id,
                 contentFormatting={contentFormatting}
             />
             <button onClick={() => updateLayoutContent(id)}>Remove</button>
-            {layoutContent[id].name === 'Response' ? <button onClick={changeResponseFormat}>Change format</button> : null}
+            {layoutContent[id].name.startsWith('Response') ? <button onClick={changeResponseFormat}>Change format</button> : null}
         </div> : 'Drop'}
     </div>
 }
@@ -401,10 +473,10 @@ const DroppableContentContainer = ({ id,
 
 const EditableContent = ({ content, id, toggleSelectedResourceTemplateItems, updateLayoutContent, toggleSelectedContent, contentFormatting }) => {
     var body = content.name;
-    if (content.name === 'Response'){
+    if (content.name.startsWith('Response')){
         body = <ResponseTemplate
             id={id}
-            content={content}
+            content={content && content.body}
             toggleSelectedResourceTemplateItems={toggleSelectedResourceTemplateItems}
             updateLayoutContent={updateLayoutContent}
         />
@@ -424,24 +496,23 @@ const EditableContent = ({ content, id, toggleSelectedResourceTemplateItems, upd
 }
 
 
-const ResponseTemplateMaker = ({ id, closeChangeResponseFormat, updateLayoutContent }) => {
-    const [responseTemplate, setResponseTemplate] = useState([
-        { kind: 'responsespace', id: 'item_' + uuidv4().substring(0, 7) }
-    ])
-
+const ResponseTemplateMaker = ({ id, closeChangeResponseFormat, updateLayoutContent, content }) => {
     return <div>
         make response template:
         <div>
             <button onClick={() => {
-                setResponseTemplate([...responseTemplate, { kind: 'responsespace', id: 'item_' + uuidv4().substring(0, 7) }])
+                updateLayoutContent(id, { body: [...(content.body || []), { kind: 'responsespace', id: 'item_' + uuidv4().substring(0, 7) }]})
             }}>Add response space</button>
             <button onClick={() => {
-                setResponseTemplate([...responseTemplate, { kind: 'text', id: 'item_' + uuidv4().substring(0, 7) }])
+                updateLayoutContent(id, { body: [...(content.body || []), { kind: 'text', id: 'item_' + uuidv4().substring(0, 7) }]})
             }}>Add text</button>
         </div>
-        <ResponseTemplate template={responseTemplate} />
+        <ResponseTemplate
+            id={id}
+            content={content.body}
+            updateLayoutContent={updateLayoutContent}
+        />
         <button onClick={() => {
-            updateLayoutContent(id, { body: responseTemplate })
             closeChangeResponseFormat()
         }}>Done</button>
     </div>
@@ -449,13 +520,48 @@ const ResponseTemplateMaker = ({ id, closeChangeResponseFormat, updateLayoutCont
 
 
 const ResponseTemplate = ({ id, content, responseItemSelected, toggleSelectedResourceTemplateItems, updateLayoutContent }) => {
+    // This is a temp hack variable.
+    var isInsideContentLayout = toggleSelectedResourceTemplateItems
+
     return <div>
-        {content && content.body && content.body.map((responseItem, i) => <div key={i} onClick={() => toggleSelectedResourceTemplateItems(responseItem)}>
-            {responseItem.kind === 'text' ? <ContentInput name='text' body={responseItem.body} updateBody={(body) => {
-                var newBody = [...content.body]
+        {content && content.map((responseItem, i) => <div key={i} className='flex' onClick={toggleSelectedResourceTemplateItems  ? () => toggleSelectedResourceTemplateItems(responseItem) : null} >
+            {isInsideContentLayout ? null : <div>
+                {i ? <button
+                    onClick={() => updateLayoutContent(id, { body: update(content, {
+                        $splice: [
+                            [i, 1],
+                            [i - 1, 0, content[i]]
+                        ]
+                    }) })}
+                    type="button"
+                  className="inline-flex items-center px-1.5 py-1 border border-gray-300 shadow-sm text-sm leading-4 font-medium rounded-md bg-white hover:bg-gray-50 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-indigo-500"
+                >
+                  <ArrowUpIcon className="-ml-0.5 h-4 w-4" aria-hidden="true" />
+                </button> : null}
+                {i !== content.length - 1 ? <button
+                    onClick={() => updateLayoutContent(id, { body: update(content, {
+                        $splice: [
+                            [i, 1],
+                            [i + 1, 0, content[i]]
+                        ]
+                    }) })}
+
+                    type="button"
+                  className="inline-flex items-center px-1.5 py-1 border border-gray-300 shadow-sm text-sm leading-4 font-medium rounded-md bg-white hover:bg-gray-50 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-indigo-500"
+                >
+                  <ArrowDownIcon className="-ml-0.5 h-4 w-4" aria-hidden="true" />
+                </button> : null}
+
+            </div>}
+
+            <div className='flex-grow'>{responseItem.kind === 'text' && isInsideContentLayout ? <ContentInput name='text' body={responseItem.body} updateBody={(body) => {
+                var newBody = [...content]
                 newBody[i] = { ...responseItem, body }
                 updateLayoutContent(id, { body: newBody })
-            }} /> : responseItem.kind}
+            }} /> : responseItem.kind} {isInsideContentLayout ? null : <span onClick={() => updateLayoutContent(id, { body: update(content, {
+                    $splice: [[i, 1]]
+                })
+            })}>(Remove)</span>}</div>
         </div>)}
     </div>
 }

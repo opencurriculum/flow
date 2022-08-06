@@ -46,7 +46,7 @@ const UserApp: NextPage = ({ db, userID }: AppProps) => {
                     getDocs(query(collection(db, "flows"), where(documentId(), 'in', appData.flows))).then(docsSnapshot => {
                         var unsortedFlows = []
                         docsSnapshot.forEach(doc => unsortedFlows.push({ id: doc.id, ...doc.data() }))
-                        setFlows(unsortedFlows.sort(flow => app.flows.indexOf(flow.id)))
+                        setFlows(unsortedFlows.sort((a, b) => appData.flows.indexOf(a.id) - appData.flows.indexOf(b.id)))
                     })
                 }
             })

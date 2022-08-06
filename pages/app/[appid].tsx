@@ -95,7 +95,7 @@ const UserApp: NextPage = ({ db, userID }: AppProps) => {
                 getDocs(query(collection(db, "flows"), where(documentId(), 'in', appData.flows))).then(docsSnapshot => {
                     var unsortedFlows = []
                     docsSnapshot.forEach(doc => unsortedFlows.push({ id: doc.id, ...doc.data() }))
-                    setFlows(unsortedFlows.sort(flow => app.flows.indexOf(flow.id)))
+                    setFlows(unsortedFlows.sort((a, b) => appData.flows.indexOf(a.id) - appData.flows.indexOf(b.id)))
                 })
 
                 var userRef = doc(db, "users", userID)
@@ -119,7 +119,7 @@ const UserApp: NextPage = ({ db, userID }: AppProps) => {
     return <div>
         <UserAppHeader db={db} />
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 my-4 w-3/12">
-            {flows && progress ? <ul role="list" className="space-y-3">
+            {flows && progress ? <ul role="list" className="space-y-10">
                 {flows.map((flow, i) => <li key={i} className={"bg-white shadow overflow-hidden rounded-md text-center" + (progress[flow.id] === 100 ? ' opacity-30' : '')}>
                     <Link href={{
                         pathname: '/app/[appid]/flow/[flowid]',

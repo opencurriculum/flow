@@ -179,7 +179,7 @@ const BoxBody = ({ content, response, checkResponse, setResponse, contentFormatt
         >
           {content.name}
         </button></div>
-    } else if (content.name === 'Response'){
+    } else if (content.name.startsWith('Response')){
         return <div>{content.body.map((responseItem, i) => {
             if (responseItem.kind === 'responsespace')
                 return <ResponseSpace key={i} responseItem={responseItem} setResponse={setResponse} response={response[router.query.stepid] && response[router.query.stepid][responseItem.id]} />
