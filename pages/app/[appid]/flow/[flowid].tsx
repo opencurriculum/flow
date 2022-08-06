@@ -43,7 +43,7 @@ const Flow: NextPage = ({ db, userID }: AppProps) => {
     useEffect(() => {
         if (steps && progress){
             var stepProgress
-            steps.forEach((step, i) => {
+            steps.find((step, i) => {
                 // First, check the progress this has made.
                 stepProgress = progress.steps && progress.steps[step.id] ? (
                     progress.steps[step.id].completed) : 0
@@ -52,6 +52,7 @@ const Flow: NextPage = ({ db, userID }: AppProps) => {
                 if (stepProgress < 100 || (i === steps.length - 1)){
                     // Redirect to this step.
                     router.replace(`/app/${router.query.appid}/flow/${router.query.flowid}/step/${step.id}`)
+                    return true
                 }
             })
         }
