@@ -35,7 +35,7 @@ export const UserAppHeader = ({ db }) => {
               <div className="flex justify-between h-16">
                 <div className="flex">
                   <div className="flex-shrink-0 flex items-center">
-                    <span className="text-2xl font-bold">{app && app.name}</span>
+                    <Link href={`/app/${router.query.appid}`}><a className="text-2xl font-bold">{app && app.name}</a></Link>
                   </div>
                 </div>
                 <div className="hidden sm:ml-6 sm:flex sm:items-center">
