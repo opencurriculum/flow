@@ -14,7 +14,7 @@ import { HTML5Backend } from 'react-dnd-html5-backend'
 import { v4 as uuidv4 } from 'uuid'
 import 'draft-js/dist/Draft.css';
 import {blockStyleFn} from '../../../../../../../utils/common.tsx'
-import { ArrowUpIcon, ArrowDownIcon, ChevronRightIcon, HomeIcon } from '@heroicons/react/solid'
+import { ArrowUpIcon, ArrowDownIcon, ChevronRightIcon, HomeIcon } from '@heroicons/react/24/solid'
 import update from 'immutability-helper'
 import Link from 'next/link'
 
@@ -198,6 +198,16 @@ const Step: NextPage = ({ db, userID }) => {
         setLayoutContent({ ...layoutContent })
     }
 
+    var toggleSelectedContent = (content) => {
+        setSelectedContent(selected => {
+            if (content === selected){
+                return
+            } else {
+                return content
+            }
+        })
+    }
+
     var onDragContentBegin = () => {
         setIsContentBeingDragged(true)
     }
@@ -295,15 +305,7 @@ const Step: NextPage = ({ db, userID }) => {
                         }}
                         layoutContent={layoutContent}
                         updateLayoutContent={updateLayoutContent}
-                        toggleSelectedContent={(content) => {
-                            setSelectedContent(selected => {
-                                if (content === selected){
-                                    return
-                                } else {
-                                    return content
-                                }
-                            })
-                        }}
+                        toggleSelectedContent={toggleSelectedContent}
                         contentFormatting={contentFormatting}
                     />
                 </div>)}
@@ -318,6 +320,7 @@ const Step: NextPage = ({ db, userID }) => {
             content={layoutContent[responseChangeOpen]}
             closeChangeResponseFormat={() => setResponseChangeOpen(null)}
             updateLayoutContent={updateLayoutContent}
+            toggleSelectedContent={toggleSelectedContent}
         /> : null}
         {selectedResourceTemplateItems.length ? <ExpectedResponse
             responseTemplateItems={selectedResourceTemplateItems}
@@ -336,17 +339,30 @@ const Step: NextPage = ({ db, userID }) => {
 const Formatting = ({ selectedContent, contentFormatting, setContentFormatting }) => {
     var properties =  [
         { name: 'Font size', property: 'fontSize', type: 'text', valueType: 'number' },
-        { name: 'Text align', property: 'textAlign', type: 'select', valueType: 'string' }
+        { name: 'Text align', property: 'textAlign', type: 'select', valueType: 'string' },
+        { name: 'Inline', property: 'display', type: 'checkbox', valueType: 'string', selectedValue: 'inline-block' }
     ]
 
     return <div>EDIT FORMATTING for {selectedContent}
         {properties.map((prop, i) => <FormattingProperty {...prop} key={i}
             content={selectedContent}
             update={(property, value) => {
-                setContentFormatting({ ...(contentFormatting || {}), [selectedContent] : {
+                var newFormatting = { ...(contentFormatting || {}), [selectedContent] : {
                     ...(contentFormatting && contentFormatting[selectedContent] ? contentFormatting[selectedContent] : {}),
-                    [property]: value
-                }})
+                }}
+
+                if (value !== undefined){
+                    newFormatting[selectedContent][property] = value
+                } else if (newFormatting[selectedContent].hasOwnProperty(property)){
+                    delete newFormatting[selectedContent][property]
+
+                    if (!Object.keys(newFormatting[selectedContent]).length){
+                        delete newFormatting[selectedContent]
+                    }
+                }
+
+                setContentFormatting(newFormatting)
+
             }}
             value={contentFormatting && contentFormatting[selectedContent] && contentFormatting[selectedContent][prop.property]}
         />)}
@@ -354,7 +370,7 @@ const Formatting = ({ selectedContent, contentFormatting, setContentFormatting }
 }
 
 
-const FormattingProperty = ({ content, name, property, type, valueType, value, update }) => {
+const FormattingProperty = ({ content, name, property, type, valueType, selectedValue, value, update }) => {
     const contentRef = useRef(null),
           elRef = useRef(null)
 
@@ -364,6 +380,10 @@ const FormattingProperty = ({ content, name, property, type, valueType, value, u
               elRef.current.value = valueType === 'number' ? value && parseFloat(value) : value
           } else {
               elRef.current.value = null
+
+              if (elRef.current.type === 'checkbox'){
+                  elRef.current.checked = false
+              }
           }
       }
 
@@ -376,12 +396,24 @@ const FormattingProperty = ({ content, name, property, type, valueType, value, u
           value = parseFloat(value)
       }
 
+      if (e.target.type === 'checkbox'){
+          value = e.target.checked ? selectedValue : null
+      }
+
       if (value){
           if (property === 'fontSize'){
               value = value + 'px'
           }
 
           update(property, value)
+
+      } else {
+          // Naively remove the property.
+          // This isn't always going to be a good idea, such as making
+          // something 0 or false might actually be desired.
+          // This code would need to be adjusted in that scenario, taking
+          // into account the specific property.
+          update(property)
       }
     }
 
@@ -398,6 +430,11 @@ const FormattingProperty = ({ content, name, property, type, valueType, value, u
             <option value="center">Center</option>
             <option value="right">Right</option>
         </select>
+    } else if (type === 'checkbox'){
+        body = <input type='checkbox' ref={elRef}
+            defaultChecked={value}
+            onChange={applyFormatting}
+        />
     }
 
     return <div>
@@ -429,10 +466,10 @@ const DraggableContent = ({ name, onDragBegin, onDragEnd }) => {
 
 
 const DroppableContentContainer = ({ id,
-    changeResponseFormat, toggleSelectedResourceTemplateItems,
-    updateLayoutContent, layoutContent, toggleSelectedContent,
-    contentFormatting
-}) => {
+        changeResponseFormat, toggleSelectedResourceTemplateItems,
+        updateLayoutContent, layoutContent, toggleSelectedContent,
+        contentFormatting
+    }) => {
     const [{ canDrop, isOver }, dropRef] = useDrop(() => ({
         accept: 'content',
         drop: (item) => {
@@ -496,7 +533,7 @@ const EditableContent = ({ content, id, toggleSelectedResourceTemplateItems, upd
 }
 
 
-const ResponseTemplateMaker = ({ id, closeChangeResponseFormat, updateLayoutContent, content }) => {
+const ResponseTemplateMaker = ({ id, closeChangeResponseFormat, updateLayoutContent, content, toggleSelectedContent }) => {
     return <div>
         make response template:
         <div>
@@ -511,6 +548,7 @@ const ResponseTemplateMaker = ({ id, closeChangeResponseFormat, updateLayoutCont
             id={id}
             content={content.body}
             updateLayoutContent={updateLayoutContent}
+            toggleSelectedContent={toggleSelectedContent}
         />
         <button onClick={() => {
             closeChangeResponseFormat()
@@ -519,7 +557,7 @@ const ResponseTemplateMaker = ({ id, closeChangeResponseFormat, updateLayoutCont
 }
 
 
-const ResponseTemplate = ({ id, content, responseItemSelected, toggleSelectedResourceTemplateItems, updateLayoutContent }) => {
+const ResponseTemplate = ({ id, content, responseItemSelected, toggleSelectedResourceTemplateItems, updateLayoutContent, toggleSelectedContent }) => {
     // This is a temp hack variable.
     var isInsideContentLayout = toggleSelectedResourceTemplateItems
 
@@ -558,10 +596,11 @@ const ResponseTemplate = ({ id, content, responseItemSelected, toggleSelectedRes
                 var newBody = [...content]
                 newBody[i] = { ...responseItem, body }
                 updateLayoutContent(id, { body: newBody })
-            }} /> : responseItem.kind} {isInsideContentLayout ? null : <span onClick={() => updateLayoutContent(id, { body: update(content, {
+            }} /> : <span onClick={isInsideContentLayout ? null : () => toggleSelectedContent(responseItem.id)}>{responseItem.kind}</span>} {isInsideContentLayout ? null : <span onClick={() => updateLayoutContent(id, { body: update(content, {
                     $splice: [[i, 1]]
                 })
-            })}>(Remove)</span>}</div>
+            })}>(Remove)</span>}
+            </div>
         </div>)}
     </div>
 }

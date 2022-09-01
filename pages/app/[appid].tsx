@@ -8,7 +8,7 @@ import { Disclosure } from '@headlessui/react'
 import { ReactFitty } from "../../utils/react-fitty"
 import { usePopper } from 'react-popper'
 import { Popover } from '@headlessui/react'
-import { ChevronLeftIcon } from '@heroicons/react/solid'
+import { ChevronLeftIcon } from '@heroicons/react/24/solid'
 
 
 export const UserAppHeader = ({ db }) => {

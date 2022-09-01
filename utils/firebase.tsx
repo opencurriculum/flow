@@ -24,9 +24,8 @@ export const connectToFirestore = () => {
             connectFirestoreEmulator(db, 'localhost', 8080);
         } else {
             db = getFirestore(app)
+            enableIndexedDbPersistence(db)
         }
-
-        enableIndexedDbPersistence(db)
 
         return { db, analytics }
     }
