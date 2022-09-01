@@ -90,7 +90,7 @@ const Step = ({ db, userID }) => {
     // Merge the response and progress.
     var lastUserResponse = response[router.query.stepid]
 
-    var stepProgress = progress && progress.steps[router.query.stepid]
+    var stepProgress = progress && progress.steps && progress.steps[router.query.stepid]
     if (stepProgress){
         var lastAttempt = stepProgress.attempts[stepProgress.attempts.length - 1]
 
