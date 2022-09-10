@@ -79,7 +79,10 @@ const LTIDeepLinker: NextPage = ({}: AppProps) => {
                 const response = await fetch(
                     `/api/lti/deep-link?ltik=${router.query.ltik}&flowResource=${userPickedActivityURL.pathname}&scoreMaximum=${scoreMaximum}&title=${title}`)
                 const responseJSON = await response.json()
-                formWrapperRef.current.innerHTML = responseJSON.form
+                // formWrapperRef.current.innerHTML = responseJSON.form
+                var newFormWrapper = document.createElement('div')
+                newFormWrapper.innerHTML = responseJSON.form
+                document.body.appendChild(newFormWrapper)
             }}>Assign</button>
             <div ref={formWrapperRef} />
         </div> : null}
