@@ -85,7 +85,7 @@ const LTIDeepLinker: NextPage = ({}: AppProps) => {
                 // document.body.appendChild(newFormWrapper)
 
                 var newFormWrapper = document.createElement('div')
-                newFormWrapper.innerHTML = `<form id="ltijs_submit" style="display: none;" action="' + ${responseJSON.endpoint} + '" method="POST"><input type="hidden" name="JWT" value="' + ${responseJSON.message} + '" /></form>`
+                newFormWrapper.innerHTML = `<form id="ltijs_submit" style="display: none;" action="${responseJSON.endpoint}" method="POST"><input type="hidden" name="JWT" value="${responseJSON.message}" /></form>`
                 document.body.appendChild(newFormWrapper)
                 document.getElementById("ltijs_submit").submit()
 
