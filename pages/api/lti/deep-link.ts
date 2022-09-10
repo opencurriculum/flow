@@ -19,7 +19,7 @@ export default async function handler(req, res) {
       }
     }
     const authorizationHeader = `LTIK-AUTH-V1 Token=${ltik}, Additional=Bearer ${process.env.LTIAAS_PRIVATE_KEY}`
-    const response = await fetch('https://flow.ltiaas.com/api/deeplinking/form', {
+    const response = await fetch('https://flow.ltiaas.com/api/deeplinking/message', {
         method: 'post',
         body: JSON.stringify(link),
         headers: { Authorization: authorizationHeader, 'Content-Type': 'application/json' }
