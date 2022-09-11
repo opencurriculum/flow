@@ -4,7 +4,7 @@ export default async function handler(req, res) {
     const link = {
       contentItems: [{
         type: 'ltiResourceLink',
-        url: `https://flow.ltiaas.com?flowResource=${flowResource}&scoreMaximum=${scoreMaximum}`,
+        url: `https://flow.ltiaas.com/?flowResource=${flowResource}`,
         lineItem: {
             scoreMaximum,
             label: title,

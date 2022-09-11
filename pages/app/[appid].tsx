@@ -122,7 +122,7 @@ const UserApp: NextPage = ({ db, userID }: AppProps) => {
             {flows && progress ? <ul role="list" className="space-y-10">
                 {flows.map((flow, i) => <li key={i} className={"bg-white shadow overflow-hidden rounded-md text-center" + (progress[flow.id] === 100 ? ' opacity-30' : '')}>
                     <Link href={{
-                        pathname: '/app/[appid]/flow/[flowid]',
+                        pathname: '/app/[appid]/flow/[flowid]' + window.location.search,
                         query: { appid: router.query.appid, flowid: flow.id }
                     }}><a className='px-6 py-4 block'>
                         <div><ReactFitty maxSize={96} minSize={12} wrapText={true}>{flow.name}</ReactFitty></div>

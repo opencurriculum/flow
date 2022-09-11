@@ -1,7 +1,10 @@
 import type { NextPage } from 'next'
 import type { AppProps } from 'next/app'
 import {useState, useEffect, useRef, Fragment} from 'react'
-import { collection, getDocs, getDoc, doc, updateDoc, setDoc, arrayUnion, increment, Timestamp } from "firebase/firestore"
+import {
+    collection, getDocs, getDoc, doc, updateDoc, setDoc, arrayUnion,
+    increment, Timestamp, documentId, query, where
+} from "firebase/firestore"
 import 'react-grid-layout/css/styles.css'
 import GridLayout from "react-grid-layout"
 import {Editor, EditorState, ContentState, convertFromRaw } from 'draft-js';
@@ -99,6 +102,22 @@ const Step = ({ db, userID }) => {
         }
     }
 
+    var searchParams = new URLSearchParams(window.location.search)
+
+    var submitScore = function(score){
+        fetch(`/api/lti/submit-score`, {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({
+                ltik: router.query.ltik,
+                lineItemId: router.query.lineItemId,
+                userID: router.query.userID,
+                score
+            }),
+        })
+        // .then((response) => response.json())
+    }
+
     return <div>
         <UserAppHeader db={db} />
         {step ? <div className={styles.GridLayoutWrapper}><GridLayout
@@ -153,7 +172,7 @@ const Step = ({ db, userID }) => {
 
                                     } else {
                                         setOpenResponseCheckResult(false)
-                                        router.push(`/app/${router.query.appid}/flow/${router.query.flowid}/step/${flowSteps[indexOfCurrentStep + 1].id}`)
+                                        router.push(`/app/${router.query.appid}/flow/${router.query.flowid}/step/${flowSteps[indexOfCurrentStep + 1].id}${window.location.search}`)
                                     }
                                 }, 2000)
 
@@ -186,6 +205,54 @@ const Step = ({ db, userID }) => {
                 text-align: center
             }
         `}</style>}
+        {searchParams.has('ltik') ? <button
+          type="button" onClick={() => {
+              // Determine what the resource is and gather progress to submit.
+              var ltiResourceParts = searchParams.get('ltiResource').split('/'),
+                finalScore = 0
+
+              if (ltiResourceParts.length <= 3){
+                  // Fetch all flow IDs and their progress.
+                  getDoc(doc(db, "apps", router.query.appid)).then(docSnapshot => {
+                      var appData = docSnapshot.data()
+
+                      if (appData.flows){
+                          var appProgressRef = query(collection(db, "users", userID, "progress"), where(documentId(), 'in', appData.flows))
+                          getDocs(appProgressRef).then(docsSnapshot => {
+                              var flowsProgress = {}
+                              docsSnapshot.forEach(doc => {
+                                  var stepID, stepProgress = doc.data().steps
+                                  for (stepID in stepProgress){
+                                      finalScore += (
+                                          stepProgress[stepID].completed ? 10 : 0)
+                                  }
+                              })
+
+                              submitScore(finalScore)
+                          })
+                      }
+                  })
+
+              } else {
+                  if (ltiResourceParts.length <= 5){
+                      var stepID
+                      for (stepID in progress.steps){
+                          finalScore += (
+                              progress.steps[stepID].completed ? 10 : 0)
+                      }
+
+                  } else {
+                      finalScore += (
+                          progress.steps[router.query.stepid].completed ? 10 : 0)
+                  }
+              }
+
+              submitScore(finalScore)
+          }}
+          className="inline-flex items-center px-3 py-2 border border-transparent text-sm leading-4 font-medium rounded-md text-indigo-700 bg-indigo-100 hover:bg-indigo-200 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-indigo-500"
+        >
+          Finish and submit
+        </button> : null}
         </div>: <div className='py-10'>
             <svg className="animate-spin h-5 w-5 text-black mx-auto" fill="none" viewBox="0 0 24 24">
                 <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4"></circle>

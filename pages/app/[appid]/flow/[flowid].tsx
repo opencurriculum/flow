@@ -51,7 +51,7 @@ const Flow: NextPage = ({ db, userID }: AppProps) => {
                 // If the progress is less than 100, or this is last one, stop at this.
                 if (stepProgress < 100 || (i === steps.length - 1)){
                     // Redirect to this step.
-                    router.replace(`/app/${router.query.appid}/flow/${router.query.flowid}/step/${step.id}`)
+                    router.replace(`/app/${router.query.appid}/flow/${router.query.flowid}/step/${step.id}${window.location.search}`)
                     return true
                 }
             })
