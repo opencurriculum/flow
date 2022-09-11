@@ -95,10 +95,10 @@ const Step = ({ db, userID }) => {
     var lastUserResponse = response[router.query.stepid]
 
     var stepProgress = progress && progress.steps && progress.steps[router.query.stepid]
-    if (stepProgress){
+    if (stepProgress && stepProgress.attempts){
         var lastAttempt = stepProgress.attempts[stepProgress.attempts.length - 1]
 
-        if (lastAttempt){
+        if (lastAttempt && lastAttempt.response){
             lastUserResponse = lastAttempt.response
         }
     }
