@@ -225,7 +225,7 @@ const Step = ({ db, userID }) => {
                                   var stepID, stepProgress = doc.data().steps
                                   for (stepID in stepProgress){
                                       finalScore += (
-                                          stepProgress[stepID].completed ? 10 : 0)
+                                          stepProgress.hasOwnProperty(stepID) && stepProgress[stepID].completed ? 10 : 0)
                                   }
                               })
 
@@ -239,12 +239,12 @@ const Step = ({ db, userID }) => {
                       var stepID
                       for (stepID in progress.steps){
                           finalScore += (
-                              progress.steps[stepID].completed ? 10 : 0)
+                             progress.steps.hasOwnProperty(stepID) && progress.steps[stepID].completed ? 10 : 0)
                       }
 
                   } else {
                       finalScore += (
-                          progress.steps[router.query.stepid].completed ? 10 : 0)
+                          progress.steps.hasOwnProperty(ltiResourceParts[6]) && progress.steps[ltiResourceParts[6]].completed ? 10 : 0)
                   }
               }
 
