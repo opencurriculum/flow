@@ -144,7 +144,7 @@ const Step = ({ db, userID }) => {
                             if (Function(`'use strict'; var ${variableDeclations.join(',')}; return (${step.responseCheck})`)()){
                                 updateDoc(flowProgressRef, {
                                     [`steps.${router.query.stepid}.attempts`]: arrayUnion({
-                                        timestamp: Timestamp.now(), response: currentAnswer
+                                        timestamp: Timestamp.now(), response: lastUserResponse
                                     }),
                                     [`steps.${router.query.stepid}.completed`]: 100,
                                     completed: increment(
@@ -184,7 +184,7 @@ const Step = ({ db, userID }) => {
 
                                 updateDoc(flowProgressRef, {
                                     [`steps.${router.query.stepid}.attempts`]: arrayUnion({
-                                        timestamp: Timestamp.now(), response: currentAnswer
+                                        timestamp: Timestamp.now(), response: lastUserResponse
                                     }),
                                 })
                             }
