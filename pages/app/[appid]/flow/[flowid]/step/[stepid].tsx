@@ -59,6 +59,7 @@ const Step = ({ db, userID }) => {
                 setProgress(docSnapshot.data())
             } else {
                 setDoc(flowProgressRef, { completed: 0, steps: {} })
+                setProgress({ completed: 0, steps: {} })
             }
         })
 
