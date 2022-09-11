@@ -134,12 +134,12 @@ const Step = ({ db, userID }) => {
             {layout.map(box => <div key={box.i}>
                 <BoxBody content={layoutContent[box.i]}
                     checkResponse={function(){
-                        var currentAnswer = (response[router.query.stepid] || stepProgress)
-
-                        if (currentAnswer){
+                        if (lastUserResponse){
                             let variableDeclations = []
-                            for (var prop in currentAnswer){
-                                variableDeclations.push(`${prop} = ${currentAnswer[prop]}`)
+                            for (var prop in lastUserResponse){
+                                if (prop !== 'timestamp'){
+                                    variableDeclations.push(`${prop} = ${lastUserResponse[prop]}`)
+                                }
                             }
                             if (Function(`'use strict'; var ${variableDeclations.join(',')}; return (${step.responseCheck})`)()){
                                 updateDoc(flowProgressRef, {
