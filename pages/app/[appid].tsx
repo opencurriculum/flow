@@ -9,6 +9,7 @@ import { ReactFitty } from "../../utils/react-fitty"
 import { usePopper } from 'react-popper'
 import { Popover } from '@headlessui/react'
 import { ChevronLeftIcon } from '@heroicons/react/24/solid'
+import Head from 'next/head'
 
 
 export const UserAppHeader = ({ db }) => {
@@ -117,6 +118,11 @@ const UserApp: NextPage = ({ db, userID }: AppProps) => {
     }, [])
 
     return <div>
+        <Head>
+            <title>{app && app.name}</title>
+            <meta property="og:title" content={app && app.name} key="title" />
+        </Head>
+
         <UserAppHeader db={db} />
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 my-4 w-3/12">
             {flows && progress ? <ul role="list" className="space-y-10">

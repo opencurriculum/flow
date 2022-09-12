@@ -66,10 +66,13 @@ const Step: NextPage = ({ db, userID }) => {
 
     const [isContentBeingDragged, setIsContentBeingDragged] = useState(false)
 
+    var nameRef = useRef()
+
     const router = useRouter()
 
     var setInitialData = (docSnapshot) => {
         var snapshotData = docSnapshot.data()
+        nameRef.current.value = snapshotData.name || ''
 
         setLayout({ body: snapshotData.layout ? JSON.parse(snapshotData.layout) : initialLayout })
 
@@ -219,10 +222,12 @@ const Step: NextPage = ({ db, userID }) => {
     const pages = [
       { name: 'App', href: `/admin/app/${router.query.appid}`, current: false },
       { name: 'Flow', href: `/admin/app/${router.query.appid}/flow/${router.query.flowid}`, current: false },
-      { name: 'Step', href: `/admin/app/${router.query.appid}/flow/${router.query.flowid}/${router.query.stepid}`, current: true },
+      { name: 'Step', href: `/admin/app/${router.query.appid}/flow/${router.query.flowid}/step/${router.query.stepid}`, current: true },
     ]
 
     return <div>
+        <a href={`/app/${router.query.appid}/flow/${router.query.flowid}/step/${router.query.stepid}`} target="_blank">Preview</a>
+
         <nav className="flex" aria-label="Breadcrumb">
           <ol role="list" className="flex items-center space-x-4">
             <li>
@@ -248,6 +253,22 @@ const Step: NextPage = ({ db, userID }) => {
             ))}
           </ol>
         </nav>
+
+        <div className='max-w-xs mx-auto'>
+          <label htmlFor="email" className="block text-sm font-medium text-gray-700">
+            Name
+          </label>
+          <div className="mt-1">
+            <input
+              ref={nameRef}
+              type="text"
+              name="name"
+              className="shadow-sm focus:ring-indigo-500 focus:border-indigo-500 block w-full sm:text-sm border-gray-300 rounded-md"
+              placeholder="Flow name"
+              onBlur={(event) => updateDoc(doc(db, "flows", router.query.flowid, "steps", router.query.stepid), { name: event.target.value })}
+            />
+          </div>
+        </div>
 
         <button className='p-2' onClick={() => setLayout(initialLayout)}>Reset layout</button>
         <ul>

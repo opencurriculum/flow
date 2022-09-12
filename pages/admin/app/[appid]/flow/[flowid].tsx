@@ -96,6 +96,8 @@ const Flow: NextPage = ({ db, userID }: AppProps) => {
     }, [steps])
 
     return <div>
+        <a href={`/app/${router.query.appid}/flow/${router.query.flowid}`} target="_blank">Preview</a>
+
         <button onClick={() => {
             router.push(`/admin/app/${router.query.appid}/flow/${router.query.flowid}/step/new`)
         }}>Add a step</button>
@@ -216,7 +218,7 @@ const DraggableStep = ({ step, moveStep, setDuplicateStepToOpen }) => {
         <Link href={{
             pathname: '/admin/app/[appid]/flow/[flowid]/step/[stepid]',
             query: { appid: router.query.appid, flowid: router.query.flowid, stepid: step.id }
-        }}><a>{step.id}</a></Link>
+        }}><a className="font-bold">{step.name ? `${step.name} [${step.id}]` : step.id}</a></Link>
         <Link href={{
             pathname: '/admin/app/[appid]/flow/[flowid]/step/[stepid]',
             query: { appid: router.query.appid, flowid: router.query.flowid, stepid: 'new', duplicate: step.id }

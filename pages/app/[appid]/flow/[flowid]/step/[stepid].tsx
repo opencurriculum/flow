@@ -17,6 +17,7 @@ import styles from '../../../../../../styles/components/StepAdmin.module.sass'
 import { Dialog, Transition } from '@headlessui/react'
 import { CheckIcon, XMarkIcon, ExclamationTriangleIcon } from '@heroicons/react/24/outline'
 import update from 'immutability-helper'
+import Head from 'next/head'
 
 
 const StepWrapper: NextPage = ({ app, userID }: AppProps) => {
@@ -120,7 +121,13 @@ const Step = ({ db, userID }) => {
     }
 
     return <div>
+        <Head>
+            <title>{step && step.name}</title>
+            <meta property="og:title" content={step && step.name} key="title" />
+        </Head>
+
         <UserAppHeader db={db} />
+
         {step ? <div className={styles.GridLayoutWrapper}><GridLayout
           className="layout"
           layout={layout}
