@@ -54,7 +54,7 @@ const UserApp: NextPage = ({ db, userID }: AppProps) => {
     }, [router.query.appid])
 
     return <div>
-        <a href={`/app/${router.query.appid}`} target="_blank">Preview</a>
+        <a href={`/app/${router.query.appid}`} target="_blank" rel="noreferrer">Preview</a>
 
         <button onClick={() => {
             router.push(`/admin/app/${router.query.appid}/flow/new`)

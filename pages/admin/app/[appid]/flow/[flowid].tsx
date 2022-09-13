@@ -96,7 +96,7 @@ const Flow: NextPage = ({ db, userID }: AppProps) => {
     }, [steps])
 
     return <div>
-        <a href={`/app/${router.query.appid}/flow/${router.query.flowid}`} target="_blank">Preview</a>
+        <a href={`/app/${router.query.appid}/flow/${router.query.flowid}`} target="_blank" rel="noreferrer">Preview</a>
 
         <button onClick={() => {
             router.push(`/admin/app/${router.query.appid}/flow/${router.query.flowid}/step/new`)
