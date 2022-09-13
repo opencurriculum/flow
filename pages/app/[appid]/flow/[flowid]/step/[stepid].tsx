@@ -225,11 +225,11 @@ const Step = ({ db, userID }) => {
                       var appData = docSnapshot.data()
 
                       if (appData.flows){
-                          var appProgressRef = query(collection(db, "users", userID, "progress"), where(documentId(), 'in', appData.flows))
-                          getDocs(appProgressRef).then(docsSnapshot => {
+                          // var appProgressRef = query(collection(db, "users", userID, "progress"), where(documentId(), 'in', appData.flows))
+                          getFlowsProgress(db, userID, appData.flows).then(docsSnapshot => {
                               var flowsProgress = {}
                               docsSnapshot.forEach(doc => {
-                                  var stepID, stepProgress = doc.data().steps
+                                  var stepID, stepProgress = doc.steps
                                   for (stepID in stepProgress){
                                       finalScore += (
                                           stepProgress.hasOwnProperty(stepID) && stepProgress[stepID].completed ? 10 : 0)
@@ -358,7 +358,7 @@ const BoxBody = ({ content, response, checkResponse, setResponse, contentFormatt
           {content.name}
         </button></div>
     } else if (content.name.startsWith('Response')){
-        return <div>{content.body.map((responseItem, i) => {
+        return <div>{content.body && content.body.map((responseItem, i) => {
             var responseItemFormatting = {...(contentFormatting && contentFormatting[responseItem.id] ? contentFormatting[responseItem.id] : {})}
             if (responseItem.kind === 'responsespace')
                 return <ResponseSpace key={i}

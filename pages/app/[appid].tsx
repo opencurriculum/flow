@@ -10,6 +10,7 @@ import { usePopper } from 'react-popper'
 import { Popover } from '@headlessui/react'
 import { ChevronLeftIcon } from '@heroicons/react/24/solid'
 import Head from 'next/head'
+import { getAppFlows, getFlowsProgress } from '../../utils/store'
 
 
 export const UserAppHeader = ({ db }) => {
@@ -93,19 +94,16 @@ const UserApp: NextPage = ({ db, userID }: AppProps) => {
             setApp(appData)
 
             if (appData.flows){
-                getDocs(query(collection(db, "flows"), where(documentId(), 'in', appData.flows))).then(docsSnapshot => {
-                    var unsortedFlows = []
-                    docsSnapshot.forEach(doc => unsortedFlows.push({ id: doc.id, ...doc.data() }))
-                    setFlows(unsortedFlows.sort((a, b) => appData.flows.indexOf(a.id) - appData.flows.indexOf(b.id)))
-                })
+                getAppFlows(db, appData.flows).then(
+                    unsortedFlows => setFlows(unsortedFlows.sort((a, b) => appData.flows.indexOf(a.id) - appData.flows.indexOf(b.id)))
+                )
 
                 var userRef = doc(db, "users", userID)
                 getDoc(userRef).then(docSnapshot => {
                     if (docSnapshot.exists()){
-                        var appProgressRef = query(collection(db, "users", userID, 'progress'), where(documentId(), 'in', appData.flows))
-                        getDocs(appProgressRef).then(docsSnapshot => {
+                        getFlowsProgress(db, userID, appData.flows).then(docsSnapshot => {
                             var flowsProgress = {}
-                            docsSnapshot.forEach(doc => flowsProgress[doc.id] = doc.data().completed)
+                            docsSnapshot.forEach(doc => flowsProgress[doc.id] = doc.completed)
                             setProgress(flowsProgress)
                         })
                     } else {

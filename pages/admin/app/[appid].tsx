@@ -9,6 +9,7 @@ import { useRouter } from 'next/router'
 import Link from 'next/link'
 import { v4 as uuidv4 } from 'uuid'
 import update from 'immutability-helper'
+import { getAppFlows } from '../../../utils/store'
 
 
 const UserAppWrapper: NextPage = ({ app, userID }: AppProps) => {
@@ -47,11 +48,9 @@ const UserApp: NextPage = ({ db, userID }: AppProps) => {
                 nameRef.current.value = appData.name || ''
 
                 if (appData.flows){
-                    getDocs(query(collection(db, "flows"), where(documentId(), 'in', appData.flows))).then(docsSnapshot => {
-                        var unsortedFlows = []
-                        docsSnapshot.forEach(doc => unsortedFlows.push({ id: doc.id, ...doc.data() }))
-                        setFlows(unsortedFlows.sort((a, b) => appData.flows.indexOf(a.id) - appData.flows.indexOf(b.id)))
-                    })
+                    getAppFlows(db, appData.flows).then(
+                        unsortedFlows => setFlows(unsortedFlows.sort((a, b) => appData.flows.indexOf(a.id) - appData.flows.indexOf(b.id)))
+                    )
                 }
             })
         }
