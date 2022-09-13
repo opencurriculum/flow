@@ -2,7 +2,7 @@ import type { NextPage } from 'next'
 import type { AppProps } from 'next/app'
 import {useState, useEffect, useRef} from 'react'
 import { collection, getDocs, setDoc, getDoc, doc, updateDoc,
-    getCollection, arrayUnion, writeBatch } from "firebase/firestore"
+    getCollection, arrayUnion, writeBatch, deleteDoc } from "firebase/firestore"
 import { useRouter } from 'next/router'
 import Link from 'next/link'
 import { v4 as uuidv4 } from 'uuid'
@@ -39,12 +39,37 @@ const Flow: NextPage = ({ db, userID }: AppProps) => {
 
     useEffect(() => {
         if (router.query.flowid === 'new'){
+            // Create a new flow.
             var newFlowID = uuidv4().substring(0, 8)
-            setDoc(doc(db, "flows", newFlowID), { name: 'Untitled flow' }).then(() => {
-                updateDoc(doc(db, "apps", router.query.appid), { flows: arrayUnion(newFlowID) }).then(() => {
-                    router.replace(`/admin/app/${router.query.appid}/flow/${newFlowID}`)
+
+            // If there is a duplicate param, use that to make this new step.
+            if (router.query.duplicate){
+                getDoc(doc(db, "flows", router.query.duplicate)).then(docSnapshot => {
+                    getDocs(collection(db, "flows", router.query.duplicate, 'steps')).then(docsSnapshot => {
+                        var flowSteps = []
+                        docsSnapshot.forEach(doc => flowSteps.push(doc.data()))
+
+                        const batch = writeBatch(db)
+                        setDoc(doc(db, "flows", newFlowID), { name: `Copy of ${docSnapshot.data().name}` })
+                        updateDoc(doc(db, "apps", router.query.appid), { flows: arrayUnion(newFlowID) })
+
+                        flowSteps.forEach(step => {
+                            setDoc(doc(db, "flows", newFlowID, 'steps', uuidv4().substring(0, 8)), { ...step })
+                        })
+
+                        batch.commit().then(() => {
+                            router.replace(`/admin/app/${router.query.appid}/flow/${newFlowID}`)
+                        })
+                    })
                 })
-            })
+
+            } else {
+                setDoc(doc(db, "flows", newFlowID), { name: 'Untitled flow' }).then(() => {
+                    updateDoc(doc(db, "apps", router.query.appid), { flows: arrayUnion(newFlowID) }).then(() => {
+                        router.replace(`/admin/app/${router.query.appid}/flow/${newFlowID}`)
+                    })
+                })
+            }
 
         } else {
             getDoc(doc(db, "flows", router.query.flowid)).then(docSnapshot => {
@@ -61,7 +86,7 @@ const Flow: NextPage = ({ db, userID }: AppProps) => {
                 })
             })
         }
-    }, [])
+    }, [router.query.flowid])
 
     useEffect(() => {
         if (stepsRef.current && steps !== stepsRef.current){
@@ -69,7 +94,6 @@ const Flow: NextPage = ({ db, userID }: AppProps) => {
             stepsChangeInterval = setTimeout(() => {
                 // Find all changed steps.
                 var changedStepPositions = {}
-
                 steps.forEach(step => {
                     lastUpdatedStepsRef.current.forEach(oldStep => {
                         if (step.id === oldStep.id && step.position !== oldStep.position){
@@ -127,6 +151,28 @@ const Flow: NextPage = ({ db, userID }: AppProps) => {
                     })
                 }}
                 setDuplicateStepToOpen={setDuplicateStepToOpen}
+                deleteStep={stepID => {
+                    var indexOfStepToBeDeleted = steps.findIndex(s => s.id === stepID),
+                        stepToBeDeleted = steps[indexOfStepToBeDeleted],
+                        stepIDsAfterOneToBeDeleted = steps.filter(s => s.position > stepToBeDeleted.position).map(s => s.id)
+
+                    setSteps(steps => update(steps, {
+                        $splice: [[indexOfStepToBeDeleted, 1]],
+                        $apply: ss => {
+                            var updatedSteps = []
+                            ss.forEach(s => {
+                                if (stepIDsAfterOneToBeDeleted.indexOf(s.id) !== -1){
+                                    updatedSteps.push({ ...s, position: s.position - 1 })
+                                } else {
+                                    updatedSteps.push(s)
+                                }
+                            })
+                            return updatedSteps
+                        }
+                    }))
+
+                    deleteDoc(doc(db, "flows", router.query.flowid, "steps", stepID))
+                }}
             />)}</ul>
         </DndProvider> : null}
 
@@ -151,7 +197,7 @@ const Flow: NextPage = ({ db, userID }: AppProps) => {
 }
 
 
-const DraggableStep = ({ step, moveStep, setDuplicateStepToOpen }) => {
+const DraggableStep = ({ step, moveStep, setDuplicateStepToOpen, deleteStep }) => {
     const router = useRouter()
     const ref = useRef(null)
 
@@ -224,6 +270,11 @@ const DraggableStep = ({ step, moveStep, setDuplicateStepToOpen }) => {
             query: { appid: router.query.appid, flowid: router.query.flowid, stepid: 'new', duplicate: step.id }
         }}><a>(Duplicate)</a></Link>
         <a onClick={() => setDuplicateStepToOpen(step.id)}>(Duplicate to...)</a>
+        <a onClick={() => {
+            if (window.confirm('Are you sure you want to delete ' + step.id + '?')){
+                deleteStep(step.id)
+            }
+        }}>Delete...</a>
     </li>
 }
 

@@ -1,10 +1,14 @@
 import type { NextPage } from 'next'
 import type { AppProps } from 'next/app'
 import {useState, useEffect, useRef} from 'react'
-import { collection, query, where, getDocs, setDoc, getDoc, doc, updateDoc, getCollection, documentId, arrayUnion } from "firebase/firestore"
+import {
+    collection, query, where, getDocs, setDoc, getDoc, doc, updateDoc,
+    getCollection, documentId, arrayUnion, writeBatch, deleteDoc
+} from "firebase/firestore"
 import { useRouter } from 'next/router'
 import Link from 'next/link'
 import { v4 as uuidv4 } from 'uuid'
+import update from 'immutability-helper'
 
 
 const UserAppWrapper: NextPage = ({ app, userID }: AppProps) => {
@@ -61,10 +65,22 @@ const UserApp: NextPage = ({ db, userID }: AppProps) => {
         }}>Add a flow</button>
 
         Flows
-        {flows ? <ul>{flows.map((flow, i) => <li key={i}><Link href={{
-            pathname: '/admin/app/[appid]/flow/[flowid]',
-            query: { appid: router.query.appid, flowid: flow.id }
-        }}><a>{flow.name}</a></Link></li>)}</ul> : null}
+        {flows ? <ul>{flows.map((flow, i) => <Flow
+            key={i}
+            flow={flow}
+            deleteFlow={flowID => {
+                setFlows(flows => update(flows, {
+                    $splice: [[flows.findIndex(f => f.id === flowID), 1]]
+                }))
+
+                getDocs(collection(db, "flows", flowID, 'steps')).then(docsSnapshot => {
+                    const batch = writeBatch(db)
+                    docsSnapshot.forEach(docSnapshot => deleteDoc(doc(db, "flows", flowID, 'steps', docSnapshot.id)))
+                    deleteDoc(doc(db, "flows", flowID))
+                    batch.commit()
+                })
+            }}
+        />)}</ul>: null}
 
         <div className='max-w-xs mx-auto'>
           <label htmlFor="email" className="block text-sm font-medium text-gray-700">
@@ -82,6 +98,26 @@ const UserApp: NextPage = ({ db, userID }: AppProps) => {
           </div>
         </div>
     </div>
+}
+
+
+const Flow = ({ flow, deleteFlow }) => {
+    const router = useRouter()
+    return <li>
+        <Link href={{
+            pathname: '/admin/app/[appid]/flow/[flowid]',
+            query: { appid: router.query.appid, flowid: flow.id }
+        }}><a>{flow.name}</a></Link>
+        <Link href={{
+            pathname: '/admin/app/[appid]/flow/[flowid]',
+            query: { appid: router.query.appid, flowid: router.query.flowid, flowid: 'new', duplicate: flow.id }
+        }}><a>(Duplicate)</a></Link>
+        <a onClick={() => {
+            if (window.confirm('Are you sure you want to delete ' + flow.id + '?')){
+                deleteFlow(flow.id)
+            }
+        }}>Delete...</a>
+    </li>
 }
 
 
