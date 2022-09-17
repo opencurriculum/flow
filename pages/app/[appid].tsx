@@ -11,9 +11,10 @@ import { Popover } from '@headlessui/react'
 import { ChevronLeftIcon } from '@heroicons/react/24/solid'
 import Head from 'next/head'
 import { getAppFlows, getFlowsProgress } from '../../utils/store'
+import {t} from '../../utils/common.tsx'
 
 
-export const UserAppHeader = ({ db }) => {
+export const UserAppHeader = ({ db, hideBack }) => {
     var [app, setApp] = useState()
     var [appOwner, setAppOwner] = useState()
     const router = useRouter()
@@ -56,14 +57,21 @@ export const UserAppHeader = ({ db }) => {
       </Disclosure>
       <div className="py-4">
         <div className="max-w-7xl mx-auto sm:px-6 lg:px-8">
-            {router.query.flowid ? <button
+            {router.query.stepid && !hideBack ? (app && app.allowStepsListing ? <button
+                type="button"
+                className="inline-flex items-center px-3 py-2 border border-gray-300 shadow-sm text-sm leading-4 font-medium rounded-md text-gray-700 bg-white hover:bg-gray-50 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-indigo-500"
+                 onClick={() => router.push(`/app/${router.query.appid}/flow/${router.query.flowid}`)}
+              >
+                  <ChevronLeftIcon className="-ml-1 mr-2 h-5 w-5" aria-hidden="true" />
+                Show previous {t('steps', app)}
+              </button> : <button
                 type="button"
                 className="inline-flex items-center px-3 py-2 border border-gray-300 shadow-sm text-sm leading-4 font-medium rounded-md text-gray-700 bg-white hover:bg-gray-50 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-indigo-500"
                  onClick={() => router.back()}
               >
                   <ChevronLeftIcon className="-ml-1 mr-2 h-5 w-5" aria-hidden="true" />
                 Back
-              </button> : null}
+              </button>) : null}
           </div>
       </div>
     </div>

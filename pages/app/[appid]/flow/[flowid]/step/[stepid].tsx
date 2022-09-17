@@ -117,7 +117,6 @@ const Step = ({ db, userID }) => {
                 score
             }),
         })
-        // .then((response) => response.json())
     }
 
     return <div>
@@ -126,7 +125,7 @@ const Step = ({ db, userID }) => {
             <meta property="og:title" content={step && step.name} key="title" />
         </Head>
 
-        <UserAppHeader db={db} />
+        <UserAppHeader db={db} hideBack={progress && !progress.completed} />
 
         {step ? <div className={styles.GridLayoutWrapper}><GridLayout
           className="layout"

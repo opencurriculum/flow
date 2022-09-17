@@ -28,7 +28,9 @@ const UserApp: NextPage = ({ db, userID }: AppProps) => {
     var [app, setApp] = useState()
     var [flows, setFlows] = useState()
 
-    var nameRef = useRef()
+    var nameRef = useRef(),
+        allowStepsListingRef = useRef(),
+        stepsAliasRef = useRef()
 
     const router = useRouter()
 
@@ -46,6 +48,8 @@ const UserApp: NextPage = ({ db, userID }: AppProps) => {
 
                 setApp(appData)
                 nameRef.current.value = appData.name || ''
+                allowStepsListingRef.current.checked = appData.allowStepsListing || false
+                stepsAliasRef.current.value = appData.stepsAlias || ''
 
                 if (appData.flows){
                     getAppFlows(db, appData.flows).then(
@@ -93,6 +97,44 @@ const UserApp: NextPage = ({ db, userID }: AppProps) => {
               className="shadow-sm focus:ring-indigo-500 focus:border-indigo-500 block w-full sm:text-sm border-gray-300 rounded-md"
               placeholder="App name"
               onBlur={(event) => updateDoc(doc(db, "apps", router.query.appid), { name: event.target.value })}
+            />
+          </div>
+
+          <div className="relative flex items-start">
+            <div className="flex h-5 items-center">
+              <input
+                ref={allowStepsListingRef}
+                aria-describedby="allowStepsListing-description"
+                name="allowStepsListing"
+                type="checkbox"
+                className="h-4 w-4 rounded border-gray-300 text-indigo-600 focus:ring-indigo-500"
+                onChange={(event) => updateDoc(doc(db, "apps", router.query.appid), { allowStepsListing: event.target.checked })}
+              />
+            </div>
+            <div className="ml-3 text-sm">
+              <label htmlFor="comments" className="font-medium text-gray-700">
+                Allow students to see prior steps in a flow
+              </label>
+              <p id="comments-description" className="text-gray-500">
+                This will allow them to review and jump to a step they have already responded to.
+              </p>
+            </div>
+          </div>
+
+          <label htmlFor="email" className="block text-sm font-medium text-gray-700">
+            What do you call steps in your app?
+          </label>
+          <div className="mt-1">
+            <input
+              ref={stepsAliasRef}
+              type="text"
+              name="name"
+              className="shadow-sm focus:ring-indigo-500 focus:border-indigo-500 block w-full sm:text-sm border-gray-300 rounded-md"
+              placeholder="E.g., problems, items, questions"
+              onBlur={(event) => {
+                  if (event.target.value.length)
+                    updateDoc(doc(db, "apps", router.query.appid), { stepsAlias: event.target.value })
+              }}
             />
           </div>
         </div>
