@@ -90,7 +90,7 @@ const Flow: NextPage = ({ db, userID }: AppProps) => {
         <UserAppHeader db={db} />
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 my-4 w-3/12">
             {steps && progress ? <ul role="list" className="space-y-4">
-                {steps.map((step, i) => <li key={i} className={"bg-white shadow overflow-hidden rounded-md text-center" + (!progress.steps[step.id] ? ' opacity-30' : '')}>
+                {steps.map((step, i) => <li key={i} className={"bg-white shadow overflow-hidden rounded-md text-center" + (!(progress && progress.steps[step.id]) ? ' opacity-30' : '')}>
                     <Link href={{
                         pathname: '/app/[appid]/flow/[flowid]/step/[stepid]' + window.location.search,
                         query: { appid: router.query.appid, flowid: router.query.flowid, stepid: step.id }
