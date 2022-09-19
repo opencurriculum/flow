@@ -12,7 +12,10 @@ import 'draft-js/dist/Draft.css';
 import { logEvent } from "firebase/analytics"
 import { useRouter } from 'next/router'
 import {UserAppHeader} from '../../../../[appid].tsx'
-import {blockStyleFn} from '../../../../../../utils/common.tsx'
+import {
+    blockStyleFn, applyExperimentToLayoutContent,
+    applyExperimentToLayout, applyExperimentToContentFormatting
+} from '../../../../../../utils/common.tsx'
 import styles from '../../../../../../styles/components/StepAdmin.module.sass'
 import { Dialog, Transition } from '@headlessui/react'
 import { CheckIcon, XMarkIcon, ExclamationTriangleIcon } from '@heroicons/react/24/outline'
@@ -43,6 +46,18 @@ const StepWrapper: NextPage = ({ app, userID }: AppProps) => {
 }
 
 
+function assignExperimentGroupToStudent(db, experimentData, newGroupIndex, userID, experimentID){
+    var newGroups
+    if (!experimentData.groups[newGroupIndex].users){
+        newGroups = { [newGroupIndex]: { users: { $set: [userID] } } }
+    } else {
+        newGroups = { [newGroupIndex]: { users: { $push: [userID] } } }
+    }
+
+    updateDoc(doc(db, "experiments", experimentID), { groups: update(experimentData.groups, newGroups) })
+}
+
+
 const Step = ({ db, userID }) => {
     const [step, setStep] = useState(null)
     const [response, setResponse] = useState({})
@@ -50,6 +65,8 @@ const Step = ({ db, userID }) => {
     const [flowSteps, setFlowSteps] = useState()
 
     const [openResponseCheckResult, setOpenResponseCheckResult] = useState(false)
+
+    const [experiment, setExperiment] = useState()
 
     const router = useRouter()
 
@@ -72,6 +89,53 @@ const Step = ({ db, userID }) => {
     }, [])
 
     useEffect(() => {
+        getDoc(doc(db, "flows", router.query.flowid)).then(docSnapshot => {
+            if (docSnapshot.data().experiment){
+                getDoc(docSnapshot.data().experiment).then(docSnapshot => {
+                    var experimentData = docSnapshot.data(), currentlyAssignedGroup
+
+                    if (router.query.group){
+                        currentlyAssignedGroup = experimentData.groups.find(group => group.name === router.query.group)
+
+                    } else {
+                        // Not really random at all. Yet.
+                        var existingDistribution = [], totalUserCount = 0
+                        currentlyAssignedGroup = experimentData.groups.find((group, i) => {
+                            if (group.users && group.users.indexOf(userID) !== -1){
+                                return true
+                            }
+
+                            totalUserCount += existingDistribution[i] = group.users ? group.users.length : 0
+                        })
+
+                        if (!currentlyAssignedGroup){
+                            Object.keys(existingDistribution).forEach(groupIndex => {
+                                if ((existingDistribution[groupIndex] / totalUserCount) < experimentData.groups[groupIndex].weight){
+                                    // Assign this group.
+                                    assignExperimentGroupToStudent(db, experimentData, groupIndex, userID, docSnapshot.id)
+
+                                    currentlyAssignedGroup = experimentData.groups[groupIndex]
+                                }
+                            })
+
+                            if (!currentlyAssignedGroup){
+                                var newGroupIndex = Math.floor(Math.random() * experimentData.groups.length)
+
+                                // Assign this group.
+                                assignExperimentGroupToStudent(db, experimentData, newGroupIndex, userID, docSnapshot.id)
+
+                                currentlyAssignedGroup = experimentData.groups[newGroupIndex]
+                            }
+                        }
+                    }
+
+                    experimentData.current = currentlyAssignedGroup.name
+
+                    setExperiment(experimentData)
+                })
+            }
+        })
+
         getDoc(doc(db, "flows", router.query.flowid, 'steps', router.query.stepid)).then(docSnapshot => {
             setStep(docSnapshot.data())
         })
@@ -89,8 +153,8 @@ const Step = ({ db, userID }) => {
     }, [progress, router.query.stepid])
 
 
-    var layout = step ? JSON.parse(step.layout) : null,
-        layoutContent = step ? JSON.parse(step.layoutContent) : null
+    var layout = step ? applyExperimentToLayout(JSON.parse(step.layout), experiment, router.query.stepid) : null,
+        layoutContent = step ? applyExperimentToLayoutContent(JSON.parse(step.layoutContent), experiment, router.query.stepid) : null
 
     // Merge the response and progress.
     var lastUserResponse = response[router.query.stepid]
@@ -203,7 +267,7 @@ const Step = ({ db, userID }) => {
                             ...(response[router.query.stepid] ? response[router.query.stepid] : {}), [id]: value }
                         })
                     }}
-                    contentFormatting={step.contentFormatting}
+                    contentFormatting={applyExperimentToContentFormatting(step.contentFormatting, experiment, router.query.stepid)}
                 />
             </div>)}
         </GridLayout>

@@ -1,3 +1,6 @@
+import extend from "deep-extend"
+
+
 export const blockStyleFn = (formatting, block) => {
     if (formatting && formatting.textAlign)
         return `textAlign-${formatting.textAlign}`
@@ -37,4 +40,73 @@ export function t(term, app){
     }
 
     return term;
+}
+
+export function applyExperimentToLayoutContent(layoutContent, experiment, stepID){
+    // Apply the experiment's changes, if one is active.
+    if (experiment && experiment && experiment.current !== 'All'){
+        var updatedLayoutContent = extend({}, layoutContent)
+
+        const groupIndex = experiment.groups && experiment.groups.findIndex(group => group.name === experiment.current)
+        experiment.groups && experiment.groups[groupIndex].steps[stepID].forEach(change => {
+            if (change.prop === 'layoutContent'){
+                if (change.op === 'remove'){
+                    delete updatedLayoutContent[change.id]
+                } else if (['edit', 'add'].indexOf(change.op) !== -1){
+                    updatedLayoutContent[change.id] = {
+                        ...updatedLayoutContent[change.id], ...change.value
+                    }
+                }
+            }
+        })
+
+        return updatedLayoutContent
+    }
+
+    return layoutContent
+}
+
+
+export function applyExperimentToContentFormatting(contentFormatting, experiment, stepID){
+    // Apply the experiment's changes, if one is active.
+    if (experiment && experiment && experiment.current !== 'All'){
+        var updatedContentFormatting = extend({}, contentFormatting)
+
+        const groupIndex = experiment.groups && experiment.groups.findIndex(group => group.name === experiment.current)
+        experiment.groups && experiment.groups[groupIndex].steps[stepID].forEach(change => {
+            if (change.prop === 'contentFormatting'){
+                if (change.op === 'remove'){
+                    delete updatedContentFormatting[change.id][change.value.property]
+                } else {
+                    updatedContentFormatting[change.id] = {
+                        ...updatedContentFormatting[change.id],
+                        [change.value.property]: change.value.value
+                    }
+                }
+            }
+        })
+
+        return updatedContentFormatting
+    }
+
+    return contentFormatting
+}
+
+
+export function applyExperimentToLayout(layout, experiment, stepID){
+    // Apply the experiment's changes, if one is active.
+    if (experiment && experiment && experiment.current !== 'All'){
+        var updatedLayout = layout
+
+        const groupIndex = experiment.groups && experiment.groups.findIndex(group => group.name === experiment.current)
+        experiment.groups && experiment.groups[groupIndex].steps[stepID].forEach(change => {
+            if (change.prop === 'layout'){
+                updatedLayout = JSON.parse(change.value)
+            }
+        })
+
+        return updatedLayout
+    }
+
+    return layout
 }

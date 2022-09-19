@@ -1,7 +1,7 @@
 import type { NextPage } from 'next'
 import type { AppProps } from 'next/app'
 import React, { useState, useEffect, useRef } from 'react'
-import { collection, getDocs, getDoc, doc, updateDoc, setDoc, writeBatch } from "firebase/firestore"
+import { collection, getDocs, getDoc, doc, updateDoc, setDoc, writeBatch, deleteField, deleteDoc } from "firebase/firestore"
 import GridLayout from "react-grid-layout"
 import 'react-grid-layout/css/styles.css'
 import 'react-resizable/css/styles.css'
@@ -13,7 +13,10 @@ import { useDrag, useDrop, DndProvider } from 'react-dnd'
 import { HTML5Backend } from 'react-dnd-html5-backend'
 import { v4 as uuidv4 } from 'uuid'
 import 'draft-js/dist/Draft.css';
-import {blockStyleFn} from '../../../../../../../utils/common.tsx'
+import {
+    blockStyleFn, applyExperimentToLayoutContent,
+    applyExperimentToContentFormatting, applyExperimentToLayout
+} from '../../../../../../../utils/common.tsx'
 import { ArrowUpIcon, ArrowDownIcon, ChevronRightIcon, HomeIcon } from '@heroicons/react/24/solid'
 import update from 'immutability-helper'
 import Link from 'next/link'
@@ -48,6 +51,23 @@ const StepDraggable = (props) => {
 }
 
 
+const initialExperiment = (router) => ({
+    groups: [{
+        name: 'A',
+        weight: 0.5,
+        steps: {
+            [router.query.stepid]: []
+        }
+    }, {
+        name: 'B',
+        weight: 0.5,
+        steps: {
+            [router.query.stepid]: []
+        }
+    }]
+})
+
+
 const Step: NextPage = ({ db, userID }) => {
     const [layout, setLayout] = useState(null)
     const [responseChangeOpen, setResponseChangeOpen] = useState(false)
@@ -66,9 +86,95 @@ const Step: NextPage = ({ db, userID }) => {
 
     const [isContentBeingDragged, setIsContentBeingDragged] = useState(false)
 
+    const [flow, setFlow] = useState()
+    const [experiment, setExperiment] = useState()
+    const experimentRef = useRef()
+
     var nameRef = useRef()
 
     const router = useRouter()
+
+    useEffect(() => {
+        if (flow){
+            if (!experiment){
+                if (flow.experiment){
+                    // Get the experiment and initialize it.
+                    getDoc(flow.experiment).then(docSnapshot => {
+                        const data = docSnapshot.data()
+                        experimentRef.current = { ...data, id: docSnapshot.id }
+
+                        if (router.query.group)
+                            experimentRef.current.current = router.query.group
+
+                        setExperiment(experimentRef.current)
+
+                        const url = new URL(window.location.href)
+                        searchParams.set('group', data.groups[0].name)
+                        url.search = new URLSearchParams(searchParams)
+
+                        router.replace(url.toString())
+                    })
+
+                } else if (router.query.group){
+                    // Create the experiment and attach it to the flow.
+                    setExperiment({
+                        ...initialExperiment(router),
+                        current: router.query.group
+                    })
+                }
+
+            } else {
+                if (!router.query.group){
+                    const url = new URL(window.location.href)
+                    searchParams.set('group', experiment.groups[0].name)
+                    url.search = new URLSearchParams(searchParams)
+
+                    router.replace(url.toString())
+                }
+
+                if (router.query.group !== experiment.current){
+                    experimentRef.current = { ...experiment, current: router.query.group }
+                    setExperiment(experimentRef.current)
+                }
+
+            }
+        }
+
+    }, [flow, router.query.group])
+
+    useEffect(() => {
+        if (experimentRef.current !== experiment){
+            // Save the parts that need to be persisted.
+
+            if (!experiment && experimentRef.current.id){
+                updateDoc(doc(db, "flows", router.query.flowid), { experiment: deleteField() })
+                console.log(experimentRef.current.id)
+                deleteDoc(doc(db, "experiments", experimentRef.current.id))
+
+                experimentRef.current = experiment
+
+                const url = new URL(window.location.href)
+                searchParams.delete('group')
+                url.search = new URLSearchParams(searchParams)
+
+                router.push(url.toString())
+
+            } else if (experiment.id){
+                updateDoc(doc(db, "experiments", experiment.id), update(experiment, { $unset: ['current', 'id'] }))
+                experimentRef.current = experiment
+
+            } else {
+                var id = uuidv4().substring(0, 8),
+                    newExperimentDoc = doc(db, "experiments", id)
+                setDoc(newExperimentDoc, update(experiment, { $unset: ['current', 'id'] }))
+                updateDoc(doc(db, "flows", router.query.flowid), { experiment: newExperimentDoc })
+
+                experimentRef.current = { ...experiment, id }
+                setExperiment(experimentRef.current)
+            }
+        }
+    }, [experiment])
+
 
     var setInitialData = (docSnapshot) => {
         var snapshotData = docSnapshot.data()
@@ -146,6 +252,11 @@ const Step: NextPage = ({ db, userID }) => {
         }
     }, [router.query.stepid])
 
+    useEffect(() => {
+        getDoc(doc(db, "flows", router.query.flowid)).then(docSnapshot => {
+            setFlow(docSnapshot.data())
+        })
+    }, [router.query.flowid])
 
     useEffect(() => {
         if (layout && layout.changed && layout.body){
@@ -182,23 +293,59 @@ const Step: NextPage = ({ db, userID }) => {
         contentFormattingRef.current = contentFormatting
     }, [contentFormatting])
 
+
     var updateLayoutContent = (id, value) => {
-        if (value){
-            if (layoutContent.hasOwnProperty(id)){
-                layoutContent[id] = { ...layoutContent[id], ...value }
+        // If there is part of an experiment condition, set the layout content there.
+        if (experiment && experiment.current !== 'All'){
+            const groupIndex = experiment.groups.findIndex(group => group.name === experiment.current)
+
+            if (!value){
+                setExperiment(
+                    update(experiment, { groups: { [groupIndex]: { steps: { [router.query.stepid]: {$push: [{ prop: 'layoutContent', id, op: 'remove' }] } } } } })
+                )
             } else {
-                layoutContent[id] = value
-            }
-        } else {
-            if (contentFormatting.hasOwnProperty(layoutContent[id].name)){
-                var newContentFormatting = {...contentFormatting}
-                delete newContentFormatting[layoutContent[id].name]
-                setContentFormatting(newContentFormatting)
+                // If this is an edit.
+                var editToDefault = layoutContent.hasOwnProperty(id),
+                    indexOfChange = experiment.groups[groupIndex].steps[router.query.stepid].findIndex(change => change.prop === 'layoutContent' && change.op !== 'remove')
+
+                if (indexOfChange !== -1){
+                    setExperiment(
+                        update(experiment, { groups: { [groupIndex]: { steps: { [router.query.stepid]: { [indexOfChange]: { value: {$set: value}, prop: {$set: 'layoutContent'} }} } } } })
+                    )
+
+                } else if (editToDefault) {
+                    setExperiment(
+                        update(experiment, { groups: { [groupIndex]: { steps: { [router.query.stepid]: {$push: [{ prop: 'layoutContent', id, op: 'edit', value } ] } } } } })
+                    )
+
+                // If this is an add.
+                } else {
+                    setExperiment(
+                        update(experiment, { groups: { [groupIndex]: { steps: { [router.query.stepid]: {$push: [{ prop: 'layoutContent', id, op: 'add', value } ] } } } } })
+                    )
+                }
             }
 
-            delete layoutContent[id]
+        } else {
+
+            if (value){
+                if (layoutContent.hasOwnProperty(id)){
+                    layoutContent[id] = { ...layoutContent[id], ...value }
+                } else {
+                    layoutContent[id] = value
+                }
+            } else {
+                if (contentFormatting.hasOwnProperty(layoutContent[id].name)){
+                    var newContentFormatting = {...contentFormatting}
+                    delete newContentFormatting[layoutContent[id].name]
+                    setContentFormatting(newContentFormatting)
+                }
+
+                delete layoutContent[id]
+            }
+
+            setLayoutContent({ ...layoutContent })
         }
-        setLayoutContent({ ...layoutContent })
     }
 
     var toggleSelectedContent = (content) => {
@@ -225,8 +372,44 @@ const Step: NextPage = ({ db, userID }) => {
       { name: 'Step', href: `/admin/app/${router.query.appid}/flow/${router.query.flowid}/step/${router.query.stepid}`, current: true },
     ]
 
+    var searchParams = new URLSearchParams(window.location.search)
+
+
+    var experimentLocked = { layoutContent: [], contentFormatting: [] }
+    if (experiment){
+        experiment.groups && experiment.groups.forEach(group => {
+            group.steps[router.query.stepid].forEach(change => {
+                if (change.prop === 'layoutContent'){
+                    experimentLocked.layoutContent.push(change.id)
+                }
+            })
+        })
+    }
+
+    var experimentAppliedContentFormatting = applyExperimentToContentFormatting(contentFormatting, experiment, router.query.stepid),
+        experimentAppliedLayout = applyExperimentToLayout(layout && layout.body, experiment, router.query.stepid)
+console.log(experiment)
+
+    function setExperimentLayout(newLayout){
+        const groupIndex = experiment.groups.findIndex(group => group.name === experiment.current)
+
+        var recentChangeToPropertyIndex = experiment.groups[groupIndex].steps[router.query.stepid].findIndex(
+                change => change.prop === 'layout')
+
+        if (recentChangeToPropertyIndex !== -1){
+            setExperiment(
+                update(experiment, { groups: { [groupIndex]: { steps: { [router.query.stepid]: { [recentChangeToPropertyIndex]: { value: { $set: JSON.stringify(newLayout) } } } } } } })
+            )
+        } else {
+            setExperiment(
+                update(experiment, { groups: { [groupIndex]: { steps: { [router.query.stepid]: {$push: [{ prop: 'layout', value: JSON.stringify(newLayout) } ] } } } } })
+            )
+        }
+    }
+
     return <div>
         <a href={`/app/${router.query.appid}/flow/${router.query.flowid}/step/${router.query.stepid}`} target="_blank" rel="noreferrer">Preview</a>
+
 
         <nav className="flex" aria-label="Breadcrumb">
           <ol role="list" className="flex items-center space-x-4">
@@ -270,6 +453,35 @@ const Step: NextPage = ({ db, userID }) => {
           </div>
         </div>
 
+        <a onClick={() => {
+            // setExperiment(initialExperiment(router))
+
+            const url = new URL(window.location.href)
+            searchParams.set('group', 'A')
+            url.search = new URLSearchParams(searchParams)
+            router.replace(url.toString())
+
+        }}>Differentiate based on groups</a>
+
+        {experiment && experiment.groups ? [{ name: 'All' }].concat(experiment.groups).map((group, i) => {
+            const url = new URL(window.location.href)
+            searchParams.set('group', group.name)
+            url.search = new URLSearchParams(searchParams)
+
+            return <Link href={url.toString()} key={i}>
+                <a className={experiment && experiment.current === group.name ? ' font-bold' : ''}>
+                    {group.name === 'All' ? group.name : `Group ${group.name}`}
+                </a>
+            </Link>
+        }) : null}
+
+        {experiment && experiment.groups ? <a onClick={() => {
+            if (window.confirm('Are you sure you want to remove your experiment? This will delete all the changes you have made to individual groups. It will, however, preserve the "All" group')){
+                setExperiment()
+            }
+        }}>Remove experiment</a> : null}
+
+
         <button className='p-2' onClick={() => setLayout(initialLayout)}>Reset layout</button>
         <ul>
             <li><DraggableContent name='Prompt' onDragBegin={onDragContentBegin} onDragEnd={onDragContentEnd} /></li>
@@ -295,10 +507,14 @@ const Step: NextPage = ({ db, userID }) => {
         {layout ? <div className={styles.GridLayoutWrapper + ' bg-slate-100'} style={{ width: '800px' }}>
             <GridLayout
               className="layout"
-              layout={layout.body}
+              layout={experimentAppliedLayout}
               onLayoutChange={(newLayout) => {
-                  if (JSON.stringify(newLayout) !== JSON.stringify(layout.body))
-                      setLayout({ body: newLayout, changed: true })
+                  if (experiment && experiment.current !== 'All'){
+                      setExperimentLayout(newLayout)
+                  } else {
+                      if (JSON.stringify(newLayout) !== JSON.stringify(layout.body))
+                          setLayout({ body: newLayout, changed: true })
+                  }
               }}
               cols={12}
               rowHeight={30}
@@ -309,11 +525,16 @@ const Step: NextPage = ({ db, userID }) => {
                       ...newLayout[indexOfNewLayoutItem], i: uuidv4().substring(0, 4)
                   }
                   delete newLayout[indexOfNewLayoutItem].isDraggable
-                  setLayout({ body: newLayout, changed: true })
+
+                  if (experiment && experiment.current !== 'All'){
+                      setExperimentLayout(newLayout)
+                  } else {
+                      setLayout({ body: newLayout, changed: true })
+                  }
               }}
               isDroppable={!isContentBeingDragged}
             >
-                {layout.body.map(box => <div key={box.i}>
+                {experimentAppliedLayout.map(box => <div key={box.i}>
                     <DroppableContentContainer id={box.i}
                         changeResponseFormat={() => setResponseChangeOpen(box.i)}
                         toggleSelectedResourceTemplateItems={item => {
@@ -324,10 +545,11 @@ const Step: NextPage = ({ db, userID }) => {
                                 setSelectedResourceTemplateItems(selectedResourceTemplateItems.filter((i, index) => index !== indexOfItem))
                             }
                         }}
-                        layoutContent={layoutContent}
+                        layoutContent={applyExperimentToLayoutContent(layoutContent, experiment, router.query.stepid)}
                         updateLayoutContent={updateLayoutContent}
                         toggleSelectedContent={toggleSelectedContent}
-                        contentFormatting={contentFormatting}
+                        contentFormatting={experimentAppliedContentFormatting}
+                        experimentLock={experiment && experiment.current === 'All' ? experimentLocked.layoutContent.indexOf(box.i) !== -1 : false}
                     />
                 </div>)}
             </GridLayout>
@@ -350,14 +572,58 @@ const Step: NextPage = ({ db, userID }) => {
         /> : null}
         {selectedContent ? <Formatting
             selectedContent={selectedContent}
-            contentFormatting={contentFormatting}
-            setContentFormatting={setContentFormatting}
+            contentFormatting={experimentAppliedContentFormatting}
+            update={(property, value) => {
+                // If there is part of an experiment condition, set the changed formatting there.
+                if (experiment && experiment.current !== 'All'){
+                    const groupIndex = experiment.groups.findIndex(group => group.name === experiment.current)
+
+                    if (value !== undefined){
+                        var recentChangeToPropertyIndex = experiment.groups[groupIndex].steps[router.query.stepid].findIndex(
+                                change => change.prop === 'contentFormatting' && change.id === selectedContent && change.value.property === property)
+
+                        if (recentChangeToPropertyIndex !== -1){
+                            setExperiment(
+                                update(experiment, { groups: { [groupIndex]: { steps: { [router.query.stepid]: { [recentChangeToPropertyIndex]: { op: { $set: 'change' }, value: { $set: { property, value } } } } } } } })
+                            )
+
+                        } else {
+                            setExperiment(
+                                update(experiment, { groups: { [groupIndex]: { steps: { [router.query.stepid]: {$push: [{ prop: 'contentFormatting', id: selectedContent, op: 'change', value: { property, value }  }] } } } } })
+                            )
+                        }
+
+                    } else {
+                        setExperiment(
+                            update(experiment, { groups: { [groupIndex]: { steps: { [router.query.stepid]: {$push: [{ prop: 'contentFormatting', id: selectedContent, op: 'remove'  }] } } } } })
+                        )
+                    }
+
+                } else {
+                    var newFormatting = { ...(contentFormatting || {}), [selectedContent] : {
+                        ...(contentFormatting && contentFormatting[selectedContent] ? contentFormatting[selectedContent] : {}),
+                    }}
+
+                    if (value !== undefined){
+                        newFormatting[selectedContent][property] = value
+                    } else if (newFormatting[selectedContent].hasOwnProperty(property)){
+                        delete newFormatting[selectedContent][property]
+
+                        if (!Object.keys(newFormatting[selectedContent]).length){
+                            delete newFormatting[selectedContent]
+                        }
+                    }
+
+                    setContentFormatting(newFormatting)
+                }
+
+            }}
         /> : null}
     </div>
 }
 
 
-const Formatting = ({ selectedContent, contentFormatting, setContentFormatting }) => {
+const Formatting = ({ selectedContent, contentFormatting, update }) => {
     var properties =  [
         { name: 'Font size', property: 'fontSize', type: 'text', valueType: 'number' },
         { name: 'Text align', property: 'textAlign', type: 'select', valueType: 'string' },
@@ -367,24 +633,7 @@ const Formatting = ({ selectedContent, contentFormatting, setContentFormatting }
     return <div>EDIT FORMATTING for {selectedContent}
         {properties.map((prop, i) => <FormattingProperty {...prop} key={i}
             content={selectedContent}
-            update={(property, value) => {
-                var newFormatting = { ...(contentFormatting || {}), [selectedContent] : {
-                    ...(contentFormatting && contentFormatting[selectedContent] ? contentFormatting[selectedContent] : {}),
-                }}
-
-                if (value !== undefined){
-                    newFormatting[selectedContent][property] = value
-                } else if (newFormatting[selectedContent].hasOwnProperty(property)){
-                    delete newFormatting[selectedContent][property]
-
-                    if (!Object.keys(newFormatting[selectedContent]).length){
-                        delete newFormatting[selectedContent]
-                    }
-                }
-
-                setContentFormatting(newFormatting)
-
-            }}
+            update={update}
             value={contentFormatting && contentFormatting[selectedContent] && contentFormatting[selectedContent][prop.property]}
         />)}
     </div>
@@ -393,23 +642,36 @@ const Formatting = ({ selectedContent, contentFormatting, setContentFormatting }
 
 const FormattingProperty = ({ content, name, property, type, valueType, selectedValue, value, update }) => {
     const contentRef = useRef(null),
+          valueRef = useRef(null),
           elRef = useRef(null)
+
+    var updateValueEls = (valueType, value) => {
+        if (value){
+            elRef.current.value = valueType === 'number' ? value && parseFloat(value) : value
+        } else {
+            elRef.current.value = null
+
+            if (elRef.current.type === 'checkbox'){
+                elRef.current.checked = false
+            }
+        }
+    }
 
     useEffect(() => {
       if (content && contentRef.current !== content){
-          if (value){
-              elRef.current.value = valueType === 'number' ? value && parseFloat(value) : value
-          } else {
-              elRef.current.value = null
-
-              if (elRef.current.type === 'checkbox'){
-                  elRef.current.checked = false
-              }
-          }
+          updateValueEls(valueType, value)
       }
 
       contentRef.current = content
     }, [content])
+
+    useEffect(() => {
+        if (valueRef.current !== value){
+            updateValueEls(valueType, value)
+        }
+
+        valueRef.current = value
+    }, [value])
 
     var applyFormatting = (e) => {
       var value = e.target.value
@@ -489,7 +751,7 @@ const DraggableContent = ({ name, onDragBegin, onDragEnd }) => {
 const DroppableContentContainer = ({ id,
         changeResponseFormat, toggleSelectedResourceTemplateItems,
         updateLayoutContent, layoutContent, toggleSelectedContent,
-        contentFormatting
+        contentFormatting, experimentLock
     }) => {
     const [{ canDrop, isOver }, dropRef] = useDrop(() => ({
         accept: 'content',
@@ -516,6 +778,7 @@ const DroppableContentContainer = ({ id,
 
     return <div ref={dropRef}>
         {layoutContent.hasOwnProperty(id) ? <div>
+            {experimentLock ? <div>DONT TOUCH ME I AM LOCKED BY A GROUP CHANGE</div> : null}
             <EditableContent content={layoutContent[id]} id={id}
                 toggleSelectedResourceTemplateItems={toggleSelectedResourceTemplateItems}
                 updateLayoutContent={updateLayoutContent}
@@ -629,20 +892,30 @@ const ResponseTemplate = ({ id, content, responseItemSelected, toggleSelectedRes
 
 var ContentInput = ({ name, body, updateBody, formatting }) => {
     const [editorState, setEditorState] = useState(EditorState.createEmpty())
+    const [isEditing, setIsEditing] = useState()
+
+    const bodyRef = useRef()
 
     useEffect(() => {
-        if (body){
+        if (body && body !== bodyRef.current && !isEditing){
             var newEditorState = EditorState.createWithContent(convertFromRaw(body))
             setEditorState(newEditorState)
+
+            bodyRef.current = body
         }
-    }, [])
+    }, [body])
 
     return <Editor editorState={editorState}
         placeholder={`Add some ${name}`}
         blockStyleFn={blockStyleFn.bind(this, formatting)}
         onChange={(newEditorState) => {
-        setEditorState(newEditorState)
-    }} onBlur={() => updateBody(convertToRaw(editorState.getCurrentContent()))} />
+            setIsEditing(true)
+            setEditorState(newEditorState)
+        }}
+        onBlur={() => {
+            updateBody(convertToRaw(editorState.getCurrentContent()))
+            setTimeout(() => setIsEditing(false), 1)
+        }} />
 }
 
 
