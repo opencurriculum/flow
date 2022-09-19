@@ -40,8 +40,8 @@ const Flow: NextPage = ({ db, userID }: AppProps) => {
         var flowProgressRef = doc(db, "users", userID, 'progress', router.query.flowid)
         getDoc(flowProgressRef).then(docSnapshot => {
             if (!docSnapshot.exists()){
-                setDoc(flowProgressRef, { completed: 0 })
-                setProgress({ completed: 0 })
+                setDoc(flowProgressRef, { completed: 0, steps: {} })
+                setProgress({ completed: 0, steps: {} })
             } else {
                 setProgress(docSnapshot.data())
             }
