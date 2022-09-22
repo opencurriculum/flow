@@ -10,21 +10,10 @@ import Link from 'next/link'
 import { v4 as uuidv4 } from 'uuid'
 import update from 'immutability-helper'
 import { getAppFlows } from '../../../utils/store'
+import { useFirestore } from 'reactfire'
 
 
-const UserAppWrapper: NextPage = ({ app, userID }: AppProps) => {
-    const router = useRouter()
-
-    if (!router.query.appid)
-        return null
-
-    return <div>
-        <UserApp db={app.db} userID={userID} />
-    </div>
-}
-
-
-const UserApp: NextPage = ({ db, userID }: AppProps) => {
+const UserApp: NextPage = ({ userID }: AppProps) => {
     var [app, setApp] = useState()
     var [flows, setFlows] = useState()
 
@@ -32,31 +21,34 @@ const UserApp: NextPage = ({ db, userID }: AppProps) => {
         allowStepsListingRef = useRef(),
         stepsAliasRef = useRef()
 
-    const router = useRouter()
+    const router = useRouter(),
+        db = useFirestore()
 
     useEffect(() => {
-        if (router.query.appid === 'new'){
-            var newAppID = uuidv4().substring(0, 8)
-            setDoc(doc(db, "apps", newAppID), { name: 'Untitled learning app', owner: doc(db, "users", userID) }).then(() => {
-                updateDoc(doc(db, "users", userID), { apps: arrayUnion(newAppID) }).then(() => {
-                    router.replace(`/admin/app/${newAppID}`)
+        if (router.query.appid){
+            if (router.query.appid === 'new'){
+                var newAppID = uuidv4().substring(0, 8)
+                setDoc(doc(db, "apps", newAppID), { name: 'Untitled learning app', owner: doc(db, "users", userID) }).then(() => {
+                    updateDoc(doc(db, "users", userID), { apps: arrayUnion(newAppID) }).then(() => {
+                        router.replace(`/admin/app/${newAppID}`)
+                    })
                 })
-            })
-        } else {
-            getDoc(doc(db, "apps", router.query.appid)).then(docSnapshot => {
-                var appData = docSnapshot.data()
+            } else {
+                getDoc(doc(db, "apps", router.query.appid)).then(docSnapshot => {
+                    var appData = docSnapshot.data()
 
-                setApp(appData)
-                nameRef.current.value = appData.name || ''
-                allowStepsListingRef.current.checked = appData.allowStepsListing || false
-                stepsAliasRef.current.value = appData.stepsAlias || ''
+                    setApp(appData)
+                    nameRef.current.value = appData.name || ''
+                    allowStepsListingRef.current.checked = appData.allowStepsListing || false
+                    stepsAliasRef.current.value = appData.stepsAlias || ''
 
-                if (appData.flows){
-                    getAppFlows(db, appData.flows).then(
-                        unsortedFlows => setFlows(unsortedFlows.sort((a, b) => appData.flows.indexOf(a.id) - appData.flows.indexOf(b.id)))
-                    )
-                }
-            })
+                    if (appData.flows){
+                        getAppFlows(db, appData.flows).then(
+                            unsortedFlows => setFlows(unsortedFlows.sort((a, b) => appData.flows.indexOf(a.id) - appData.flows.indexOf(b.id)))
+                        )
+                    }
+                })
+            }
         }
     }, [router.query.appid])
 
@@ -162,4 +154,4 @@ const Flow = ({ flow, deleteFlow }) => {
 }
 
 
-export default UserAppWrapper
+export default UserApp

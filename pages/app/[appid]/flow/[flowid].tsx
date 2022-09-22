@@ -7,51 +7,45 @@ import Head from 'next/head'
 import {UserAppHeader} from '../../[appid].tsx'
 import Link from 'next/link'
 import {t} from '../../../../utils/common.tsx'
+import { useFirestore } from 'reactfire'
 
 
-const FlowWrapper: NextPage = ({ app, userID }: AppProps) => {
-    const router = useRouter()
-
-    if (!router.query.flowid)
-        return null
-
-    return <div>
-        <Flow db={app.db} userID={userID} />
-    </div>
-}
-
-
-const Flow: NextPage = ({ db, userID }: AppProps) => {
+const Flow: NextPage = ({ userID }: AppProps) => {
     var [flow, setFlow] = useState()
     var [progress, setProgress] = useState()
     var [steps, setSteps] = useState()
     var [app, setApp] = useState()
 
-    const router = useRouter()
+    const router = useRouter(),
+        db = useFirestore()
 
     useEffect(() => {
-        getDoc(doc(db, "apps", router.query.appid)).then(docSnapshot => {
-            var appData = docSnapshot.data()
-            setApp(appData)
-        })
-    }, [db])
+        if (router.query.appid){
+            getDoc(doc(db, "apps", router.query.appid)).then(docSnapshot => {
+                var appData = docSnapshot.data()
+                setApp(appData)
+            })
+        }
+    }, [router.query.appid])
 
     useEffect(() => {
-        var flowProgressRef = doc(db, "users", userID, 'progress', router.query.flowid)
-        getDoc(flowProgressRef).then(docSnapshot => {
-            if (!docSnapshot.exists()){
-                setDoc(flowProgressRef, { completed: 0, steps: {} })
-                setProgress({ completed: 0, steps: {} })
-            } else {
-                setProgress(docSnapshot.data())
-            }
-        })
+        if (router.query.flowid){
+            var flowProgressRef = doc(db, "users", userID, 'progress', router.query.flowid)
+            getDoc(flowProgressRef).then(docSnapshot => {
+                if (!docSnapshot.exists()){
+                    setDoc(flowProgressRef, { completed: 0, steps: {} })
+                    setProgress({ completed: 0, steps: {} })
+                } else {
+                    setProgress(docSnapshot.data())
+                }
+            })
 
-        getDocs(collection(db, "flows", router.query.flowid, 'steps')).then(docsSnapshot => {
-            var unsortedSteps = []
-            docsSnapshot.forEach(doc => unsortedSteps.push({ id: doc.id, ...doc.data() }))
-            setSteps(unsortedSteps.sort((a, b) => a.position - b.position))
-        })
+            getDocs(collection(db, "flows", router.query.flowid, 'steps')).then(docsSnapshot => {
+                var unsortedSteps = []
+                docsSnapshot.forEach(doc => unsortedSteps.push({ id: doc.id, ...doc.data() }))
+                setSteps(unsortedSteps.sort((a, b) => a.position - b.position))
+            })
+        }
     }, [])
 
     useEffect(() => {
@@ -75,9 +69,11 @@ const Flow: NextPage = ({ db, userID }: AppProps) => {
     }, [steps, progress, app])
 
     useEffect(() => {
-        getDoc(doc(db, "flows", router.query.flowid)).then(docSnapshot => {
-            setFlow(docSnapshot.data())
-        })
+        if (router.query.flowid){
+            getDoc(doc(db, "flows", router.query.flowid)).then(docSnapshot => {
+                setFlow(docSnapshot.data())
+            })
+        }
     }, [router.query.flowid])
 
 
@@ -103,4 +99,4 @@ const Flow: NextPage = ({ db, userID }: AppProps) => {
     </div>
 }
 
-export default FlowWrapper
+export default Flow

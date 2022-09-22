@@ -1,29 +1,20 @@
 import type { NextPage } from 'next'
 import type { AppProps } from 'next/app'
 import {useState, useEffect, useRef} from 'react'
-import { collection, query, where, getDocs, setDoc, getDoc, doc, updateDoc, getCollection, documentId } from "firebase/firestore"
+import { getFirestore, collection, query, where, getDocs, setDoc, getDoc, doc, updateDoc, getCollection, documentId } from "firebase/firestore"
 import { useRouter } from 'next/router'
 import Link from 'next/link'
+import { useFirestore } from 'reactfire'
 
 
-const AdminWrapper: NextPage = ({ app, userID }: AppProps) => {
-    const router = useRouter()
-
-    if (!(app && app.db))
-        return null
-
-    return <div>
-        <Admin db={app.db} userID={userID} />
-    </div>
-}
-
-
-const Admin: NextPage = ({ db, userID }: AppProps) => {
+const Admin: NextPage = ({ userID }: AppProps) => {
     var [apps, setApps] = useState()
     var [user, setUser] = useState()
     const router = useRouter()
 
     var nameRef = useRef(), websiteRef = useRef()
+
+    var db = useFirestore()
 
     useEffect(() => {
         getDoc(doc(db, "users", userID)).then(docSnapshot => {
@@ -90,4 +81,4 @@ const Admin: NextPage = ({ db, userID }: AppProps) => {
 }
 
 
-export default AdminWrapper
+export default Admin

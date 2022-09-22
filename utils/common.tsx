@@ -7,6 +7,11 @@ export const blockStyleFn = (formatting, block) => {
 }
 
 
+export function classNames(...classes) {
+  return classes.filter(Boolean).join(' ')
+}
+
+
 var uppercase = ['A', 'B', 'C', 'D', 'E', 'F', 'G', 'H', 'I', 'J', 'K',
         'L', 'M', 'N', 'O', 'P', 'Q', 'R', 'S', 'T', 'U', 'V', 'W', 'X', 'Y', 'Z'
     ],
@@ -44,7 +49,7 @@ export function t(term, app){
 
 export function applyExperimentToLayoutContent(layoutContent, experiment, stepID){
     // Apply the experiment's changes, if one is active.
-    if (experiment && experiment && experiment.current !== 'All'){
+    if (experiment && experiment && experiment.current && experiment.current !== 'All'){
         var updatedLayoutContent = extend({}, layoutContent)
 
         const groupIndex = experiment.groups && experiment.groups.findIndex(group => group.name === experiment.current)
@@ -69,7 +74,7 @@ export function applyExperimentToLayoutContent(layoutContent, experiment, stepID
 
 export function applyExperimentToContentFormatting(contentFormatting, experiment, stepID){
     // Apply the experiment's changes, if one is active.
-    if (experiment && experiment && experiment.current !== 'All'){
+    if (experiment && experiment && experiment.current && experiment.current !== 'All'){
         var updatedContentFormatting = extend({}, contentFormatting)
 
         const groupIndex = experiment.groups && experiment.groups.findIndex(group => group.name === experiment.current)
@@ -95,7 +100,7 @@ export function applyExperimentToContentFormatting(contentFormatting, experiment
 
 export function applyExperimentToLayout(layout, experiment, stepID){
     // Apply the experiment's changes, if one is active.
-    if (experiment && experiment && experiment.current !== 'All'){
+    if (experiment && experiment && experiment.current && experiment.current !== 'All'){
         var updatedLayout = layout
 
         const groupIndex = experiment.groups && experiment.groups.findIndex(group => group.name === experiment.current)

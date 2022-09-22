@@ -12,26 +12,30 @@ import { ChevronLeftIcon } from '@heroicons/react/24/solid'
 import Head from 'next/head'
 import { getAppFlows, getFlowsProgress } from '../../utils/store'
 import {t} from '../../utils/common.tsx'
+import { useFirestore } from 'reactfire'
 
 
-export const UserAppHeader = ({ db, hideBack }) => {
+export const UserAppHeader = ({ hideBack }) => {
     var [app, setApp] = useState()
     var [appOwner, setAppOwner] = useState()
-    const router = useRouter()
+    const router = useRouter(),
+        db = useFirestore()
 
     useEffect(() => {
-        getDoc(doc(db, "apps", router.query.appid)).then(docSnapshot => {
-            var appData = docSnapshot.data()
-            setApp(appData)
+        if (router.query.appid && router.query.appid !== 'none'){
+            getDoc(doc(db, "apps", router.query.appid)).then(docSnapshot => {
+                var appData = docSnapshot.data()
+                setApp(appData)
 
-            getDoc(appData.owner).then(docSnapshot => {
-                setAppOwner(docSnapshot.data())
+                getDoc(appData.owner).then(docSnapshot => {
+                    setAppOwner(docSnapshot.data())
+                })
             })
-        })
-    }, [db])
+        }
+    }, [router.query.appid])
 
-    return <div className="min-h-full">
-      <Disclosure as="nav" className="bg-white shadow-sm">
+    return <div>
+      {router.query.appid !== 'none' ? <Disclosure as="nav" className="bg-white shadow-sm">
         {({ open }) => (
           <>
             <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
@@ -54,7 +58,8 @@ export const UserAppHeader = ({ db, hideBack }) => {
             </div>
           </>
         )}
-      </Disclosure>
+      </Disclosure> : null}
+
       <div className="py-4">
         <div className="max-w-7xl mx-auto sm:px-6 lg:px-8">
             {router.query.stepid && !hideBack ? (app && app.allowStepsListing ? <button
@@ -78,49 +83,40 @@ export const UserAppHeader = ({ db, hideBack }) => {
 }
 
 
-const UserAppWrapper: NextPage = ({ app, userID }: AppProps) => {
-    const router = useRouter()
-
-    if (!router.query.appid)
-        return null
-
-    return <div>
-        <UserApp db={app.db} userID={userID} />
-    </div>
-}
-
-
-const UserApp: NextPage = ({ db, userID }: AppProps) => {
+const UserApp: NextPage = ({ userID }: AppProps) => {
     var [progress, setProgress] = useState()
     var [app, setApp] = useState()
     var [flows, setFlows] = useState()
-    const router = useRouter()
+    const router = useRouter(),
+        db = useFirestore()
 
     useEffect(() => {
-        getDoc(doc(db, "apps", router.query.appid)).then(docSnapshot => {
-            var appData = docSnapshot.data()
-            setApp(appData)
+        if (router.query.appid){
+            getDoc(doc(db, "apps", router.query.appid)).then(docSnapshot => {
+                var appData = docSnapshot.data()
+                setApp(appData)
 
-            if (appData.flows){
-                getAppFlows(db, appData.flows).then(
-                    unsortedFlows => setFlows(unsortedFlows.sort((a, b) => appData.flows.indexOf(a.id) - appData.flows.indexOf(b.id)))
-                )
+                if (appData.flows){
+                    getAppFlows(db, appData.flows).then(
+                        unsortedFlows => setFlows(unsortedFlows.sort((a, b) => appData.flows.indexOf(a.id) - appData.flows.indexOf(b.id)))
+                    )
 
-                var userRef = doc(db, "users", userID)
-                getDoc(userRef).then(docSnapshot => {
-                    if (docSnapshot.exists()){
-                        getFlowsProgress(db, userID, appData.flows).then(docsSnapshot => {
-                            var flowsProgress = {}
-                            docsSnapshot.forEach(doc => flowsProgress[doc.id] = doc.completed)
-                            setProgress(flowsProgress)
-                        })
-                    } else {
-                        setDoc(userRef, { name: 'Someone something' })
-                        setProgress({})
-                    }
-                })
-            }
-        })
+                    var userRef = doc(db, "users", userID)
+                    getDoc(userRef).then(docSnapshot => {
+                        if (docSnapshot.exists()){
+                            getFlowsProgress(db, userID, appData.flows).then(docsSnapshot => {
+                                var flowsProgress = {}
+                                docsSnapshot.forEach(doc => flowsProgress[doc.id] = doc.completed)
+                                setProgress(flowsProgress)
+                            })
+                        } else {
+                            setDoc(userRef, { name: 'Someone something' })
+                            setProgress({})
+                        }
+                    })
+                }
+            })
+        }
     }, [])
 
     return <div>
@@ -178,4 +174,4 @@ const ProgressIndicator = ({ progress }) => {
 }
 
 
-export default UserAppWrapper
+export default UserApp

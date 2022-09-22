@@ -21,29 +21,7 @@ import { Dialog, Transition } from '@headlessui/react'
 import { CheckIcon, XMarkIcon, ExclamationTriangleIcon } from '@heroicons/react/24/outline'
 import update from 'immutability-helper'
 import Head from 'next/head'
-
-
-const StepWrapper: NextPage = ({ app, userID }: AppProps) => {
-    const router = useRouter()
-
-    if (app && app.analytics && process.env.NODE_ENV === 'production'){
-        logEvent(app.analytics, 'screen_view', {
-          firebase_screen: 'step',
-        })
-
-        logEvent(app.analytics, 'step_shown', { stepID: router.query.stepid });
-    }
-
-    if (!(app && app.db))
-        return null
-
-    if (!router.query.stepid)
-        return null
-
-    return <div>
-        <Step db={app.db} userID={userID} />
-    </div>
-}
+import { useFirestore, useAnalytics } from 'reactfire'
 
 
 function assignExperimentGroupToStudent(db, experimentData, newGroupIndex, userID, experimentID){
@@ -58,7 +36,7 @@ function assignExperimentGroupToStudent(db, experimentData, newGroupIndex, userI
 }
 
 
-const Step = ({ db, userID }) => {
+const Step = ({ userID }) => {
     const [step, setStep] = useState(null)
     const [response, setResponse] = useState({})
     const [progress, setProgress] = useState()
@@ -68,83 +46,104 @@ const Step = ({ db, userID }) => {
 
     const [experiment, setExperiment] = useState()
 
-    const router = useRouter()
+    const router = useRouter(),
+        db = useFirestore()
+    var analytics
 
-    var flowProgressRef = doc(db, "users", userID, 'progress', router.query.flowid)
+    try {
+        analytics = useAnalytics()
+    } catch (e){
+        console.log(e)
+    }
+
     useEffect(() => {
-        getDoc(flowProgressRef).then(docSnapshot => {
-            if (docSnapshot.exists()){
-                setProgress(docSnapshot.data())
-            } else {
-                setDoc(flowProgressRef, { completed: 0, steps: {} })
-                setProgress({ completed: 0, steps: {} })
-            }
-        })
+        if (router.query.flowid){
+            var flowProgressRef = doc(db, "users", userID, 'progress', router.query.flowid)
 
-        getDocs(collection(db, "flows", router.query.flowid, 'steps')).then(docsSnapshot => {
-            var flowSteps = []
-            docsSnapshot.forEach(doc => flowSteps.push({ id: doc.id, ...doc.data() }))
-            setFlowSteps(flowSteps.sort((a, b) => a.position - b.position))
-        })
+            getDoc(flowProgressRef).then(docSnapshot => {
+                if (docSnapshot.exists()){
+                    setProgress(docSnapshot.data())
+                } else {
+                    setDoc(flowProgressRef, { completed: 0, steps: {} })
+                    setProgress({ completed: 0, steps: {} })
+                }
+            })
+
+            getDocs(collection(db, "flows", router.query.flowid, 'steps')).then(docsSnapshot => {
+                var flowSteps = []
+                docsSnapshot.forEach(doc => flowSteps.push({ id: doc.id, ...doc.data() }))
+                setFlowSteps(flowSteps.sort((a, b) => a.position - b.position))
+            })
+
+            if (analytics && process.env.NODE_ENV === 'production'){
+                logEvent(app.analytics, 'screen_view', {
+                  firebase_screen: 'step',
+                })
+
+                logEvent(app.analytics, 'step_shown', { stepID: router.query.stepid });
+            }
+        }
     }, [])
 
     useEffect(() => {
-        getDoc(doc(db, "flows", router.query.flowid)).then(docSnapshot => {
-            if (docSnapshot.data().experiment){
-                getDoc(docSnapshot.data().experiment).then(docSnapshot => {
-                    var experimentData = docSnapshot.data(), currentlyAssignedGroup
+        if (router.query.flowid){
+            getDoc(doc(db, "flows", router.query.flowid)).then(docSnapshot => {
+                if (docSnapshot.data().experiment){
+                    getDoc(docSnapshot.data().experiment).then(docSnapshot => {
+                        var experimentData = docSnapshot.data(), currentlyAssignedGroup
 
-                    if (router.query.group){
-                        currentlyAssignedGroup = experimentData.groups.find(group => group.name === router.query.group)
+                        if (router.query.group){
+                            currentlyAssignedGroup = experimentData.groups.find(group => group.name === router.query.group)
 
-                    } else {
-                        // Not really random at all. Yet.
-                        var existingDistribution = [], totalUserCount = 0
-                        currentlyAssignedGroup = experimentData.groups.find((group, i) => {
-                            if (group.users && group.users.indexOf(userID) !== -1){
-                                return true
-                            }
-
-                            totalUserCount += existingDistribution[i] = group.users ? group.users.length : 0
-                        })
-
-                        if (!currentlyAssignedGroup){
-                            Object.keys(existingDistribution).forEach(groupIndex => {
-                                if ((existingDistribution[groupIndex] / totalUserCount) < experimentData.groups[groupIndex].weight){
-                                    // Assign this group.
-                                    assignExperimentGroupToStudent(db, experimentData, groupIndex, userID, docSnapshot.id)
-
-                                    currentlyAssignedGroup = experimentData.groups[groupIndex]
+                        } else {
+                            // Not really random at all. Yet.
+                            var existingDistribution = [], totalUserCount = 0
+                            currentlyAssignedGroup = experimentData.groups.find((group, i) => {
+                                if (group.users && group.users.indexOf(userID) !== -1){
+                                    return true
                                 }
+
+                                totalUserCount += existingDistribution[i] = group.users ? group.users.length : 0
                             })
 
                             if (!currentlyAssignedGroup){
-                                var newGroupIndex = Math.floor(Math.random() * experimentData.groups.length)
+                                Object.keys(existingDistribution).forEach(groupIndex => {
+                                    if ((existingDistribution[groupIndex] / totalUserCount) < experimentData.groups[groupIndex].weight){
+                                        // Assign this group.
+                                        assignExperimentGroupToStudent(db, experimentData, groupIndex, userID, docSnapshot.id)
 
-                                // Assign this group.
-                                assignExperimentGroupToStudent(db, experimentData, newGroupIndex, userID, docSnapshot.id)
+                                        currentlyAssignedGroup = experimentData.groups[groupIndex]
+                                    }
+                                })
 
-                                currentlyAssignedGroup = experimentData.groups[newGroupIndex]
+                                if (!currentlyAssignedGroup){
+                                    var newGroupIndex = Math.floor(Math.random() * experimentData.groups.length)
+
+                                    // Assign this group.
+                                    assignExperimentGroupToStudent(db, experimentData, newGroupIndex, userID, docSnapshot.id)
+
+                                    currentlyAssignedGroup = experimentData.groups[newGroupIndex]
+                                }
                             }
                         }
-                    }
 
-                    experimentData.current = currentlyAssignedGroup.name
+                        experimentData.current = currentlyAssignedGroup.name
 
-                    setExperiment(experimentData)
-                })
-            }
-        })
+                        setExperiment(experimentData)
+                    })
+                }
+            })
 
-        getDoc(doc(db, "flows", router.query.flowid, 'steps', router.query.stepid)).then(docSnapshot => {
-            setStep(docSnapshot.data())
-        })
+            getDoc(doc(db, "flows", router.query.flowid, 'steps', router.query.stepid)).then(docSnapshot => {
+                setStep(docSnapshot.data())
+            })
+        }
     }, [router.query.stepid])
 
     useEffect(() => {
         if (progress){
             if (!(progress.steps && progress.steps[router.query.stepid] && progress.steps[router.query.stepid].hasOwnProperty('completed'))){
-                updateDoc(flowProgressRef, {
+                updateDoc(doc(db, "users", userID, 'progress', router.query.flowid), {
                     [`steps.${router.query.stepid}.attempts`]: [],
                     [`steps.${router.query.stepid}.completed`]: 0
                 })
@@ -168,7 +167,7 @@ const Step = ({ db, userID }) => {
         }
     }
 
-    var searchParams = new URLSearchParams(window.location.search)
+    var searchParams = typeof window !== 'undefined' ? new URLSearchParams(window.location.search) : new URLSearchParams()
 
     var submitScore = function(score){
         fetch(`/api/lti/submit-score`, {
@@ -183,7 +182,7 @@ const Step = ({ db, userID }) => {
         })
     }
 
-    return <div>
+    return <div className='funky'>
         <Head>
             <title>{step && step.name}</title>
             <meta property="og:title" content={step && step.name} key="title" />
@@ -204,6 +203,7 @@ const Step = ({ db, userID }) => {
             {layout.map(box => <div key={box.i}>
                 <BoxBody content={layoutContent[box.i]}
                     checkResponse={function(){
+                        var flowProgressRef = doc(db, "users", userID, 'progress', router.query.flowid)
                         if (lastUserResponse){
                             let variableDeclations = []
                             for (var prop in lastUserResponse){
@@ -465,4 +465,4 @@ const ResponseSpace = ({ setResponse, responseItem, response, formatting }) => {
 }
 
 
-export default StepWrapper
+export default Step

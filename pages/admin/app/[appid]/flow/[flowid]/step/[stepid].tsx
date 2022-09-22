@@ -20,21 +20,9 @@ import {
 import { ArrowUpIcon, ArrowDownIcon, ChevronRightIcon, HomeIcon } from '@heroicons/react/24/solid'
 import update from 'immutability-helper'
 import Link from 'next/link'
-
-
-const StepWrapper: NextPage = ({ app, userID }: AppProps) => {
-    const router = useRouter()
-
-    if (!(app && app.db))
-        return null
-
-    if (!router.query.stepid)
-        return null
-
-    return <div>
-        <StepDraggable db={app.db} userID={userID} />
-    </div>
-}
+import Layout from '../../../../../../../components/admin-layout'
+import { useFirestore } from 'reactfire'
+import Head from 'next/head'
 
 
 const initialLayout = [
@@ -44,10 +32,19 @@ const initialLayout = [
 ];
 
 
-const StepDraggable = (props) => {
+const StepDraggable: NextPageWithLayout = (props) => {
     return <DndProvider backend={HTML5Backend}>
         <Step {...props} />
     </DndProvider>;
+}
+
+
+StepDraggable.getLayout = function getLayout(page: ReactElement) {
+  return (
+    <Layout>
+      {page}
+    </Layout>
+  )
 }
 
 
@@ -68,7 +65,9 @@ const initialExperiment = (router) => ({
 })
 
 
-const Step: NextPage = ({ db, userID }) => {
+const Step: NextPage = ({ userID }) => {
+    const [step, setStep] = useState()
+
     const [layout, setLayout] = useState(null)
     const [responseChangeOpen, setResponseChangeOpen] = useState(false)
     const [selectedResourceTemplateItems, setSelectedResourceTemplateItems] = useState([])
@@ -90,9 +89,9 @@ const Step: NextPage = ({ db, userID }) => {
     const [experiment, setExperiment] = useState()
     const experimentRef = useRef()
 
-    var nameRef = useRef()
 
-    const router = useRouter()
+    const router = useRouter(),
+        db = useFirestore()
 
     useEffect(() => {
         if (flow){
@@ -148,7 +147,6 @@ const Step: NextPage = ({ db, userID }) => {
 
             if (!experiment && experimentRef.current.id){
                 updateDoc(doc(db, "flows", router.query.flowid), { experiment: deleteField() })
-                console.log(experimentRef.current.id)
                 deleteDoc(doc(db, "experiments", experimentRef.current.id))
 
                 experimentRef.current = experiment
@@ -178,7 +176,8 @@ const Step: NextPage = ({ db, userID }) => {
 
     var setInitialData = (docSnapshot) => {
         var snapshotData = docSnapshot.data()
-        nameRef.current.value = snapshotData.name || ''
+
+        setStep({ name: snapshotData.name || '' })
 
         setLayout({ body: snapshotData.layout ? JSON.parse(snapshotData.layout) : initialLayout })
 
@@ -193,69 +192,73 @@ const Step: NextPage = ({ db, userID }) => {
     }
 
     useEffect(() => {
-        if (router.query.stepid === 'new'){
-            // Create a new step.
+        if (router.query.stepid){
+            if (router.query.stepid === 'new'){
+                // Create a new step.
 
-            // If there is a duplicate param, use that to make this new step.
-            var newStepID = uuidv4().substring(0, 8)
+                // If there is a duplicate param, use that to make this new step.
+                var newStepID = uuidv4().substring(0, 8)
 
-            getDocs(collection(db, "flows", router.query.flowid, 'steps')).then(docsSnapshot => {
-                var flowSteps = []
-                docsSnapshot.forEach(doc => flowSteps.push({ id: doc.id, ...doc.data() }))
-                var sortedFlowSteps = flowSteps.sort((a, b) => a.position - b.position)
+                getDocs(collection(db, "flows", router.query.flowid, 'steps')).then(docsSnapshot => {
+                    var flowSteps = []
+                    docsSnapshot.forEach(doc => flowSteps.push({ id: doc.id, ...doc.data() }))
+                    var sortedFlowSteps = flowSteps.sort((a, b) => a.position - b.position)
 
-                if (router.query.duplicate){
-                    if (router.query.fromFlow){
-                        getDoc(doc(db, "flows", router.query.fromFlow, 'steps', router.query.duplicate)).then(docSnapshot => {
-                            setDoc(doc(db, "flows", router.query.flowid, 'steps', newStepID), {
-                                ...docSnapshot.data(),
-                                position: (
-                                    sortedFlowSteps.length ? (sortedFlowSteps[sortedFlowSteps.length - 1].position + 1) : 0
-                                )
-                            }).then(() => {
+                    if (router.query.duplicate){
+                        if (router.query.fromFlow){
+                            getDoc(doc(db, "flows", router.query.fromFlow, 'steps', router.query.duplicate)).then(docSnapshot => {
+                                setDoc(doc(db, "flows", router.query.flowid, 'steps', newStepID), {
+                                    ...docSnapshot.data(),
+                                    position: (
+                                        sortedFlowSteps.length ? (sortedFlowSteps[sortedFlowSteps.length - 1].position + 1) : 0
+                                    )
+                                }).then(() => {
+                                    router.replace(`/admin/app/${router.query.appid}/flow/${router.query.flowid}/step/${newStepID}`)
+                                })
+                            })
+
+                        } else {
+                            var duplicatable = flowSteps.find(step => step.id === router.query.duplicate)
+                            var stepsAfterDuplicatable = flowSteps.filter(step => step.position > duplicatable.position)
+
+                            const batch = writeBatch(db)
+                            stepsAfterDuplicatable.forEach(step => {
+                                updateDoc(doc(db, "flows", router.query.flowid, 'steps', step.id), { position: step.position + 1 })
+                            })
+
+                            var newStepData = { ...duplicatable, position: duplicatable.position + 1 }
+                            delete newStepData.id
+                            setDoc(doc(db, "flows", router.query.flowid, 'steps', newStepID), newStepData)
+                            batch.commit().then(() => {
                                 router.replace(`/admin/app/${router.query.appid}/flow/${router.query.flowid}/step/${newStepID}`)
                             })
-                        })
+                        }
 
                     } else {
-                        var duplicatable = flowSteps.find(step => step.id === router.query.duplicate)
-                        var stepsAfterDuplicatable = flowSteps.filter(step => step.position > duplicatable.position)
-
-                        const batch = writeBatch(db)
-                        stepsAfterDuplicatable.forEach(step => {
-                            updateDoc(doc(db, "flows", router.query.flowid, 'steps', step.id), { position: step.position + 1 })
-                        })
-
-                        var newStepData = { ...duplicatable, position: duplicatable.position + 1 }
-                        delete newStepData.id
-                        setDoc(doc(db, "flows", router.query.flowid, 'steps', newStepID), newStepData)
-                        batch.commit().then(() => {
+                        setDoc(doc(db, "flows", router.query.flowid, 'steps', newStepID), { position: (
+                                sortedFlowSteps.length ? (sortedFlowSteps[sortedFlowSteps.length - 1].position + 1) : 0
+                            ) }).then(() => {
                             router.replace(`/admin/app/${router.query.appid}/flow/${router.query.flowid}/step/${newStepID}`)
                         })
                     }
+                })
 
-                } else {
-                    setDoc(doc(db, "flows", router.query.flowid, 'steps', newStepID), { position: (
-                            sortedFlowSteps.length ? (sortedFlowSteps[sortedFlowSteps.length - 1].position + 1) : 0
-                        ) }).then(() => {
-                        router.replace(`/admin/app/${router.query.appid}/flow/${router.query.flowid}/step/${newStepID}`)
-                    })
-                }
-            })
-
-        } else {
-            getDoc(doc(db, "flows", router.query.flowid, 'steps', router.query.stepid)).then(docSnapshot => {
-                if (docSnapshot.exists()){
-                    setInitialData(docSnapshot)
-                }
-            })
+            } else {
+                getDoc(doc(db, "flows", router.query.flowid, 'steps', router.query.stepid)).then(docSnapshot => {
+                    if (docSnapshot.exists()){
+                        setInitialData(docSnapshot)
+                    }
+                })
+            }
         }
     }, [router.query.stepid])
 
     useEffect(() => {
-        getDoc(doc(db, "flows", router.query.flowid)).then(docSnapshot => {
-            setFlow(docSnapshot.data())
-        })
+        if (router.query.flowid){
+            getDoc(doc(db, "flows", router.query.flowid)).then(docSnapshot => {
+                setFlow(docSnapshot.data())
+            })
+        }
     }, [router.query.flowid])
 
     useEffect(() => {
@@ -293,6 +296,8 @@ const Step: NextPage = ({ db, userID }) => {
         contentFormattingRef.current = contentFormatting
     }, [contentFormatting])
 
+    if (!router.query.stepid)
+        return null
 
     var updateLayoutContent = (id, value) => {
         // If there is part of an experiment condition, set the layout content there.
@@ -306,7 +311,7 @@ const Step: NextPage = ({ db, userID }) => {
             } else {
                 // If this is an edit.
                 var editToDefault = layoutContent.hasOwnProperty(id),
-                    indexOfChange = experiment.groups[groupIndex].steps[router.query.stepid].findIndex(change => change.prop === 'layoutContent' && change.op !== 'remove')
+                    indexOfChange = experiment.groups[groupIndex].steps[router.query.stepid].findIndex(change => change.prop === 'layoutContent' && change.id === id && change.op !== 'remove')
 
                 if (indexOfChange !== -1){
                     setExperiment(
@@ -366,14 +371,7 @@ const Step: NextPage = ({ db, userID }) => {
         setIsContentBeingDragged(false)
     }
 
-    const pages = [
-      { name: 'App', href: `/admin/app/${router.query.appid}`, current: false },
-      { name: 'Flow', href: `/admin/app/${router.query.appid}/flow/${router.query.flowid}`, current: false },
-      { name: 'Step', href: `/admin/app/${router.query.appid}/flow/${router.query.flowid}/step/${router.query.stepid}`, current: true },
-    ]
-
     var searchParams = new URLSearchParams(window.location.search)
-
 
     var experimentLocked = { layoutContent: [], contentFormatting: [] }
     if (experiment){
@@ -388,7 +386,6 @@ const Step: NextPage = ({ db, userID }) => {
 
     var experimentAppliedContentFormatting = applyExperimentToContentFormatting(contentFormatting, experiment, router.query.stepid),
         experimentAppliedLayout = applyExperimentToLayout(layout && layout.body, experiment, router.query.stepid)
-console.log(experiment)
 
     function setExperimentLayout(newLayout){
         const groupIndex = experiment.groups.findIndex(group => group.name === experiment.current)
@@ -407,218 +404,244 @@ console.log(experiment)
         }
     }
 
-    return <div>
-        <a href={`/app/${router.query.appid}/flow/${router.query.flowid}/step/${router.query.stepid}`} target="_blank" rel="noreferrer">Preview</a>
+    var groups = experiment && experiment.groups ? [{ name: 'All' }].concat(experiment.groups).map((group, i) => {
+        const url = new URL(window.location.href)
+        searchParams.set('group', group.name)
+        url.search = new URLSearchParams(searchParams)
 
+        return { url, name: group.name }
+    }) : null
 
-        <nav className="flex" aria-label="Breadcrumb">
-          <ol role="list" className="flex items-center space-x-4">
-            <li>
+    return <div className='flex flex-col flex-auto'>
+        {/*<a href={`/app/${router.query.appid}/flow/${router.query.flowid}/step/${router.query.stepid}`} target="_blank" rel="noreferrer">Preview</a>*/}
+
+        <Head>
+            <title>{step && step.name || 'Untitled step'}</title>
+            <meta property="og:title" content={step && step.name || 'Untitled step'} key="title" />
+        </Head>
+
+        {experiment ? <header className="bg-slate-600 text-white">
+          <div className="mx-auto max-w-7xl px-4 sm:px-6 lg:px-8">
               <div>
-                <Link href="/admin"><a className="text-gray-400 hover:text-gray-500">
-                  <HomeIcon className="flex-shrink-0 h-5 w-5" aria-hidden="true" />
-                  <span className="sr-only">Home</span>
-                </a></Link>
-              </div>
-            </li>
-            {pages.map((page) => (
-              <li key={page.name}>
-                <div className="flex items-center">
-                  <ChevronRightIcon className="flex-shrink-0 h-5 w-5 text-gray-400" aria-hidden="true" />
-                  <Link href={page.href}><a
-                    className="ml-4 text-sm font-medium text-gray-500 hover:text-gray-700"
-                    aria-current={page.current ? 'page' : undefined}
+                <div className="sm:hidden">
+                  <label htmlFor="tabs" className="sr-only">
+                    Select a group
+                  </label>
+                  {/* Use an "onChange" listener to redirect the user to the selected tab URL. */}
+                  <select
+                    id="tabs"
+                    name="tabs"
+                    className="block w-full rounded-md border-gray-300 py-2 pl-3 pr-10 text-base focus:border-indigo-500 focus:outline-none focus:ring-indigo-500 sm:text-sm"
+                    defaultValue={groups && experiment && experiment.current && groups.find((group) => group.name === (experiment && experiment.current)).name}
                   >
-                    {page.name}
-                  </a></Link>
+                    {groups && groups.map((group) => (
+                      <option key={group.name}>{group.name}</option>
+                    ))}
+                  </select>
                 </div>
-              </li>
-            ))}
-          </ol>
-        </nav>
+                <div className="hidden sm:block relative">
+                  <div>
+                    <nav className="-mb-px h-12 flex items-center justify-between" aria-label="Tabs">
+                        <div className="hidden md:block space-x-8">
+                          {groups && groups.map((group) => <Link href={group.url.toString()} key={group.name}>
+                              <a className={experiment && experiment.current === group.name ? ' font-bold' : ''}>
+                                  {group.name === 'All' ? group.name : `Group ${group.name}`}
+                              </a>
+                          </Link>)}
+                        </div>
+                    </nav>
+                  </div>
 
-        <div className='max-w-xs mx-auto'>
-          <label htmlFor="email" className="block text-sm font-medium text-gray-700">
-            Name
-          </label>
-          <div className="mt-1">
-            <input
-              ref={nameRef}
-              type="text"
-              name="name"
-              className="shadow-sm focus:ring-indigo-500 focus:border-indigo-500 block w-full sm:text-sm border-gray-300 rounded-md"
-              placeholder="Flow name"
-              onBlur={(event) => updateDoc(doc(db, "flows", router.query.flowid, "steps", router.query.stepid), { name: event.target.value })}
-            />
+                  <div className='absolute top-0 right-0 pt-4 pr-4'>
+                      {experiment && experiment.groups ? <a onClick={() => {
+                          if (window.confirm('Are you sure you want to remove your experiment? This will delete all the changes you have made to individual groups. It will, however, preserve the "All" group')){
+                              setExperiment()
+                          }
+                      }}>Remove experiment</a> : null}
+                  </div>
+
+                </div>
+              </div>
           </div>
-        </div>
-
-        <a onClick={() => {
-            // setExperiment(initialExperiment(router))
-
-            const url = new URL(window.location.href)
-            searchParams.set('group', 'A')
-            url.search = new URLSearchParams(searchParams)
-            router.replace(url.toString())
-
-        }}>Differentiate based on groups</a>
-
-        {experiment && experiment.groups ? [{ name: 'All' }].concat(experiment.groups).map((group, i) => {
-            const url = new URL(window.location.href)
-            searchParams.set('group', group.name)
-            url.search = new URLSearchParams(searchParams)
-
-            return <Link href={url.toString()} key={i}>
-                <a className={experiment && experiment.current === group.name ? ' font-bold' : ''}>
-                    {group.name === 'All' ? group.name : `Group ${group.name}`}
-                </a>
-            </Link>
-        }) : null}
-
-        {experiment && experiment.groups ? <a onClick={() => {
-            if (window.confirm('Are you sure you want to remove your experiment? This will delete all the changes you have made to individual groups. It will, however, preserve the "All" group')){
-                setExperiment()
-            }
-        }}>Remove experiment</a> : null}
+        </header> : null}
 
 
-        <button className='p-2' onClick={() => setLayout(initialLayout)}>Reset layout</button>
-        <ul>
-            <li><DraggableContent name='Prompt' onDragBegin={onDragContentBegin} onDragEnd={onDragContentEnd} /></li>
-            <li><DraggableContent name='Question' onDragBegin={onDragContentBegin} onDragEnd={onDragContentEnd} /></li>
-            <li><DraggableContent name='Response' onDragBegin={onDragContentBegin} onDragEnd={onDragContentEnd} /></li>
-            <li><DraggableContent name='Check answer' onDragBegin={onDragContentBegin} onDragEnd={onDragContentEnd} /></li>
-        </ul>
+        <div className='flex flex-auto'>
+            <div className='flex-none w-64 bg-gray-800 p-6 text-white'>
+                {/*<button className='p-2' onClick={() => setLayout(initialLayout)}>Reset layout</button>*/}
 
-        <div
-          className="droppable-element"
-          draggable={true}
-          unselectable="on"
-          // this is a hack for firefox
-          // Firefox requires some kind of initialization
-          // which we can do by adding this attribute
-          // @see https://bugzilla.mozilla.org/show_bug.cgi?id=568313
-          onDragStart={e => e.dataTransfer.setData("text/plain", "")}
-        >
-          Droppable Element (Drag me!)
-        </div>
+                <div className='mb-4'>
+                    <h3 className="text-lg font-medium leading-10">Layout</h3>
+
+                    <div role="list" className="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-2">
+                        <div
+                          className="droppable-element cursor-pointer col-span-1 divide-y divide-gray-200"
+                          draggable={true}
+                          unselectable="on"
+                          // this is a hack for firefox
+                          // Firefox requires some kind of initialization
+                          // which we can do by adding this attribute
+                          // @see https://bugzilla.mozilla.org/show_bug.cgi?id=568313
+                          onDragStart={e => e.dataTransfer.setData("text/plain", "")}
+                        >
+                            <div className='border border-white h-12 w-full opacity-70'></div>
+                            <div className='text-sm leading-8'>
+                                Box
+                            </div>
+                        </div>
+                    </div>
+                </div>
+
+                <div className='mb-4'>
+                    <h3 className="text-lg font-medium leading-10">Blocks</h3>
+                    <ul role="list" className="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-2">
+                        {[{ name: 'Prompt' }, { name: 'Question' }, { name: 'Response' }, { name: 'Check answer' }].map(item => <li className='cursor-pointer'>
+                            <div className='border border-white h-12 w-full opacity-70'></div>
+                            <DraggableContent name={item.name} onDragBegin={onDragContentBegin} onDragEnd={onDragContentEnd} />
+                        </li>)}
+                    </ul>
+                </div>
 
 
-        {layout ? <div className={styles.GridLayoutWrapper + ' bg-slate-100'} style={{ width: '800px' }}>
-            <GridLayout
-              className="layout"
-              layout={experimentAppliedLayout}
-              onLayoutChange={(newLayout) => {
-                  if (experiment && experiment.current !== 'All'){
-                      setExperimentLayout(newLayout)
-                  } else {
-                      if (JSON.stringify(newLayout) !== JSON.stringify(layout.body))
-                          setLayout({ body: newLayout, changed: true })
-                  }
-              }}
-              cols={12}
-              rowHeight={30}
-              width={800}
-              onDrop={(newLayout, layoutItem) => {
-                  var indexOfNewLayoutItem = newLayout.indexOf(layoutItem)
-                  newLayout[indexOfNewLayoutItem] = {
-                      ...newLayout[indexOfNewLayoutItem], i: uuidv4().substring(0, 4)
-                  }
-                  delete newLayout[indexOfNewLayoutItem].isDraggable
+            </div>
 
-                  if (experiment && experiment.current !== 'All'){
-                      setExperimentLayout(newLayout)
-                  } else {
-                      setLayout({ body: newLayout, changed: true })
-                  }
-              }}
-              isDroppable={!isContentBeingDragged}
-            >
-                {experimentAppliedLayout.map(box => <div key={box.i}>
-                    <DroppableContentContainer id={box.i}
-                        changeResponseFormat={() => setResponseChangeOpen(box.i)}
-                        toggleSelectedResourceTemplateItems={item => {
-                            var indexOfItem = selectedResourceTemplateItems.findIndex(i => item.id === i.id)
-                            if (indexOfItem === -1){
-                                setSelectedResourceTemplateItems([...selectedResourceTemplateItems, item])
+            <div className='flex-auto relative overflow-auto'>
+                {layout ? <div className={styles.GridLayoutWrapper + ' absolute'} style={{ width: '800px' }}>
+                    <GridLayout
+                      className="layout"
+                      layout={experimentAppliedLayout}
+                      onLayoutChange={(newLayout) => {
+                          if (experiment && experiment.current !== 'All'){
+                              setExperimentLayout(newLayout)
+                          } else {
+                              if (JSON.stringify(newLayout) !== JSON.stringify(layout.body))
+                                  setLayout({ body: newLayout, changed: true })
+                          }
+                      }}
+                      cols={12}
+                      rowHeight={30}
+                      width={800}
+                      onDrop={(newLayout, layoutItem) => {
+                          var indexOfNewLayoutItem = newLayout.indexOf(layoutItem)
+                          newLayout[indexOfNewLayoutItem] = {
+                              ...newLayout[indexOfNewLayoutItem], i: uuidv4().substring(0, 4)
+                          }
+                          delete newLayout[indexOfNewLayoutItem].isDraggable
+
+                          if (experiment && experiment.current !== 'All'){
+                              setExperimentLayout(newLayout)
+                          } else {
+                              setLayout({ body: newLayout, changed: true })
+                          }
+                      }}
+                      isDroppable={!isContentBeingDragged}
+                    >
+                        {experimentAppliedLayout.map(box => <div key={box.i}>
+                            <DroppableContentContainer id={box.i}
+                                changeResponseFormat={() => setResponseChangeOpen(box.i)}
+                                toggleSelectedResourceTemplateItems={item => {
+                                    var indexOfItem = selectedResourceTemplateItems.findIndex(i => item.id === i.id)
+                                    if (indexOfItem === -1){
+                                        setSelectedResourceTemplateItems([...selectedResourceTemplateItems, item])
+                                    } else {
+                                        setSelectedResourceTemplateItems(selectedResourceTemplateItems.filter((i, index) => index !== indexOfItem))
+                                    }
+                                }}
+                                layoutContent={applyExperimentToLayoutContent(layoutContent, experiment, router.query.stepid)}
+                                updateLayoutContent={updateLayoutContent}
+                                toggleSelectedContent={toggleSelectedContent}
+                                contentFormatting={experimentAppliedContentFormatting}
+                                experimentLock={experiment && experiment.current === 'All' ? experimentLocked.layoutContent.indexOf(box.i) !== -1 : false}
+                            />
+                        </div>)}
+                    </GridLayout>
+                    {<style jsx global>{`
+                        .${styles.GridLayoutWrapper} .react-grid-item {
+                            border: 1px solid #000
+                        }
+                    `}</style>}
+                </div> : null}
+
+            </div>
+            <div className='flex-none w-64 bg-gray-100 p-4'>
+
+                {experiment && experiment.groups ? null : <button onClick={() => {
+                    // setExperiment(initialExperiment(router))
+
+                    const url = new URL(window.location.href)
+                    searchParams.set('group', 'A')
+                    url.search = new URLSearchParams(searchParams)
+                    router.replace(url.toString())
+
+                }}
+                    className="inline-flex items-center rounded border border-transparent bg-indigo-600 px-2.5 py-1.5 text-xs font-medium text-white shadow-sm hover:bg-indigo-700 focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:ring-offset-2"
+
+                >Differentiate</button>}
+
+                {responseChangeOpen ? <ResponseTemplateMaker id={responseChangeOpen}
+                    content={layoutContent[responseChangeOpen]}
+                    closeChangeResponseFormat={() => setResponseChangeOpen(null)}
+                    updateLayoutContent={updateLayoutContent}
+                    toggleSelectedContent={toggleSelectedContent}
+                /> : null}
+                {selectedResourceTemplateItems.length ? <ExpectedResponse
+                    responseTemplateItems={selectedResourceTemplateItems}
+                    setResponseCheck={setResponseCheck}
+                    responseCheck={responseCheck}
+                /> : null}
+                {selectedContent ? <Formatting
+                    selectedContent={selectedContent}
+                    contentFormatting={experimentAppliedContentFormatting}
+                    update={(property, value) => {
+                        // If there is part of an experiment condition, set the changed formatting there.
+                        if (experiment && experiment.current !== 'All'){
+                            const groupIndex = experiment.groups.findIndex(group => group.name === experiment.current)
+
+                            if (value !== undefined){
+                                var recentChangeToPropertyIndex = experiment.groups[groupIndex].steps[router.query.stepid].findIndex(
+                                        change => change.prop === 'contentFormatting' && change.id === selectedContent && change.value.property === property)
+
+                                if (recentChangeToPropertyIndex !== -1){
+                                    setExperiment(
+                                        update(experiment, { groups: { [groupIndex]: { steps: { [router.query.stepid]: { [recentChangeToPropertyIndex]: { op: { $set: 'change' }, value: { $set: { property, value } } } } } } } })
+                                    )
+
+                                } else {
+                                    setExperiment(
+                                        update(experiment, { groups: { [groupIndex]: { steps: { [router.query.stepid]: {$push: [{ prop: 'contentFormatting', id: selectedContent, op: 'change', value: { property, value }  }] } } } } })
+                                    )
+                                }
+
                             } else {
-                                setSelectedResourceTemplateItems(selectedResourceTemplateItems.filter((i, index) => index !== indexOfItem))
+                                setExperiment(
+                                    update(experiment, { groups: { [groupIndex]: { steps: { [router.query.stepid]: {$push: [{ prop: 'contentFormatting', id: selectedContent, op: 'remove'  }] } } } } })
+                                )
                             }
-                        }}
-                        layoutContent={applyExperimentToLayoutContent(layoutContent, experiment, router.query.stepid)}
-                        updateLayoutContent={updateLayoutContent}
-                        toggleSelectedContent={toggleSelectedContent}
-                        contentFormatting={experimentAppliedContentFormatting}
-                        experimentLock={experiment && experiment.current === 'All' ? experimentLocked.layoutContent.indexOf(box.i) !== -1 : false}
-                    />
-                </div>)}
-            </GridLayout>
-            {<style jsx global>{`
-                .${styles.GridLayoutWrapper} .react-grid-item {
-                    border: 1px solid #000
-                }
-            `}</style>}
-        </div> : null}
-        {responseChangeOpen ? <ResponseTemplateMaker id={responseChangeOpen}
-            content={layoutContent[responseChangeOpen]}
-            closeChangeResponseFormat={() => setResponseChangeOpen(null)}
-            updateLayoutContent={updateLayoutContent}
-            toggleSelectedContent={toggleSelectedContent}
-        /> : null}
-        {selectedResourceTemplateItems.length ? <ExpectedResponse
-            responseTemplateItems={selectedResourceTemplateItems}
-            setResponseCheck={setResponseCheck}
-            responseCheck={responseCheck}
-        /> : null}
-        {selectedContent ? <Formatting
-            selectedContent={selectedContent}
-            contentFormatting={experimentAppliedContentFormatting}
-            update={(property, value) => {
-                // If there is part of an experiment condition, set the changed formatting there.
-                if (experiment && experiment.current !== 'All'){
-                    const groupIndex = experiment.groups.findIndex(group => group.name === experiment.current)
-
-                    if (value !== undefined){
-                        var recentChangeToPropertyIndex = experiment.groups[groupIndex].steps[router.query.stepid].findIndex(
-                                change => change.prop === 'contentFormatting' && change.id === selectedContent && change.value.property === property)
-
-                        if (recentChangeToPropertyIndex !== -1){
-                            setExperiment(
-                                update(experiment, { groups: { [groupIndex]: { steps: { [router.query.stepid]: { [recentChangeToPropertyIndex]: { op: { $set: 'change' }, value: { $set: { property, value } } } } } } } })
-                            )
 
                         } else {
-                            setExperiment(
-                                update(experiment, { groups: { [groupIndex]: { steps: { [router.query.stepid]: {$push: [{ prop: 'contentFormatting', id: selectedContent, op: 'change', value: { property, value }  }] } } } } })
-                            )
+                            var newFormatting = { ...(contentFormatting || {}), [selectedContent] : {
+                                ...(contentFormatting && contentFormatting[selectedContent] ? contentFormatting[selectedContent] : {}),
+                            }}
+
+                            if (value !== undefined){
+                                newFormatting[selectedContent][property] = value
+                            } else if (newFormatting[selectedContent].hasOwnProperty(property)){
+                                delete newFormatting[selectedContent][property]
+
+                                if (!Object.keys(newFormatting[selectedContent]).length){
+                                    delete newFormatting[selectedContent]
+                                }
+                            }
+
+                            setContentFormatting(newFormatting)
                         }
-
-                    } else {
-                        setExperiment(
-                            update(experiment, { groups: { [groupIndex]: { steps: { [router.query.stepid]: {$push: [{ prop: 'contentFormatting', id: selectedContent, op: 'remove'  }] } } } } })
-                        )
-                    }
-
-                } else {
-                    var newFormatting = { ...(contentFormatting || {}), [selectedContent] : {
-                        ...(contentFormatting && contentFormatting[selectedContent] ? contentFormatting[selectedContent] : {}),
                     }}
+                /> : null}
 
-                    if (value !== undefined){
-                        newFormatting[selectedContent][property] = value
-                    } else if (newFormatting[selectedContent].hasOwnProperty(property)){
-                        delete newFormatting[selectedContent][property]
+            </div>
+        </div>
 
-                        if (!Object.keys(newFormatting[selectedContent]).length){
-                            delete newFormatting[selectedContent]
-                        }
-                    }
 
-                    setContentFormatting(newFormatting)
-                }
-
-            }}
-        /> : null}
     </div>
 }
 
@@ -630,7 +653,8 @@ const Formatting = ({ selectedContent, contentFormatting, update }) => {
         { name: 'Inline', property: 'display', type: 'checkbox', valueType: 'string', selectedValue: 'inline-block' }
     ]
 
-    return <div>EDIT FORMATTING for {selectedContent}
+    return <div>
+        <h3 className="text-lg font-medium leading-10">Formatting</h3>
         {properties.map((prop, i) => <FormattingProperty {...prop} key={i}
             content={selectedContent}
             update={update}
@@ -741,7 +765,7 @@ const DraggableContent = ({ name, onDragBegin, onDragEnd }) => {
     }), [])
 
     return (
-        <div ref={dragRef} style={{ opacity }}>
+        <div ref={dragRef} style={{ opacity }} className='text-sm leading-8'>
             {name}
         </div>
     )
@@ -807,7 +831,7 @@ const EditableContent = ({ content, id, toggleSelectedResourceTemplateItems, upd
         }} />
     }
 
-    return <div style={{ border: '5px solid green', cursor: 'pointer',
+    return <div className='border border-transparent border-2 border-dashed hover:border-gray-200' style={{ cursor: 'pointer',
         ...(contentFormatting && contentFormatting[content.name] ? contentFormatting[content.name] : {}),
     }} onClick={() => {
         toggleSelectedContent(content.name)
@@ -921,7 +945,7 @@ var ContentInput = ({ name, body, updateBody, formatting }) => {
 
 const ExpectedResponse = ({ responseTemplateItems, setResponseCheck, responseCheck }) => {
     return <div>
-        assess using these items:
+        <h3 className="text-lg font-medium leading-10">Check response</h3>
         {responseTemplateItems.map((item, i) => <div key={i}>
             {item.id}: {item.kind}
         </div>)}
@@ -930,4 +954,4 @@ const ExpectedResponse = ({ responseTemplateItems, setResponseCheck, responseChe
 }
 
 
-export default StepWrapper
+export default StepDraggable
