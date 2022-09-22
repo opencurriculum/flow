@@ -50,11 +50,11 @@ const Step = ({ userID }) => {
         db = useFirestore()
     var analytics
 
-    try {
-        analytics = useAnalytics()
-    } catch (e){
-        console.log(e)
-    }
+    // try {
+    //     analytics = useAnalytics()
+    // } catch (e){
+    //     console.log(e)
+    // }
 
     useEffect(() => {
         if (router.query.flowid){
@@ -75,13 +75,13 @@ const Step = ({ userID }) => {
                 setFlowSteps(flowSteps.sort((a, b) => a.position - b.position))
             })
 
-            if (analytics && process.env.NODE_ENV === 'production'){
-                logEvent(app.analytics, 'screen_view', {
-                  firebase_screen: 'step',
-                })
-
-                logEvent(app.analytics, 'step_shown', { stepID: router.query.stepid });
-            }
+            // if (analytics && process.env.NODE_ENV === 'production'){
+            //     logEvent(app.analytics, 'screen_view', {
+            //       firebase_screen: 'step',
+            //     })
+            //
+            //     logEvent(app.analytics, 'step_shown', { stepID: router.query.stepid });
+            // }
         }
     }, [])
 

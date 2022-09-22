@@ -495,7 +495,7 @@ const Step: NextPage = ({ userID }) => {
                 <div className='mb-4'>
                     <h3 className="text-lg font-medium leading-10">Blocks</h3>
                     <ul role="list" className="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-2">
-                        {[{ name: 'Prompt' }, { name: 'Question' }, { name: 'Response' }, { name: 'Check answer' }].map(item => <li className='cursor-pointer'>
+                        {[{ name: 'Prompt' }, { name: 'Question' }, { name: 'Response' }, { name: 'Check answer' }].map(item => <li key={item.name} className='cursor-pointer'>
                             <div className='border border-white h-12 w-full opacity-70'></div>
                             <DraggableContent name={item.name} onDragBegin={onDragContentBegin} onDragEnd={onDragContentEnd} />
                         </li>)}
