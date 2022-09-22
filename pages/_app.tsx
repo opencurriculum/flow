@@ -6,7 +6,7 @@ import { v4 as uuidv4 } from 'uuid'
 import type { ReactElement, ReactNode } from 'react'
 import { FirebaseAppProvider, FirestoreProvider, AnalyticsProvider, useFirebaseApp } from 'reactfire';
 import { getAnalytics, isSupported } from "firebase/analytics"
-import { getFirestore, connectFirestoreEmulator } from "firebase/firestore"
+import { getFirestore, connectFirestoreEmulator, enableIndexedDbPersistence } from "firebase/firestore"
 
 
 export type NextPageWithLayout<P = {}, IP = P> = NextPage<P, IP> & {
