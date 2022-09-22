@@ -63,7 +63,7 @@ function DatabaseSupportedApp({ children }){
         connectFirestoreEmulator(firestoreInstance, 'localhost', 8080);
     }  else {
         firestoreInstance = getFirestore(app)
-        enableIndexedDbPersistence(db)
+        enableIndexedDbPersistence(firestoreInstance)
     }
 
     return <FirestoreProvider sdk={firestoreInstance}>
