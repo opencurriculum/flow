@@ -39,7 +39,7 @@ function MyApp({ Component, pageProps }: AppPropsWithLayout) {
     // Use the layout defined at the page level, if available
     const getLayout = Component.getLayout ?? ((page) => page)
 
-    return <div className='h-full flex flex-col'>
+    return <div className='min-h-full flex flex-col'>
         <FirebaseAppProvider firebaseConfig={firebaseConfig}>
             <DatabaseSupportedApp>
                 {getLayout(<Component {...pageProps} userID={userID} />)}
