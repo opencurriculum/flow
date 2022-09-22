@@ -170,7 +170,7 @@ const Flow: NextPageWithLayout = ({ userID }: AppProps) => {
     ]
 
 
-    return <div className='h-full bg-gray-100'>
+    return <div className='h-full bg-gray-100 flex-auto'>
 
         <Head>
             <title>{flow && flow.name}</title>
