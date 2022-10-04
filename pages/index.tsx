@@ -10,11 +10,12 @@ import Cookies from 'js-cookie'
 const Home: NextPage = () => {
     const router = useRouter()
     useEffect(() => {
-        // if (Cookies.get('userID')){
-        //     router.replace('/admin')
-        // } else {
+        if (Cookies.get('newUser')){
+            Cookies.remove('newUser')
+            router.replace('/admin')
+        } else {
             router.replace('/admin/app/none/flow/new')
-        // }
+        }
     })
 
   return (

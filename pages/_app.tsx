@@ -34,6 +34,7 @@ function MyApp({ Component, pageProps }: AppPropsWithLayout) {
     if (!userID){
         userID = uuidv4().substring(0, 8)
         Cookies.set('userID', userID, { expires: 365 })
+        Cookies.set('newUser', true, { expires: 1 })
     }
 
     // Use the layout defined at the page level, if available
@@ -59,8 +60,10 @@ function DatabaseSupportedApp({ children }){
         analyticsInstance = getAnalytics(app)
     }
 
-    if (process.env.NODE_ENV === 'development') {
+    if (process.env.NODE_ENV === 'development' && !global.connectedToFirestore) {
         connectFirestoreEmulator(firestoreInstance, 'localhost', 8080);
+        global.connectedToFirestore = true;
+
     }  else {
         firestoreInstance = getFirestore(app)
         // enableIndexedDbPersistence(firestoreInstance)

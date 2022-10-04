@@ -2,27 +2,21 @@ import type { NextPage } from 'next'
 import type { AppProps } from 'next/app'
 import React, { useState, useEffect, useRef } from 'react'
 import { collection, getDocs, getDoc, doc, updateDoc, setDoc, writeBatch, deleteField, deleteDoc } from "firebase/firestore"
-import GridLayout from "react-grid-layout"
-import 'react-grid-layout/css/styles.css'
-import 'react-resizable/css/styles.css'
-import {Editor, EditorState, ContentState, convertToRaw, convertFromRaw } from 'draft-js';
 import { logEvent } from "firebase/analytics"
 import { useRouter } from 'next/router'
-import styles from '../../../../../../../styles/components/StepAdmin.module.sass'
-import { useDrag, useDrop, DndProvider } from 'react-dnd'
-import { HTML5Backend } from 'react-dnd-html5-backend'
 import { v4 as uuidv4 } from 'uuid'
-import 'draft-js/dist/Draft.css';
 import {
-    blockStyleFn, applyExperimentToLayoutContent,
+    applyExperimentToLayoutContent,
     applyExperimentToContentFormatting, applyExperimentToLayout
 } from '../../../../../../../utils/common.tsx'
-import { ArrowUpIcon, ArrowDownIcon, ChevronRightIcon, HomeIcon } from '@heroicons/react/24/solid'
+import { ArrowUpIcon, ArrowDownIcon } from '@heroicons/react/24/solid'
 import update from 'immutability-helper'
 import Link from 'next/link'
 import Layout from '../../../../../../../components/admin-layout'
 import { useFirestore } from 'reactfire'
 import Head from 'next/head'
+import { ExperimentHeader } from '../../../../../../../utils/experimentation'
+import WYSIWYGPanels, {ContentInput} from '../../../../../../../components/wysiwyg'
 
 
 const initialLayout = [
@@ -30,22 +24,6 @@ const initialLayout = [
   { i: "b", x: 1, y: 0, w: 3, h: 2 },
   { i: "c", x: 4, y: 0, w: 1, h: 2 }
 ];
-
-
-const StepDraggable: NextPageWithLayout = (props) => {
-    return <DndProvider backend={HTML5Backend}>
-        <Step {...props} />
-    </DndProvider>;
-}
-
-
-StepDraggable.getLayout = function getLayout(page: ReactElement) {
-  return (
-    <Layout>
-      {page}
-    </Layout>
-  )
-}
 
 
 const initialExperiment = (router) => ({
@@ -65,30 +43,25 @@ const initialExperiment = (router) => ({
 })
 
 
-const Step: NextPage = ({ userID }) => {
+const Step: NextPageWithLayout = ({ userID }) => {
     const [step, setStep] = useState()
 
     const [layout, setLayout] = useState(null)
-    const [responseChangeOpen, setResponseChangeOpen] = useState(false)
-    const [selectedResourceTemplateItems, setSelectedResourceTemplateItems] = useState([])
-
-    const [responseCheck, setResponseCheck] = useState(null)
-    const responseCheckRef = useRef(null)
 
     const [layoutContent, setLayoutContent] = useState({})
     const layoutContentRef = useRef(null)
 
-    const [selectedContent, setSelectedContent] = useState()
-
     const [contentFormatting, setContentFormatting] = useState(null)
     const contentFormattingRef = useRef(null)
 
-    const [isContentBeingDragged, setIsContentBeingDragged] = useState(false)
+    const [responseFormatChangeOpen, setResponseChangeFormatOpen] = useState(false)
+    const [selectedResponseTemplateItems, setSelectedResponseTemplateItems] = useState([])
+    const [responseCheck, setResponseCheck] = useState(null)
+    const responseCheckRef = useRef(null)
 
     const [flow, setFlow] = useState()
     const [experiment, setExperiment] = useState()
     const experimentRef = useRef()
-
 
     const router = useRouter(),
         db = useFirestore()
@@ -289,7 +262,7 @@ const Step: NextPage = ({ userID }) => {
     }, [responseCheck])
 
     useEffect(() => {
-        if (contentFormatting && responseCheckRef.current !== contentFormatting){
+        if (contentFormatting && contentFormattingRef.current !== contentFormatting){
             updateDoc(doc(db, "flows", router.query.flowid, 'steps', router.query.stepid), {contentFormatting})
         }
 
@@ -353,28 +326,10 @@ const Step: NextPage = ({ userID }) => {
         }
     }
 
-    var toggleSelectedContent = (content) => {
-        setSelectedContent(selected => {
-            if (content === selected){
-                return
-            } else {
-                return content
-            }
-        })
-    }
-
-    var onDragContentBegin = () => {
-        setIsContentBeingDragged(true)
-    }
-
-    var onDragContentEnd = () => {
-        setIsContentBeingDragged(false)
-    }
-
     var searchParams = new URLSearchParams(window.location.search)
 
     var experimentLocked = { layoutContent: [], contentFormatting: [] }
-    if (experiment){
+    if (experiment && experiment.current === 'All'){
         experiment.groups && experiment.groups.forEach(group => {
             group.steps[router.query.stepid].forEach(change => {
                 if (change.prop === 'layoutContent'){
@@ -383,9 +338,6 @@ const Step: NextPage = ({ userID }) => {
             })
         })
     }
-
-    var experimentAppliedContentFormatting = applyExperimentToContentFormatting(contentFormatting, experiment, router.query.stepid),
-        experimentAppliedLayout = applyExperimentToLayout(layout && layout.body, experiment, router.query.stepid)
 
     function setExperimentLayout(newLayout){
         const groupIndex = experiment.groups.findIndex(group => group.name === experiment.current)
@@ -404,13 +356,10 @@ const Step: NextPage = ({ userID }) => {
         }
     }
 
-    var groups = experiment && experiment.groups ? [{ name: 'All' }].concat(experiment.groups).map((group, i) => {
-        const url = new URL(window.location.href)
-        searchParams.set('group', group.name)
-        url.search = new URLSearchParams(searchParams)
+    var experimentAppliedContentFormatting = applyExperimentToContentFormatting(contentFormatting, experiment, router.query.stepid),
+        experimentAppliedLayout = applyExperimentToLayout(layout && layout.body, experiment, router.query.stepid),
+        experimentAppliedLayoutContent = applyExperimentToLayoutContent(layoutContent, experiment, router.query.stepid)
 
-        return { url, name: group.name }
-    }) : null
 
     return <div className='flex flex-col flex-auto'>
         {/*<a href={`/app/${router.query.appid}/flow/${router.query.flowid}/step/${router.query.stepid}`} target="_blank" rel="noreferrer">Preview</a>*/}
@@ -420,152 +369,104 @@ const Step: NextPage = ({ userID }) => {
             <meta property="og:title" content={step && step.name || 'Untitled step'} key="title" />
         </Head>
 
-        {experiment ? <header className="bg-slate-600 text-white">
-          <div className="mx-auto max-w-7xl px-4 sm:px-6 lg:px-8">
-              <div>
-                <div className="sm:hidden">
-                  <label htmlFor="tabs" className="sr-only">
-                    Select a group
-                  </label>
-                  {/* Use an "onChange" listener to redirect the user to the selected tab URL. */}
-                  <select
-                    id="tabs"
-                    name="tabs"
-                    className="block w-full rounded-md border-gray-300 py-2 pl-3 pr-10 text-base focus:border-indigo-500 focus:outline-none focus:ring-indigo-500 sm:text-sm"
-                    defaultValue={groups && experiment && experiment.current && groups.find((group) => group.name === (experiment && experiment.current)).name}
-                  >
-                    {groups && groups.map((group) => (
-                      <option key={group.name}>{group.name}</option>
-                    ))}
-                  </select>
-                </div>
-                <div className="hidden sm:block relative">
-                  <div>
-                    <nav className="-mb-px h-12 flex items-center justify-between" aria-label="Tabs">
-                        <div className="hidden md:block space-x-8">
-                          {groups && groups.map((group) => <Link href={group.url.toString()} key={group.name}>
-                              <a className={experiment && experiment.current === group.name ? ' font-bold' : ''}>
-                                  {group.name === 'All' ? group.name : `Group ${group.name}`}
-                              </a>
-                          </Link>)}
-                        </div>
-                    </nav>
-                  </div>
+        <ExperimentHeader experiment={experiment} />
 
-                  <div className='absolute top-0 right-0 pt-4 pr-4'>
-                      {experiment && experiment.groups ? <a onClick={() => {
-                          if (window.confirm('Are you sure you want to remove your experiment? This will delete all the changes you have made to individual groups. It will, however, preserve the "All" group')){
-                              setExperiment()
-                          }
-                      }}>Remove experiment</a> : null}
-                  </div>
+        <WYSIWYGPanels context='step'
+            layout={experimentAppliedLayout}
+            onLayoutChange={(newLayout) => {
+                if (experiment && experiment.current !== 'All'){
+                    setExperimentLayout(newLayout)
+                } else {
+                    if (JSON.stringify(newLayout) !== JSON.stringify(layout.body))
+                        setLayout({ body: newLayout, changed: true })
+                }
+            }}
+            onDrop={(newLayout, layoutItem) => {
+                var indexOfNewLayoutItem = newLayout.indexOf(layoutItem)
+                newLayout[indexOfNewLayoutItem] = {
+                    ...newLayout[indexOfNewLayoutItem], i: uuidv4().substring(0, 4)
+                }
+                delete newLayout[indexOfNewLayoutItem].isDraggable
 
-                </div>
-              </div>
-          </div>
-        </header> : null}
+                if (experiment && experiment.current !== 'All'){
+                    setExperimentLayout(newLayout)
+                } else {
+                    setLayout({ body: newLayout, changed: true })
+                }
+            }}
 
+            layoutContent={experimentAppliedLayoutContent}
+            updateLayoutContent={updateLayoutContent}
 
-        <div className='flex flex-auto'>
-            <div className='flex-none w-64 bg-gray-800 p-6 text-white'>
-                {/*<button className='p-2' onClick={() => setLayout(initialLayout)}>Reset layout</button>*/}
+            formatting={experimentAppliedContentFormatting}
+            updateFormatting={(property, value) => {
+                // If there is part of an experiment condition, set the changed formatting there.
+                if (experiment && experiment.current !== 'All'){
+                    const groupIndex = experiment.groups.findIndex(group => group.name === experiment.current)
 
-                <div className='mb-4'>
-                    <h3 className="text-lg font-medium leading-10">Layout</h3>
+                    if (value !== undefined){
+                        var recentChangeToPropertyIndex = experiment.groups[groupIndex].steps[router.query.stepid].findIndex(
+                                change => change.prop === 'contentFormatting' && change.id === selectedContent && change.value.property === property)
 
-                    <div role="list" className="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-2">
-                        <div
-                          className="droppable-element cursor-pointer col-span-1 divide-y divide-gray-200"
-                          draggable={true}
-                          unselectable="on"
-                          // this is a hack for firefox
-                          // Firefox requires some kind of initialization
-                          // which we can do by adding this attribute
-                          // @see https://bugzilla.mozilla.org/show_bug.cgi?id=568313
-                          onDragStart={e => e.dataTransfer.setData("text/plain", "")}
-                        >
-                            <div className='border border-white h-12 w-full opacity-70'></div>
-                            <div className='text-sm leading-8'>
-                                Box
-                            </div>
-                        </div>
-                    </div>
-                </div>
+                        if (recentChangeToPropertyIndex !== -1){
+                            setExperiment(
+                                update(experiment, { groups: { [groupIndex]: { steps: { [router.query.stepid]: { [recentChangeToPropertyIndex]: { op: { $set: 'change' }, value: { $set: { property, value } } } } } } } })
+                            )
 
-                <div className='mb-4'>
-                    <h3 className="text-lg font-medium leading-10">Blocks</h3>
-                    <ul role="list" className="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-2">
-                        {[{ name: 'Prompt' }, { name: 'Question' }, { name: 'Response' }, { name: 'Check answer' }].map(item => <li key={item.name} className='cursor-pointer'>
-                            <div className='border border-white h-12 w-full opacity-70'></div>
-                            <DraggableContent name={item.name} onDragBegin={onDragContentBegin} onDragEnd={onDragContentEnd} />
-                        </li>)}
-                    </ul>
-                </div>
-
-
-            </div>
-
-            <div className='flex-auto relative overflow-auto'>
-                {layout ? <div className={styles.GridLayoutWrapper + ' absolute'} style={{ width: '800px' }}>
-                    <GridLayout
-                      className="layout"
-                      layout={experimentAppliedLayout}
-                      onLayoutChange={(newLayout) => {
-                          if (experiment && experiment.current !== 'All'){
-                              setExperimentLayout(newLayout)
-                          } else {
-                              if (JSON.stringify(newLayout) !== JSON.stringify(layout.body))
-                                  setLayout({ body: newLayout, changed: true })
-                          }
-                      }}
-                      cols={12}
-                      rowHeight={30}
-                      width={800}
-                      onDrop={(newLayout, layoutItem) => {
-                          var indexOfNewLayoutItem = newLayout.indexOf(layoutItem)
-                          newLayout[indexOfNewLayoutItem] = {
-                              ...newLayout[indexOfNewLayoutItem], i: uuidv4().substring(0, 4)
-                          }
-                          delete newLayout[indexOfNewLayoutItem].isDraggable
-
-                          if (experiment && experiment.current !== 'All'){
-                              setExperimentLayout(newLayout)
-                          } else {
-                              setLayout({ body: newLayout, changed: true })
-                          }
-                      }}
-                      isDroppable={!isContentBeingDragged}
-                    >
-                        {experimentAppliedLayout.map(box => <div key={box.i}>
-                            <DroppableContentContainer id={box.i}
-                                changeResponseFormat={() => setResponseChangeOpen(box.i)}
-                                toggleSelectedResourceTemplateItems={item => {
-                                    var indexOfItem = selectedResourceTemplateItems.findIndex(i => item.id === i.id)
-                                    if (indexOfItem === -1){
-                                        setSelectedResourceTemplateItems([...selectedResourceTemplateItems, item])
-                                    } else {
-                                        setSelectedResourceTemplateItems(selectedResourceTemplateItems.filter((i, index) => index !== indexOfItem))
-                                    }
-                                }}
-                                layoutContent={applyExperimentToLayoutContent(layoutContent, experiment, router.query.stepid)}
-                                updateLayoutContent={updateLayoutContent}
-                                toggleSelectedContent={toggleSelectedContent}
-                                contentFormatting={experimentAppliedContentFormatting}
-                                experimentLock={experiment && experiment.current === 'All' ? experimentLocked.layoutContent.indexOf(box.i) !== -1 : false}
-                            />
-                        </div>)}
-                    </GridLayout>
-                    {<style jsx global>{`
-                        .${styles.GridLayoutWrapper} .react-grid-item {
-                            border: 1px solid #000
+                        } else {
+                            setExperiment(
+                                update(experiment, { groups: { [groupIndex]: { steps: { [router.query.stepid]: {$push: [{ prop: 'contentFormatting', id: selectedContent, op: 'change', value: { property, value }  }] } } } } })
+                            )
                         }
-                    `}</style>}
-                </div> : null}
 
-            </div>
-            <div className='flex-none w-64 bg-gray-100 p-4'>
+                    } else {
+                        setExperiment(
+                            update(experiment, { groups: { [groupIndex]: { steps: { [router.query.stepid]: {$push: [{ prop: 'contentFormatting', id: selectedContent, op: 'remove'  }] } } } } })
+                        )
+                    }
 
-                {experiment && experiment.groups ? null : <button onClick={() => {
+                } else {
+                    var newFormatting = { ...(contentFormatting || {}), [selectedContent] : {
+                        ...(contentFormatting && contentFormatting[selectedContent] ? contentFormatting[selectedContent] : {}),
+                    }}
+
+                    if (value !== undefined){
+                        newFormatting[selectedContent][property] = value
+                    } else if (newFormatting[selectedContent].hasOwnProperty(property)){
+                        delete newFormatting[selectedContent][property]
+
+                        if (!Object.keys(newFormatting[selectedContent]).length){
+                            delete newFormatting[selectedContent]
+                        }
+                    }
+
+                    setContentFormatting(newFormatting)
+                }
+            }}
+
+            contentTypes={{
+                'Response': {
+                    editable: (id, body) => <ResponseTemplate
+                        id={id}
+                        content={body}
+                        toggleSelectedResponseTemplateItems={item => {
+                            var indexOfItem = selectedResponseTemplateItems.findIndex(i => item.id === i.id)
+                            if (indexOfItem === -1){
+                                setSelectedResponseTemplateItems([...selectedResponseTemplateItems, item])
+                            } else {
+                                setSelectedResponseTemplateItems(selectedResponseTemplateItems.filter((i, index) => index !== indexOfItem))
+                            }
+                        }}
+                        updateLayoutContent={updateLayoutContent}
+                    />,
+                    option: (id) => <button onClick={() => setResponseChangeFormatOpen(id)}>Change format</button>
+                },
+
+                'Check answer': {}
+            }}
+
+            formattingPanelAdditions={(toggleSelectedContent) => [
+                experiment && experiment.groups ? null : <button onClick={() => {
                     // setExperiment(initialExperiment(router))
 
                     const url = new URL(window.location.href)
@@ -576,268 +477,32 @@ const Step: NextPage = ({ userID }) => {
                 }}
                     className="inline-flex items-center rounded border border-transparent bg-indigo-600 px-2.5 py-1.5 text-xs font-medium text-white shadow-sm hover:bg-indigo-700 focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:ring-offset-2"
 
-                >Differentiate</button>}
-
-                {responseChangeOpen ? <ResponseTemplateMaker id={responseChangeOpen}
-                    content={layoutContent[responseChangeOpen]}
-                    closeChangeResponseFormat={() => setResponseChangeOpen(null)}
+                >Differentiate</button>,
+                responseFormatChangeOpen ? <ResponseTemplateMaker id={responseFormatChangeOpen}
+                    content={layoutContent[responseFormatChangeOpen]}
+                    closeChangeResponseFormat={() => setResponseChangeFormatOpen(null)}
                     updateLayoutContent={updateLayoutContent}
                     toggleSelectedContent={toggleSelectedContent}
-                /> : null}
-                {selectedResourceTemplateItems.length ? <ExpectedResponse
-                    responseTemplateItems={selectedResourceTemplateItems}
+                /> : null,
+                selectedResponseTemplateItems.length ? <ExpectedResponse
+                    responseTemplateItems={selectedResponseTemplateItems}
                     setResponseCheck={setResponseCheck}
                     responseCheck={responseCheck}
-                /> : null}
-                {selectedContent ? <Formatting
-                    selectedContent={selectedContent}
-                    contentFormatting={experimentAppliedContentFormatting}
-                    update={(property, value) => {
-                        // If there is part of an experiment condition, set the changed formatting there.
-                        if (experiment && experiment.current !== 'All'){
-                            const groupIndex = experiment.groups.findIndex(group => group.name === experiment.current)
+                /> : null
+            ]}
 
-                            if (value !== undefined){
-                                var recentChangeToPropertyIndex = experiment.groups[groupIndex].steps[router.query.stepid].findIndex(
-                                        change => change.prop === 'contentFormatting' && change.id === selectedContent && change.value.property === property)
-
-                                if (recentChangeToPropertyIndex !== -1){
-                                    setExperiment(
-                                        update(experiment, { groups: { [groupIndex]: { steps: { [router.query.stepid]: { [recentChangeToPropertyIndex]: { op: { $set: 'change' }, value: { $set: { property, value } } } } } } } })
-                                    )
-
-                                } else {
-                                    setExperiment(
-                                        update(experiment, { groups: { [groupIndex]: { steps: { [router.query.stepid]: {$push: [{ prop: 'contentFormatting', id: selectedContent, op: 'change', value: { property, value }  }] } } } } })
-                                    )
-                                }
-
-                            } else {
-                                setExperiment(
-                                    update(experiment, { groups: { [groupIndex]: { steps: { [router.query.stepid]: {$push: [{ prop: 'contentFormatting', id: selectedContent, op: 'remove'  }] } } } } })
-                                )
-                            }
-
-                        } else {
-                            var newFormatting = { ...(contentFormatting || {}), [selectedContent] : {
-                                ...(contentFormatting && contentFormatting[selectedContent] ? contentFormatting[selectedContent] : {}),
-                            }}
-
-                            if (value !== undefined){
-                                newFormatting[selectedContent][property] = value
-                            } else if (newFormatting[selectedContent].hasOwnProperty(property)){
-                                delete newFormatting[selectedContent][property]
-
-                                if (!Object.keys(newFormatting[selectedContent]).length){
-                                    delete newFormatting[selectedContent]
-                                }
-                            }
-
-                            setContentFormatting(newFormatting)
-                        }
-                    }}
-                /> : null}
-
-            </div>
-        </div>
-
-
-    </div>
-}
-
-
-const Formatting = ({ selectedContent, contentFormatting, update }) => {
-    var properties =  [
-        { name: 'Font size', property: 'fontSize', type: 'text', valueType: 'number' },
-        { name: 'Text align', property: 'textAlign', type: 'select', valueType: 'string' },
-        { name: 'Inline', property: 'display', type: 'checkbox', valueType: 'string', selectedValue: 'inline-block' }
-    ]
-
-    return <div>
-        <h3 className="text-lg font-medium leading-10">Formatting</h3>
-        {properties.map((prop, i) => <FormattingProperty {...prop} key={i}
-            content={selectedContent}
-            update={update}
-            value={contentFormatting && contentFormatting[selectedContent] && contentFormatting[selectedContent][prop.property]}
-        />)}
-    </div>
-}
-
-
-const FormattingProperty = ({ content, name, property, type, valueType, selectedValue, value, update }) => {
-    const contentRef = useRef(null),
-          valueRef = useRef(null),
-          elRef = useRef(null)
-
-    var updateValueEls = (valueType, value) => {
-        if (value){
-            elRef.current.value = valueType === 'number' ? value && parseFloat(value) : value
-        } else {
-            elRef.current.value = null
-
-            if (elRef.current.type === 'checkbox'){
-                elRef.current.checked = false
-            }
-        }
-    }
-
-    useEffect(() => {
-      if (content && contentRef.current !== content){
-          updateValueEls(valueType, value)
-      }
-
-      contentRef.current = content
-    }, [content])
-
-    useEffect(() => {
-        if (valueRef.current !== value){
-            updateValueEls(valueType, value)
-        }
-
-        valueRef.current = value
-    }, [value])
-
-    var applyFormatting = (e) => {
-      var value = e.target.value
-      if (property === 'fontSize'){
-          value = parseFloat(value)
-      }
-
-      if (e.target.type === 'checkbox'){
-          value = e.target.checked ? selectedValue : null
-      }
-
-      if (value){
-          if (property === 'fontSize'){
-              value = value + 'px'
-          }
-
-          update(property, value)
-
-      } else {
-          // Naively remove the property.
-          // This isn't always going to be a good idea, such as making
-          // something 0 or false might actually be desired.
-          // This code would need to be adjusted in that scenario, taking
-          // into account the specific property.
-          update(property)
-      }
-    }
-
-     var body;
-     if (type === 'text'){
-         body = <input type='text' ref={elRef}
-            defaultValue={valueType === 'number' ? value && parseFloat(value) : value}
-            onChange={applyFormatting}
+            lockedContent={experimentLocked}
         />
-    } else if (type === 'select'){
-        body = <select defaultValue={value} ref={elRef}
-            onChange={applyFormatting}>
-            <option value="left">Left</option>
-            <option value="center">Center</option>
-            <option value="right">Right</option>
-        </select>
-    } else if (type === 'checkbox'){
-        body = <input type='checkbox' ref={elRef}
-            defaultChecked={value}
-            onChange={applyFormatting}
-        />
-    }
-
-    return <div>
-        <div>{name}</div>
-        {body}
     </div>
 }
 
 
-const DraggableContent = ({ name, onDragBegin, onDragEnd }) => {
-    const [{opacity}, dragRef] = useDrag(() => ({
-        type: 'content',
-        item: () => {
-            onDragBegin()
-            return { id: name }
-        },
-        end: onDragEnd,
-        collect: (monitor) => ({
-            opacity: monitor.isDragging() ? 0.5 : 1
-        }),
-    }), [])
-
-    return (
-        <div ref={dragRef} style={{ opacity }} className='text-sm leading-8'>
-            {name}
-        </div>
-    )
-}
-
-
-const DroppableContentContainer = ({ id,
-        changeResponseFormat, toggleSelectedResourceTemplateItems,
-        updateLayoutContent, layoutContent, toggleSelectedContent,
-        contentFormatting, experimentLock
-    }) => {
-    const [{ canDrop, isOver }, dropRef] = useDrop(() => ({
-        accept: 'content',
-        drop: (item) => {
-            var numberOfSuchContentAlreadyCreated = 0
-            for (var layoutID in layoutContent){
-                var nameMatch = layoutContent[layoutID].name.match(new RegExp(`${item.id} (?<number>\\d)`))
-                if (nameMatch){
-                    numberOfSuchContentAlreadyCreated = nameMatch.groups.number
-                } else if (layoutContent[layoutID].name === item.id){
-                    numberOfSuchContentAlreadyCreated = 1
-                }
-            }
-
-            updateLayoutContent(id, { name: numberOfSuchContentAlreadyCreated ? (
-                `${item.id} ${numberOfSuchContentAlreadyCreated + 1}`) : item.id })
-            return ({ name: 'Droppable-Content' });
-        },
-        collect: (monitor) => ({
-          isOver: monitor.isOver(),
-          canDrop: monitor.canDrop(),
-      }),
-    }))
-
-    return <div ref={dropRef}>
-        {layoutContent.hasOwnProperty(id) ? <div>
-            {experimentLock ? <div>DONT TOUCH ME I AM LOCKED BY A GROUP CHANGE</div> : null}
-            <EditableContent content={layoutContent[id]} id={id}
-                toggleSelectedResourceTemplateItems={toggleSelectedResourceTemplateItems}
-                updateLayoutContent={updateLayoutContent}
-                toggleSelectedContent={toggleSelectedContent}
-                contentFormatting={contentFormatting}
-            />
-            <button onClick={() => updateLayoutContent(id)}>Remove</button>
-            {layoutContent[id].name.startsWith('Response') ? <button onClick={changeResponseFormat}>Change format</button> : null}
-        </div> : 'Drop'}
-    </div>
-}
-
-
-const EditableContent = ({ content, id, toggleSelectedResourceTemplateItems, updateLayoutContent, toggleSelectedContent, contentFormatting }) => {
-    var body = content.name;
-    if (content.name.startsWith('Response')){
-        body = <ResponseTemplate
-            id={id}
-            content={content && content.body}
-            toggleSelectedResourceTemplateItems={toggleSelectedResourceTemplateItems}
-            updateLayoutContent={updateLayoutContent}
-        />
-    } else if (content.name !== 'Check answer'){
-        body = <ContentInput name='text' body={content.body} formatting={contentFormatting && contentFormatting[content.name]} updateBody={(body) => {
-            updateLayoutContent(id, { body })
-        }} />
-    }
-
-    return <div className='border border-transparent border-2 border-dashed hover:border-gray-200' style={{ cursor: 'pointer',
-        ...(contentFormatting && contentFormatting[content.name] ? contentFormatting[content.name] : {}),
-    }} onClick={() => {
-        toggleSelectedContent(content.name)
-    }}>
-        {body}
-    </div>
+Step.getLayout = function getLayout(page: ReactElement) {
+  return (
+    <Layout>
+      {page}
+    </Layout>
+  )
 }
 
 
@@ -865,12 +530,12 @@ const ResponseTemplateMaker = ({ id, closeChangeResponseFormat, updateLayoutCont
 }
 
 
-const ResponseTemplate = ({ id, content, responseItemSelected, toggleSelectedResourceTemplateItems, updateLayoutContent, toggleSelectedContent }) => {
+const ResponseTemplate = ({ id, content, responseItemSelected, toggleSelectedResponseTemplateItems, updateLayoutContent, toggleSelectedContent }) => {
     // This is a temp hack variable.
-    var isInsideContentLayout = toggleSelectedResourceTemplateItems
+    var isInsideContentLayout = toggleSelectedResponseTemplateItems
 
     return <div>
-        {content && content.map((responseItem, i) => <div key={i} className='flex' onClick={toggleSelectedResourceTemplateItems  ? () => toggleSelectedResourceTemplateItems(responseItem) : null} >
+        {content && content.map((responseItem, i) => <div key={i} className='flex' onClick={toggleSelectedResponseTemplateItems ? () => toggleSelectedResponseTemplateItems(responseItem) : null} >
             {isInsideContentLayout ? null : <div>
                 {i ? <button
                     onClick={() => updateLayoutContent(id, { body: update(content, {
@@ -914,35 +579,6 @@ const ResponseTemplate = ({ id, content, responseItemSelected, toggleSelectedRes
 }
 
 
-var ContentInput = ({ name, body, updateBody, formatting }) => {
-    const [editorState, setEditorState] = useState(EditorState.createEmpty())
-    const [isEditing, setIsEditing] = useState()
-
-    const bodyRef = useRef()
-
-    useEffect(() => {
-        if (body && body !== bodyRef.current && !isEditing){
-            var newEditorState = EditorState.createWithContent(convertFromRaw(body))
-            setEditorState(newEditorState)
-
-            bodyRef.current = body
-        }
-    }, [body])
-
-    return <Editor editorState={editorState}
-        placeholder={`Add some ${name}`}
-        blockStyleFn={blockStyleFn.bind(this, formatting)}
-        onChange={(newEditorState) => {
-            setIsEditing(true)
-            setEditorState(newEditorState)
-        }}
-        onBlur={() => {
-            updateBody(convertToRaw(editorState.getCurrentContent()))
-            setTimeout(() => setIsEditing(false), 1)
-        }} />
-}
-
-
 const ExpectedResponse = ({ responseTemplateItems, setResponseCheck, responseCheck }) => {
     return <div>
         <h3 className="text-lg font-medium leading-10">Check response</h3>
@@ -954,4 +590,4 @@ const ExpectedResponse = ({ responseTemplateItems, setResponseCheck, responseChe
 }
 
 
-export default StepDraggable
+export default Step

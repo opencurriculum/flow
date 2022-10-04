@@ -33,8 +33,11 @@ const userNavigation = [
 ]
 
 function Tab({ tab }){
-    return <a
+    return <Link
       href={tab.href}
+    >
+      <a
+
       className={classNames(
         tab.current
           ? 'border-indigo-500 text-indigo-600'
@@ -42,9 +45,9 @@ function Tab({ tab }){
         'whitespace-nowrap py-3 px-1 border-b-2 font-medium text-sm'
       )}
       aria-current={tab.current ? 'page' : undefined}
-    >
-      {tab.name}
-    </a>
+
+      >{tab.name}</a>
+    </Link>
 }
 
 
@@ -52,15 +55,11 @@ let stepsChangeInterval
 
 const Flow: NextPageWithLayout = ({ userID }: AppProps) => {
     var [flow, setFlow] = useState()
-    var nameRef = useRef()
 
     var [steps, setSteps] = useState()
     var stepsRef = useRef(), lastUpdatedStepsRef = useRef()
 
     var [duplicateStepToOpen, setDuplicateStepToOpen] = useState()
-
-    var [editNameOpen, setEditNameOpen] = useState(false)
-    const cancelButtonRef = useRef(null)
 
     const router = useRouter(),
         db = useFirestore()
@@ -163,19 +162,105 @@ const Flow: NextPageWithLayout = ({ userID }: AppProps) => {
         }
     }, [steps])
 
-    const tabs = [
-      { name: 'Steps', href: '#', current: true },
-      { name: 'Data', href: '#', current: false },
-      { name: 'Settings', href: '#', current: false },
-    ]
-
-
-    return <div className='h-full bg-gray-100 flex-auto'>
-
+    return <FlowLayout>
         <Head>
             <title>{flow && flow.name}</title>
             <meta property="og:title" content={flow && flow.name} key="title" />
         </Head>
+        {steps ? <DndProvider backend={HTML5Backend}>
+            <ul role="list" className="space-y-3">{steps.map((step, i) => <DraggableStep
+                key={i}
+                step={step}
+                moveStep={(fromPosition, toPosition) => {
+                    setSteps(steps => {
+                        let newSteps = [...steps],
+                            indexOfThingBeingMoved = newSteps.findIndex(s => s.position === fromPosition)
+
+                        var stepsToMove
+                        if (fromPosition > toPosition){
+                            stepsToMove = newSteps.splice(toPosition, fromPosition - toPosition)
+                        } else {
+                            stepsToMove = newSteps.splice(fromPosition + 1, toPosition - fromPosition)
+                        }
+
+                        newSteps[indexOfThingBeingMoved] = { ...newSteps[indexOfThingBeingMoved], position: toPosition }
+                        newSteps = newSteps.concat(stepsToMove.map(s => ({
+                            ...s, position: s.position + (fromPosition > toPosition ? 1 : -1)
+                        })))
+
+                        return newSteps.sort((a, b) => a.position - b.position)
+                    })
+                }}
+                setDuplicateStepToOpen={setDuplicateStepToOpen}
+                deleteStep={stepID => {
+                    var indexOfStepToBeDeleted = steps.findIndex(s => s.id === stepID),
+                        stepToBeDeleted = steps[indexOfStepToBeDeleted],
+                        stepIDsAfterOneToBeDeleted = steps.filter(s => s.position > stepToBeDeleted.position).map(s => s.id)
+
+                    setSteps(steps => update(steps, {
+                        $splice: [[indexOfStepToBeDeleted, 1]],
+                        $apply: ss => {
+                            var updatedSteps = []
+                            ss.forEach(s => {
+                                if (stepIDsAfterOneToBeDeleted.indexOf(s.id) !== -1){
+                                    updatedSteps.push({ ...s, position: s.position - 1 })
+                                } else {
+                                    updatedSteps.push(s)
+                                }
+                            })
+                            return updatedSteps
+                        }
+                    }))
+
+                    deleteDoc(doc(db, "flows", router.query.flowid, "steps", stepID))
+                }}
+            />)}
+            <li key='new' onClick={() => {
+                    router.push(`/admin/app/${router.query.appid}/flow/${router.query.flowid}/step/new`)
+                }}
+                className='relative rounded-md rounded-lg border-2 border-gray-300 p-4 text-center text-gray-400 hover:text-gray-700 hover:border-gray-400 focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:ring-offset-2 cursor-pointer'>
+                + Add a step
+            </li>
+            </ul>
+        </DndProvider> : null}
+        {duplicateStepToOpen ? <DuplicateStepTo db={db} stepID={duplicateStepToOpen} /> : null}
+    </FlowLayout>
+}
+
+
+Flow.getLayout = function getLayout(page: ReactElement) {
+  return (
+    <Layout>
+      {page}
+    </Layout>
+  )
+}
+
+
+export const FlowLayout = ({ children, page }) => {
+    var nameRef = useRef()
+
+    var [editNameOpen, setEditNameOpen] = useState(false)
+    const cancelButtonRef = useRef(null)
+
+    const router = useRouter(),
+        db = useFirestore()
+
+    var urlProps = { appid: router.query.appid, flowid: router.query.flowid },
+        subpagePathname = '/admin/app/[appid]/flow/[flowid]/[subpage]',
+        baseURL = `/admin/app/${router.query.appid}/flow/${router.query.flowid}`
+
+    const tabs = [
+      { name: 'Steps', href: baseURL, current: !page },
+      { name: 'Data', href: {
+          pathname: subpagePathname, query: { ...urlProps, subpage: 'data' }
+      }, current: page === 'data' },
+      { name: 'Settings', href: {
+          pathname: subpagePathname, query: { ...urlProps, subpage: 'settings' }
+      }, current: page === 'settings' },
+    ]
+
+    return <div className='h-full bg-gray-100 flex-auto'>
         <div className="min-h-full">
             <header className="bg-white shadow">
               <div className="mx-auto max-w-7xl px-4 sm:px-6 lg:px-8">
@@ -214,74 +299,13 @@ const Flow: NextPageWithLayout = ({ userID }: AppProps) => {
 
             <main>
               <div className="mx-auto max-w-7xl py-6 sm:px-6 lg:px-8">
-
                 <div className='max-w-xs mx-auto'>
-                    {steps ? <DndProvider backend={HTML5Backend}>
-                        <ul role="list" className="space-y-3">{steps.map((step, i) => <DraggableStep
-                            key={i}
-                            step={step}
-                            moveStep={(fromPosition, toPosition) => {
-                                setSteps(steps => {
-                                    let newSteps = [...steps],
-                                        indexOfThingBeingMoved = newSteps.findIndex(s => s.position === fromPosition)
-
-                                    var stepsToMove
-                                    if (fromPosition > toPosition){
-                                        stepsToMove = newSteps.splice(toPosition, fromPosition - toPosition)
-                                    } else {
-                                        stepsToMove = newSteps.splice(fromPosition + 1, toPosition - fromPosition)
-                                    }
-
-                                    newSteps[indexOfThingBeingMoved] = { ...newSteps[indexOfThingBeingMoved], position: toPosition }
-                                    newSteps = newSteps.concat(stepsToMove.map(s => ({
-                                        ...s, position: s.position + (fromPosition > toPosition ? 1 : -1)
-                                    })))
-
-                                    return newSteps.sort((a, b) => a.position - b.position)
-                                })
-                            }}
-                            setDuplicateStepToOpen={setDuplicateStepToOpen}
-                            deleteStep={stepID => {
-                                var indexOfStepToBeDeleted = steps.findIndex(s => s.id === stepID),
-                                    stepToBeDeleted = steps[indexOfStepToBeDeleted],
-                                    stepIDsAfterOneToBeDeleted = steps.filter(s => s.position > stepToBeDeleted.position).map(s => s.id)
-
-                                setSteps(steps => update(steps, {
-                                    $splice: [[indexOfStepToBeDeleted, 1]],
-                                    $apply: ss => {
-                                        var updatedSteps = []
-                                        ss.forEach(s => {
-                                            if (stepIDsAfterOneToBeDeleted.indexOf(s.id) !== -1){
-                                                updatedSteps.push({ ...s, position: s.position - 1 })
-                                            } else {
-                                                updatedSteps.push(s)
-                                            }
-                                        })
-                                        return updatedSteps
-                                    }
-                                }))
-
-                                deleteDoc(doc(db, "flows", router.query.flowid, "steps", stepID))
-                            }}
-                        />)}
-                        <li key='new' onClick={() => {
-                                router.push(`/admin/app/${router.query.appid}/flow/${router.query.flowid}/step/new`)
-                            }}
-                            className='relative rounded-md rounded-lg border-2 border-gray-300 p-4 text-center text-gray-400 hover:text-gray-700 hover:border-gray-400 focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:ring-offset-2 cursor-pointer'>
-                            + Add a step
-                        </li>
-                        </ul>
-                    </DndProvider> : null}
-
-
+                    {children}
                 </div>
-
-
               </div>
             </main>
         </div>
 
-        {duplicateStepToOpen ? <DuplicateStepTo db={db} stepID={duplicateStepToOpen} /> : null}
 
         <Transition.Root show={editNameOpen} as={Fragment}>
           <Dialog as="div" className="relative z-10" initialFocus={cancelButtonRef} onClose={setEditNameOpen}>
@@ -356,17 +380,7 @@ const Flow: NextPageWithLayout = ({ userID }: AppProps) => {
             </div>
           </Dialog>
         </Transition.Root>
-
     </div>
-}
-
-
-Flow.getLayout = function getLayout(page: ReactElement) {
-  return (
-    <Layout>
-      {page}
-    </Layout>
-  )
 }
 
 

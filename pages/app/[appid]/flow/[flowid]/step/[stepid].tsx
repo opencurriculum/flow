@@ -5,40 +5,21 @@ import {
     collection, getDocs, getDoc, doc, updateDoc, setDoc, arrayUnion,
     increment, Timestamp, documentId, query, where
 } from "firebase/firestore"
-import 'react-grid-layout/css/styles.css'
-import GridLayout from "react-grid-layout"
-import {Editor, EditorState, ContentState, convertFromRaw } from 'draft-js';
-import 'draft-js/dist/Draft.css';
 import { logEvent } from "firebase/analytics"
 import { useRouter } from 'next/router'
 import {UserAppHeader} from '../../../../[appid].tsx'
-import {
-    blockStyleFn, applyExperimentToLayoutContent,
-    applyExperimentToLayout, applyExperimentToContentFormatting
-} from '../../../../../../utils/common.tsx'
-import styles from '../../../../../../styles/components/StepAdmin.module.sass'
 import { Dialog, Transition } from '@headlessui/react'
 import { CheckIcon, XMarkIcon, ExclamationTriangleIcon } from '@heroicons/react/24/outline'
 import update from 'immutability-helper'
 import Head from 'next/head'
 import { useFirestore, useAnalytics } from 'reactfire'
-
-
-function assignExperimentGroupToStudent(db, experimentData, newGroupIndex, userID, experimentID){
-    var newGroups
-    if (!experimentData.groups[newGroupIndex].users){
-        newGroups = { [newGroupIndex]: { users: { $set: [userID] } } }
-    } else {
-        newGroups = { [newGroupIndex]: { users: { $push: [userID] } } }
-    }
-
-    updateDoc(doc(db, "experiments", experimentID), { groups: update(experimentData.groups, newGroups) })
-}
+import { StepItem } from '../../../../../../components/step-item.tsx'
+import { getOrInitializeFlowExperiment } from '../../../../../../utils/experimentation.tsx'
+import { updateFlowProgressStateUponStepCompletion } from '../../../../../../utils/common.tsx'
 
 
 const Step = ({ userID }) => {
     const [step, setStep] = useState(null)
-    const [response, setResponse] = useState({})
     const [progress, setProgress] = useState()
     const [flowSteps, setFlowSteps] = useState()
 
@@ -87,52 +68,7 @@ const Step = ({ userID }) => {
 
     useEffect(() => {
         if (router.query.flowid){
-            getDoc(doc(db, "flows", router.query.flowid)).then(docSnapshot => {
-                if (docSnapshot.data().experiment){
-                    getDoc(docSnapshot.data().experiment).then(docSnapshot => {
-                        var experimentData = docSnapshot.data(), currentlyAssignedGroup
-
-                        if (router.query.group){
-                            currentlyAssignedGroup = experimentData.groups.find(group => group.name === router.query.group)
-
-                        } else {
-                            // Not really random at all. Yet.
-                            var existingDistribution = [], totalUserCount = 0
-                            currentlyAssignedGroup = experimentData.groups.find((group, i) => {
-                                if (group.users && group.users.indexOf(userID) !== -1){
-                                    return true
-                                }
-
-                                totalUserCount += existingDistribution[i] = group.users ? group.users.length : 0
-                            })
-
-                            if (!currentlyAssignedGroup){
-                                Object.keys(existingDistribution).forEach(groupIndex => {
-                                    if ((existingDistribution[groupIndex] / totalUserCount) < experimentData.groups[groupIndex].weight){
-                                        // Assign this group.
-                                        assignExperimentGroupToStudent(db, experimentData, groupIndex, userID, docSnapshot.id)
-
-                                        currentlyAssignedGroup = experimentData.groups[groupIndex]
-                                    }
-                                })
-
-                                if (!currentlyAssignedGroup){
-                                    var newGroupIndex = Math.floor(Math.random() * experimentData.groups.length)
-
-                                    // Assign this group.
-                                    assignExperimentGroupToStudent(db, experimentData, newGroupIndex, userID, docSnapshot.id)
-
-                                    currentlyAssignedGroup = experimentData.groups[newGroupIndex]
-                                }
-                            }
-                        }
-
-                        experimentData.current = currentlyAssignedGroup.name
-
-                        setExperiment(experimentData)
-                    })
-                }
-            })
+            getOrInitializeFlowExperiment(db, router.query.flowid, userID, router.query.group, setExperiment)
 
             getDoc(doc(db, "flows", router.query.flowid, 'steps', router.query.stepid)).then(docSnapshot => {
                 setStep(docSnapshot.data())
@@ -150,22 +86,6 @@ const Step = ({ userID }) => {
             }
         }
     }, [progress, router.query.stepid])
-
-
-    var layout = step ? applyExperimentToLayout(JSON.parse(step.layout), experiment, router.query.stepid) : null,
-        layoutContent = step ? applyExperimentToLayoutContent(JSON.parse(step.layoutContent), experiment, router.query.stepid) : null
-
-    // Merge the response and progress.
-    var lastUserResponse = response[router.query.stepid]
-
-    var stepProgress = progress && progress.steps && progress.steps[router.query.stepid]
-    if (stepProgress && stepProgress.attempts){
-        var lastAttempt = stepProgress.attempts[stepProgress.attempts.length - 1]
-
-        if (lastAttempt && lastAttempt.response){
-            lastUserResponse = lastAttempt.response
-        }
-    }
 
     var searchParams = typeof window !== 'undefined' ? new URLSearchParams(window.location.search) : new URLSearchParams()
 
@@ -190,140 +110,83 @@ const Step = ({ userID }) => {
 
         <UserAppHeader db={db} hideBack={progress && !progress.completed} />
 
-        {step ? <div className={styles.GridLayoutWrapper}><GridLayout
-          className="layout"
-          layout={layout}
-          cols={12}
-          rowHeight={30}
-          width={1200}
-          isResizable={false}
-          isDraggable={false}
-          isDroppable={false}
-        >
-            {layout.map(box => <div key={box.i}>
-                <BoxBody content={layoutContent[box.i]}
-                    checkResponse={function(){
-                        var flowProgressRef = doc(db, "users", userID, 'progress', router.query.flowid)
-                        if (lastUserResponse){
-                            let variableDeclations = []
-                            for (var prop in lastUserResponse){
-                                if (prop !== 'timestamp'){
-                                    variableDeclations.push(`${prop} = ${lastUserResponse[prop]}`)
-                                }
-                            }
-                            if (Function(`'use strict'; var ${variableDeclations.join(',')}; return (${step.responseCheck})`)()){
-                                updateDoc(flowProgressRef, {
-                                    [`steps.${router.query.stepid}.attempts`]: arrayUnion({
-                                        timestamp: Timestamp.now(), response: lastUserResponse
-                                    }),
-                                    [`steps.${router.query.stepid}.completed`]: 100,
-                                    completed: increment(
-                                        (progress.steps && progress.steps[router.query.stepid] && progress.steps[router.query.stepid].completed) === 100 ? 0 : (100 / flowSteps.length)
-                                    )
-                                })
-                                setProgress({
-                                    ...progress, completed: progress.completed + 100 / flowSteps.length,
-                                    steps: {
-                                        ...(progress.steps || {}),
-                                        [router.query.stepid]: {
-                                            ...((progress.steps && progress.steps[router.query.stepid]) || {}),
-                                            completed: 100
-                                        }
-                                    }
-                                })
+        {step ? <div>
+            <StepItem userID={userID} step={step} stepID={router.query.stepid}
+                progress={progress} flowSteps={flowSteps} experiment={experiment}
+                onResponseAssess={(success) => {
+                    if (success){
+                        updateFlowProgressStateUponStepCompletion(router.query.stepid, progress, setProgress, flowSteps.length)
 
-                                setOpenResponseCheckResult({ status: 1, title: 'That\'s correct!', message: 'Good work.' })
+                        setOpenResponseCheckResult({ status: 1, title: 'That\'s correct!', message: 'Good work.' })
 
-                                setTimeout(() => {
-                                    // Get the next step and move to it.
-                                    var indexOfCurrentStep = flowSteps.findIndex(step => step.id === router.query.stepid)
+                        setTimeout(() => {
+                            // Get the next step and move to it.
+                            var indexOfCurrentStep = flowSteps.findIndex(step => step.id === router.query.stepid)
 
-                                    if (indexOfCurrentStep === flowSteps.length - 1){
-                                        setOpenResponseCheckResult({ status: 2, title: 'You are all wrapped up with this level!', message: 'Great job!' })
-
-                                    } else {
-                                        setOpenResponseCheckResult(false)
-                                        router.push(`/app/${router.query.appid}/flow/${router.query.flowid}/step/${flowSteps[indexOfCurrentStep + 1].id}${window.location.search}`)
-                                    }
-                                }, 2000)
-
+                            if (indexOfCurrentStep === flowSteps.length - 1){
+                                setOpenResponseCheckResult({ status: 2, title: 'You are all wrapped up with this level!', message: 'Great job!' })
 
                             } else {
-                                setOpenResponseCheckResult({ status: 0, title: 'That\'s not quite right', message: 'Try again!' })
-                                setTimeout(() => setOpenResponseCheckResult(false), 2000)
-
-                                updateDoc(flowProgressRef, {
-                                    [`steps.${router.query.stepid}.attempts`]: arrayUnion({
-                                        timestamp: Timestamp.now(), response: lastUserResponse
-                                    }),
-                                })
+                                setOpenResponseCheckResult(false)
+                                router.push(`/app/${router.query.appid}/flow/${router.query.flowid}/step/${flowSteps[indexOfCurrentStep + 1].id}${window.location.search}`)
                             }
-                        }
+                        }, 2000)
 
-                    }}
-                    response={lastUserResponse}
-                    setResponse={(id, value) => {
-                        setResponse({ ...response, [router.query.stepid]: {
-                            ...(response[router.query.stepid] ? response[router.query.stepid] : {}), [id]: value }
-                        })
-                    }}
-                    contentFormatting={applyExperimentToContentFormatting(step.contentFormatting, experiment, router.query.stepid)}
-                />
-            </div>)}
-        </GridLayout>
-        {<style jsx global>{`
-            .${styles.GridLayoutWrapper} .textAlign-center .public-DraftStyleDefault-ltr {
-                text-align: center
-            }
-        `}</style>}
-        {searchParams.has('ltik') ? <button
-          type="button" onClick={() => {
-              // Determine what the resource is and gather progress to submit.
-              var ltiResourceParts = searchParams.get('ltiResource').split('/'),
-                finalScore = 0
+                    } else {
+                        setOpenResponseCheckResult({ status: 0, title: 'That\'s not quite right', message: 'Try again!' })
+                        setTimeout(() => setOpenResponseCheckResult(false), 2000)
+                    }
+                }}
+            />
 
-              if (ltiResourceParts.length <= 3){
-                  // Fetch all flow IDs and their progress.
-                  getDoc(doc(db, "apps", router.query.appid)).then(docSnapshot => {
-                      var appData = docSnapshot.data()
+            {searchParams.has('ltik') ? <button
+              type="button" onClick={() => {
+                  // Determine what the resource is and gather progress to submit.
+                  var ltiResourceParts = searchParams.get('ltiResource').split('/'),
+                    finalScore = 0
 
-                      if (appData.flows){
-                          // var appProgressRef = query(collection(db, "users", userID, "progress"), where(documentId(), 'in', appData.flows))
-                          getFlowsProgress(db, userID, appData.flows).then(docsSnapshot => {
-                              var flowsProgress = {}
-                              docsSnapshot.forEach(doc => {
-                                  var stepID, stepProgress = doc.steps
-                                  for (stepID in stepProgress){
-                                      finalScore += (
-                                          stepProgress.hasOwnProperty(stepID) && stepProgress[stepID].completed ? 10 : 0)
-                                  }
+                  if (ltiResourceParts.length <= 3){
+                      // Fetch all flow IDs and their progress.
+                      getDoc(doc(db, "apps", router.query.appid)).then(docSnapshot => {
+                          var appData = docSnapshot.data()
+
+                          if (appData.flows){
+                              // var appProgressRef = query(collection(db, "users", userID, "progress"), where(documentId(), 'in', appData.flows))
+                              getFlowsProgress(db, userID, appData.flows).then(docsSnapshot => {
+                                  var flowsProgress = {}
+                                  docsSnapshot.forEach(doc => {
+                                      var stepID, stepProgress = doc.steps
+                                      for (stepID in stepProgress){
+                                          finalScore += (
+                                              stepProgress.hasOwnProperty(stepID) && stepProgress[stepID].completed ? 10 : 0)
+                                      }
+                                  })
+
+                                  submitScore(finalScore)
                               })
-
-                              submitScore(finalScore)
-                          })
-                      }
-                  })
-
-              } else {
-                  if (ltiResourceParts.length <= 5){
-                      var stepID
-                      for (stepID in progress.steps){
-                          finalScore += (
-                             progress.steps.hasOwnProperty(stepID) && progress.steps[stepID].completed ? 10 : 0)
-                      }
+                          }
+                      })
 
                   } else {
-                      finalScore += (
-                          progress.steps.hasOwnProperty(ltiResourceParts[6]) && progress.steps[ltiResourceParts[6]].completed ? 10 : 0)
-                  }
-              }
+                      if (ltiResourceParts.length <= 5){
+                          var stepID
+                          for (stepID in progress.steps){
+                              finalScore += (
+                                 progress.steps.hasOwnProperty(stepID) && progress.steps[stepID].completed ? 10 : 0)
+                          }
 
-              submitScore(finalScore)
-          }}
-          className="inline-flex items-center px-3 py-2 border border-transparent text-sm leading-4 font-medium rounded-md text-indigo-700 bg-indigo-100 hover:bg-indigo-200 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-indigo-500"
-        >
-          Finish and submit
-        </button> : null}
+                      } else {
+                          finalScore += (
+                              progress.steps.hasOwnProperty(ltiResourceParts[6]) && progress.steps[ltiResourceParts[6]].completed ? 10 : 0)
+                      }
+                  }
+
+                  submitScore(finalScore)
+              }}
+              className="inline-flex items-center px-3 py-2 border border-transparent text-sm leading-4 font-medium rounded-md text-indigo-700 bg-indigo-100 hover:bg-indigo-200 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-indigo-500"
+            >
+              Finish and submit
+            </button> : null}
         </div>: <div className='py-10'>
             <svg className="animate-spin h-5 w-5 text-black mx-auto" fill="none" viewBox="0 0 24 24">
                 <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4"></circle>
@@ -405,63 +268,6 @@ const Step = ({ userID }) => {
         </Transition.Root>
 
     </div>
-}
-
-
-const BoxBody = ({ content, response, checkResponse, setResponse, contentFormatting }) => {
-    if (!content)
-        return null
-
-    var formatting = {...(contentFormatting && contentFormatting[content.name] ? contentFormatting[content.name] : {})}
-    if (content.name === 'Check answer'){
-        return <div style={formatting}><button
-          type="button" onClick={checkResponse}
-          className="inline-flex items-center px-3 py-2 border border-transparent text-sm leading-4 font-medium rounded-md text-indigo-700 bg-indigo-100 hover:bg-indigo-200 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-indigo-500"
-        >
-          {content.name}
-        </button></div>
-    } else if (content.name.startsWith('Response')){
-        return <div>{content.body && content.body.map((responseItem, i) => {
-            var responseItemFormatting = {...(contentFormatting && contentFormatting[responseItem.id] ? contentFormatting[responseItem.id] : {})}
-            if (responseItem.kind === 'responsespace')
-                return <ResponseSpace key={i}
-                    responseItem={responseItem} setResponse={setResponse}
-                    response={response && response[responseItem.id]}
-                    formatting={responseItemFormatting}
-                />
-            else
-                return <span key={i} style={responseItemFormatting}><Editor editorState={responseItem.body ? EditorState.createWithContent(convertFromRaw(responseItem.body)) : EditorState.createEmpty()} readOnly={true} /></span>
-        })}</div>
-    } else {
-        return <div style={formatting}>
-            <Editor
-                blockStyleFn={blockStyleFn.bind(this, formatting)}
-                editorState={EditorState.createWithContent(convertFromRaw(content.body))}
-                readOnly={true}
-            />
-        </div>
-    }
-
-    return <div>{content.name}</div>
-}
-
-
-const ResponseSpace = ({ setResponse, responseItem, response, formatting }) => {
-    const router = useRouter()
-    const inputRef = useRef()
-
-    useEffect(() => {
-        if (response){
-            inputRef.current.value = response;
-        } else {
-            inputRef.current.value = '';
-        }
-    }, [router.query.stepid])
-
-    return <input type='text' ref={inputRef}
-        className={"shadow-sm focus:ring-indigo-500 focus:border-indigo-500 border-gray-300 rounded-md" + (formatting.display === 'inline-block' ? '' : ' block w-full')}
-        onChange={(event) => setResponse(responseItem.id, event.target.value) }
-    />
 }
 
 

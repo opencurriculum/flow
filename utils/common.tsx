@@ -53,7 +53,7 @@ export function applyExperimentToLayoutContent(layoutContent, experiment, stepID
         var updatedLayoutContent = extend({}, layoutContent)
 
         const groupIndex = experiment.groups && experiment.groups.findIndex(group => group.name === experiment.current)
-        experiment.groups && experiment.groups[groupIndex].steps[stepID].forEach(change => {
+        experiment.groups && experiment.groups[groupIndex].steps[stepID] && experiment.groups[groupIndex].steps[stepID].forEach(change => {
             if (change.prop === 'layoutContent'){
                 if (change.op === 'remove'){
                     delete updatedLayoutContent[change.id]
@@ -78,7 +78,7 @@ export function applyExperimentToContentFormatting(contentFormatting, experiment
         var updatedContentFormatting = extend({}, contentFormatting)
 
         const groupIndex = experiment.groups && experiment.groups.findIndex(group => group.name === experiment.current)
-        experiment.groups && experiment.groups[groupIndex].steps[stepID].forEach(change => {
+        experiment.groups && experiment.groups[groupIndex].steps[stepID] && experiment.groups[groupIndex].steps[stepID].forEach(change => {
             if (change.prop === 'contentFormatting'){
                 if (change.op === 'remove'){
                     delete updatedContentFormatting[change.id][change.value.property]
@@ -104,7 +104,7 @@ export function applyExperimentToLayout(layout, experiment, stepID){
         var updatedLayout = layout
 
         const groupIndex = experiment.groups && experiment.groups.findIndex(group => group.name === experiment.current)
-        experiment.groups && experiment.groups[groupIndex].steps[stepID].forEach(change => {
+        experiment.groups && experiment.groups[groupIndex].steps[stepID] && experiment.groups[groupIndex].steps[stepID].forEach(change => {
             if (change.prop === 'layout'){
                 updatedLayout = JSON.parse(change.value)
             }
@@ -114,4 +114,18 @@ export function applyExperimentToLayout(layout, experiment, stepID){
     }
 
     return layout
+}
+
+
+export function updateFlowProgressStateUponStepCompletion(stepID, progress, setProgress, numberOfSteps){
+    setProgress({
+        ...progress, completed: progress.completed + 100 / numberOfSteps,
+        steps: {
+            ...(progress.steps || {}),
+            [stepID]: {
+                ...((progress.steps && progress.steps[stepID]) || {}),
+                completed: 100
+            }
+        }
+    })
 }

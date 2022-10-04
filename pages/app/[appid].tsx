@@ -117,7 +117,7 @@ const UserApp: NextPage = ({ userID }: AppProps) => {
                 }
             })
         }
-    }, [])
+    }, [router.query.appid])
 
     return <div>
         <Head>

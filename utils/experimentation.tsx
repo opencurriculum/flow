@@ -1,0 +1,121 @@
+import {getDoc, doc, updateDoc} from "firebase/firestore"
+import Link from 'next/link'
+
+
+export const ExperimentHeader = ({ experiment }) => {
+    var groups = experiment && experiment.groups ? [{ name: 'All' }].concat(experiment.groups).map((group, i) => {
+        const url = new URL(window.location.href)
+        var searchParams = new URLSearchParams(window.location.search)
+        searchParams.set('group', group.name)
+        url.search = new URLSearchParams(searchParams)
+
+        return { url, name: group.name }
+    }) : null
+
+    return experiment ? <header className="bg-slate-600 text-white">
+      <div className="mx-auto max-w-7xl px-4 sm:px-6 lg:px-8">
+          <div>
+            <div className="sm:hidden">
+              <label htmlFor="tabs" className="sr-only">
+                Select a group
+              </label>
+              {/* Use an "onChange" listener to redirect the user to the selected tab URL. */}
+              <select
+                id="tabs"
+                name="tabs"
+                className="block w-full rounded-md border-gray-300 py-2 pl-3 pr-10 text-base focus:border-indigo-500 focus:outline-none focus:ring-indigo-500 sm:text-sm"
+                defaultValue={groups && experiment && experiment.current && groups.find((group) => group.name === (experiment && experiment.current)).name}
+              >
+                {groups && groups.map((group) => (
+                  <option key={group.name}>{group.name}</option>
+                ))}
+              </select>
+            </div>
+            <div className="hidden sm:block relative">
+              <div>
+                <nav className="-mb-px h-12 flex items-center justify-between" aria-label="Tabs">
+                    <div className="hidden md:block space-x-8">
+                      {groups && groups.map((group) => <Link href={group.url.toString()} key={group.name}>
+                          <a className={experiment && experiment.current === group.name ? ' font-bold' : ''}>
+                              {group.name === 'All' ? group.name : `Group ${group.name}`}
+                          </a>
+                      </Link>)}
+                    </div>
+                </nav>
+              </div>
+
+              <div className='absolute top-0 right-0 pt-4 pr-4'>
+                  {experiment && experiment.groups ? <a onClick={() => {
+                      if (window.confirm('Are you sure you want to remove your experiment? This will delete all the changes you have made to individual groups. It will, however, preserve the "All" group')){
+                          setExperiment()
+                      }
+                  }}>Remove experiment</a> : null}
+              </div>
+
+            </div>
+          </div>
+      </div>
+    </header> : null
+}
+
+
+function assignExperimentGroupToStudent(db, experimentData, newGroupIndex, userID, experimentID){
+    var newGroups
+    if (!experimentData.groups[newGroupIndex].users){
+        newGroups = { [newGroupIndex]: { users: { $set: [userID] } } }
+    } else {
+        newGroups = { [newGroupIndex]: { users: { $push: [userID] } } }
+    }
+
+    updateDoc(doc(db, "experiments", experimentID), { groups: update(experimentData.groups, newGroups) })
+}
+
+
+export function getOrInitializeFlowExperiment(db, flowID, userID, group, setExperiment){
+    getDoc(doc(db, "flows", flowID)).then(docSnapshot => {
+        if (docSnapshot.data().experiment){
+            getDoc(docSnapshot.data().experiment).then(docSnapshot => {
+                var experimentData = docSnapshot.data(), currentlyAssignedGroup
+
+                if (group){
+                    currentlyAssignedGroup = experimentData.groups.find(g => g.name === group)
+
+                } else {
+                    // Not really random at all. Yet.
+                    var existingDistribution = [], totalUserCount = 0
+                    currentlyAssignedGroup = experimentData.groups.find((g, i) => {
+                        if (g.users && g.users.indexOf(userID) !== -1){
+                            return true
+                        }
+
+                        totalUserCount += existingDistribution[i] = g.users ? g.users.length : 0
+                    })
+
+                    if (!currentlyAssignedGroup){
+                        Object.keys(existingDistribution).forEach(groupIndex => {
+                            if ((existingDistribution[groupIndex] / totalUserCount) < experimentData.groups[groupIndex].weight){
+                                // Assign this group.
+                                assignExperimentGroupToStudent(db, experimentData, groupIndex, userID, docSnapshot.id)
+
+                                currentlyAssignedGroup = experimentData.groups[groupIndex]
+                            }
+                        })
+
+                        if (!currentlyAssignedGroup){
+                            var newGroupIndex = Math.floor(Math.random() * experimentData.groups.length)
+
+                            // Assign this group.
+                            assignExperimentGroupToStudent(db, experimentData, newGroupIndex, userID, docSnapshot.id)
+
+                            currentlyAssignedGroup = experimentData.groups[newGroupIndex]
+                        }
+                    }
+                }
+
+                experimentData.current = currentlyAssignedGroup.name
+
+                setExperiment(experimentData)
+            })
+        }
+    })
+}
