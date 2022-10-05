@@ -124,7 +124,7 @@ const WYSIWYGPanels = ({ context, layout, onLayoutChange, onDrop, layoutContent,
             {selectedContent ? <Formatting
                 selectedContent={selectedContent}
                 contentFormatting={formatting}
-                update={updateFormatting}
+                update={(property, value) => updateFormatting(selectedContent, property, value)}
             /> : null}
 
         </div>

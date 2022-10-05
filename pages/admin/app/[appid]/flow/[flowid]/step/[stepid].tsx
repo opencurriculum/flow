@@ -399,7 +399,7 @@ const Step: NextPageWithLayout = ({ userID }) => {
             updateLayoutContent={updateLayoutContent}
 
             formatting={experimentAppliedContentFormatting}
-            updateFormatting={(property, value) => {
+            updateFormatting={(selectedContent, property, value) => {
                 // If there is part of an experiment condition, set the changed formatting there.
                 if (experiment && experiment.current !== 'All'){
                     const groupIndex = experiment.groups.findIndex(group => group.name === experiment.current)

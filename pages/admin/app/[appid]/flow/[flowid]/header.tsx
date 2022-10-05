@@ -120,7 +120,7 @@ const Header: NextPage = ({ userID }: AppProps) => {
             }}
 
             formatting={contentFormatting}
-            updateFormatting={(property, value) => {
+            updateFormatting={(selectedContent, property, value) => {
                 // If there is part of an experiment condition, set the changed formatting there.
                 var newFormatting = { ...(contentFormatting || {}), [selectedContent] : {
                     ...(contentFormatting && contentFormatting[selectedContent] ? contentFormatting[selectedContent] : {}),
