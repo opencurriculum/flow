@@ -126,7 +126,7 @@ const FlowStepItem = ({ step, userID, progress, setProgress, steps, experiment, 
     var [responseStatus, setResponseStatus] = useState(
         progress && progress.steps && progress.steps[step.id] ? (progress.steps[step.id].completed === 100 ? { status: 1 } : undefined) : undefined)
 
-    return <div className='flex'>
+    return <div className='flex py-6 m-6 border-b border-gray-200'>
         <div className='flex-grow'>
             <StepItem userID={userID} step={step} stepID={step.id}
                 progress={progress} flowSteps={steps}
