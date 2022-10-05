@@ -34,10 +34,10 @@ const Header: NextPage = ({ userID }: AppProps) => {
         setLayout(snapshotData.header && snapshotData.header.layout ? snapshotData.header.layout : initialLayout)
 
         if (snapshotData.header && snapshotData.header.layoutContent)
-            setLayoutContent(snapshotData.layoutContent)
+            setLayoutContent(snapshotData.header.layoutContent)
 
         if (snapshotData.header && snapshotData.header.contentFormatting)
-            setContentFormatting(snapshotData.contentFormatting)
+            setContentFormatting(snapshotData.header.contentFormatting)
     }
 
     useEffect(() => {
@@ -51,7 +51,6 @@ const Header: NextPage = ({ userID }: AppProps) => {
     }, [router.query.flowid])
 
     useEffect(() => {
-        console.log()
         if (layout && layoutRef.current && diff(layoutRef.current, layout)){
             updateDoc(doc(db, "flows", router.query.flowid), { 'header.layout': layout })
         }
@@ -60,7 +59,7 @@ const Header: NextPage = ({ userID }: AppProps) => {
     }, [layout])
 
     useEffect(() => {
-        if (Object.keys(layoutContent).length && JSON.stringify(layoutContentRef.current) !== JSON.stringify(layoutContent)){
+        if (layoutContent && Object.keys(layoutContent).length && JSON.stringify(layoutContentRef.current) !== JSON.stringify(layoutContent)){
             updateDoc(doc(db, "flows", router.query.flowid), { 'header.layoutContent': layoutContent })
         }
 

@@ -80,7 +80,7 @@ const WYSIWYGPanels = ({ context, layout, onLayoutChange, onDrop, layoutContent,
         </div>
 
         <div className='flex-auto relative overflow-auto'>
-            {layout ? <div className={styles.GridLayoutWrapper + ' absolute'} style={{ width: '800px' }}>
+            {layout && layoutContent ? <div className={styles.GridLayoutWrapper + ' absolute'} style={{ width: '800px' }}>
                 <GridLayout
                   className="layout"
                   layout={layout}
