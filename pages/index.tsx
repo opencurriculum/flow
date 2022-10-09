@@ -10,7 +10,7 @@ import Cookies from 'js-cookie'
 const Home: NextPage = () => {
     const router = useRouter()
     useEffect(() => {
-        if (Cookies.get('newUser')){
+        if (!Cookies.get('newUser')){
             Cookies.remove('newUser')
             router.replace('/admin')
         } else {

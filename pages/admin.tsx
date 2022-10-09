@@ -18,19 +18,21 @@ const Admin: NextPage = ({ userID }: AppProps) => {
 
     useEffect(() => {
         getDoc(doc(db, "users", userID)).then(docSnapshot => {
-            var user = docSnapshot.data(),
-                appIDs = user.apps || []
+            if (docSnapshot.exists()){
+                var user = docSnapshot.data(),
+                    appIDs = user.apps || []
 
-            setUser(user)
-            nameRef.current.value = user.name || ''
-            websiteRef.current.value = user.website || ''
+                setUser(user)
+                nameRef.current.value = user.name || ''
+                websiteRef.current.value = user.website || ''
 
-            if (appIDs.length){
-                getDocs(query(collection(db, "apps"), where(documentId(), 'in', appIDs))).then(docsSnapshot => {
-                    var unsortedApps = []
-                    docsSnapshot.forEach(doc => unsortedApps.push({ id: doc.id, ...doc.data() }))
-                    setApps(unsortedApps.sort(app => appIDs.indexOf(app.id)))
-                })
+                if (appIDs.length){
+                    getDocs(query(collection(db, "apps"), where(documentId(), 'in', appIDs))).then(docsSnapshot => {
+                        var unsortedApps = []
+                        docsSnapshot.forEach(doc => unsortedApps.push({ id: doc.id, ...doc.data() }))
+                        setApps(unsortedApps.sort(app => appIDs.indexOf(app.id)))
+                    })
+                }
             }
         })
     }, [])
