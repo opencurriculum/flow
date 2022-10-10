@@ -15,7 +15,7 @@ import Link from 'next/link'
 import Layout from '../../../../../../../components/admin-layout'
 import { useFirestore } from 'reactfire'
 import Head from 'next/head'
-import { ExperimentHeader } from '../../../../../../../utils/experimentation'
+import { ExperimentHeader } from '../../../../../../../components/experimentation'
 import WYSIWYGPanels, {ContentInput} from '../../../../../../../components/wysiwyg'
 
 
