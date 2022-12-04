@@ -425,7 +425,7 @@ export const TabbedPageHeader = ({ children, page, tabs }) => {
 
     return <div className='h-full bg-gray-100 flex-auto'>
         <div className="min-h-full">
-            <header className="bg-white shadow">
+            {tabs && tabs.length ? <header className="bg-white shadow">
               <div className="mx-auto max-w-7xl px-4 sm:px-6 lg:px-8">
                   <div>
                     <div className="sm:hidden">
@@ -437,9 +437,9 @@ export const TabbedPageHeader = ({ children, page, tabs }) => {
                         id="tabs"
                         name="tabs"
                         className="block w-full rounded-md border-gray-300 py-2 pl-3 pr-10 text-base focus:border-indigo-500 focus:outline-none focus:ring-indigo-500 sm:text-sm"
-                        defaultValue={tabs?.flat().find((tab) => tab.current).name}
+                        defaultValue={tabs.flat().find((tab) => tab.current).name}
                       >
-                        {tabs?.flat().map((tab) => (
+                        {tabs.flat().map((tab) => (
                           <option key={tab.name}>{tab.name}</option>
                         ))}
                       </select>
@@ -448,17 +448,17 @@ export const TabbedPageHeader = ({ children, page, tabs }) => {
                       <div>
                         <nav className="-mb-px h-12 flex items-center justify-between" aria-label="Tabs">
                               <div className="hidden md:block space-x-8">
-                                  {tabs && tabs[0].map((tab) => <Tab tab={tab} key={tab.name} />)}
+                                  {tabs[0].map((tab) => <Tab tab={tab} key={tab.name} />)}
                               </div>
                               <div className="hidden md:block space-x-8">
-                                  {tabs && tabs[1].map((tab) => <Tab tab={tab} key={tab.name} />)}
+                                  {tabs[1].map((tab) => <Tab tab={tab} key={tab.name} />)}
                             </div>
                         </nav>
                       </div>
                     </div>
                   </div>
               </div>
-            </header>
+            </header> : null}
 
             <main>
               <div className="mx-auto max-w-7xl py-6 sm:px-6 lg:px-8">

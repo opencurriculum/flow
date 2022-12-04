@@ -4,6 +4,7 @@ import {useState, useEffect, useRef} from 'react'
 import { collection, getDocs, setDoc, getDoc, doc, updateDoc,
     getCollection, arrayUnion, writeBatch, deleteDoc, serverTimestamp } from "firebase/firestore"
 import { useRouter } from 'next/router'
+import Router from 'next/router'
 import Link from 'next/link'
 import { v4 as uuidv4 } from 'uuid'
 import { useDrag, useDrop, DndProvider } from 'react-dnd'
@@ -211,9 +212,12 @@ const Flow: NextPageWithLayout = ({ userID }: AppProps) => {
 
 
 export function getTabs(page, router){
-    var urlProps = { appid: router.query.appid, flowid: router.query.flowid },
+    const appid = Router.router?.state.query.appid,
+        flowid = Router.router?.state.query.flowid
+
+    var urlProps = { appid, flowid },
         subpagePathname = '/admin/app/[appid]/flow/[flowid]/[subpage]',
-        baseURL = `/admin/app/${router.query.appid}/flow/${router.query.flowid}`
+        baseURL = appid && flowid ? `/admin/app/${appid}/flow/${flowid}` : ''
 
     return [
       [{ name: 'Steps', href: baseURL, current: !page }],
@@ -228,10 +232,9 @@ export function getTabs(page, router){
 
 
 Flow.getLayout = function getLayout(page: ReactElement) {
-    const router = useRouter()
   return (
     <Layout>
-        <TabbedPageLayout tabs={getTabs(null, router)}>
+        <TabbedPageLayout tabs={getTabs(null)}>
             {page}
         </TabbedPageLayout>
     </Layout>

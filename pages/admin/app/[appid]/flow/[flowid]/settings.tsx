@@ -96,7 +96,6 @@ const Settings: NextPageWithLayout = ({ userID }: AppProps) => {
 
 
 Settings.getLayout = function getLayout(page: ReactElement) {
-    const router = useRouter()
   return (
     <Layout>
         <TabbedPageLayout tabs={getTabs('settings', router)}>
