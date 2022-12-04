@@ -1,17 +1,19 @@
-import Layout from '../../../../../../components/admin-layout'
+import Layout, { TabbedPageLayout } from '../../../../../../components/admin-layout'
 import type { NextPageWithLayout } from '../../../_app'
 import {useState, useEffect, useRef} from 'react'
-import {FlowLayout} from '../[flowid]'
 import {
     getDoc, doc, updateDoc
 } from "firebase/firestore"
 import { useRouter } from 'next/router'
 import { useFirestore } from 'reactfire'
 import Link from 'next/link'
+import {getTabs} from '../[flowid]'
 
 
 const Settings: NextPageWithLayout = ({ userID }: AppProps) => {
-    var singlePageFlowRef = useRef()
+    var singlePageFlowRef = useRef(),
+        assignStepsIndividuallyRef = useRef()
+
     const router = useRouter(),
         db = useFirestore()
 
@@ -21,11 +23,12 @@ const Settings: NextPageWithLayout = ({ userID }: AppProps) => {
                 var flowData = docSnapshot.data()
                 // setApp(appData)
                 singlePageFlowRef.current.checked = flowData.singlePageFlow || false
+                assignStepsIndividuallyRef.current.checked = flowData.assignStepsIndividually || false
             })
         }
     }, [router.query.appid])
 
-    return <FlowLayout page='settings'>
+    return <>
         <div className="relative flex items-start">
           <div className="flex h-5 items-center">
             <input
@@ -64,19 +67,40 @@ const Settings: NextPageWithLayout = ({ userID }: AppProps) => {
                   Add footer
                 </button>*/}
             </div>
-
           </div>
+          </div>
+
+
+            <div className="relative flex items-start">
+              <div className="flex h-5 items-center">
+                <input
+                  ref={assignStepsIndividuallyRef}
+                  aria-describedby="assignStepsIndividually-description"
+                  name="assignStepsIndividually"
+                  type="checkbox"
+                  className="h-4 w-4 rounded border-gray-300 text-indigo-600 focus:ring-indigo-500"
+                  onChange={(event) => updateDoc(doc(db, "flows", router.query.flowid), { assignStepsIndividually: event.target.checked })}
+                />
+              </div>
+              <div className="ml-3 text-sm">
+                <label htmlFor="comments" className="font-medium text-gray-700">
+                  Assign steps individually
+                </label>
+                <p id="comments-description" className="text-gray-500">
+                  Instead of students progressing through the flow as they make progress on step-after-step, let me manually assign each step. This will also turn off auto-progress on successful completion to a step.
+                </p>
+            </div>
         </div>
-
-
-    </FlowLayout>
+    </>
 }
 
 
 Settings.getLayout = function getLayout(page: ReactElement) {
   return (
     <Layout>
-      {page}
+        <TabbedPageLayout tabs={getTabs('settings')}>
+            {page}
+        </TabbedPageLayout>
     </Layout>
   )
 }

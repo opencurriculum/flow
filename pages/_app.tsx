@@ -4,9 +4,10 @@ import {useEffect, useState} from 'react'
 import Cookies from 'js-cookie'
 import { v4 as uuidv4 } from 'uuid'
 import type { ReactElement, ReactNode } from 'react'
-import { FirebaseAppProvider, FirestoreProvider, AnalyticsProvider, useFirebaseApp } from 'reactfire';
+import { FirebaseAppProvider, FirestoreProvider, AnalyticsProvider, StorageProvider, useFirebaseApp } from 'reactfire';
 import { getAnalytics, isSupported } from "firebase/analytics"
 import { getFirestore, connectFirestoreEmulator, enableIndexedDbPersistence } from "firebase/firestore"
+import { getStorage } from "firebase/storage";
 
 
 export type NextPageWithLayout<P = {}, IP = P> = NextPage<P, IP> & {
@@ -53,6 +54,7 @@ function MyApp({ Component, pageProps }: AppPropsWithLayout) {
 function DatabaseSupportedApp({ children }){
     const app = useFirebaseApp()
     var firestoreInstance = getFirestore()
+    const storage = getStorage()
 
     var analyticsInstance
 
@@ -70,7 +72,9 @@ function DatabaseSupportedApp({ children }){
     }
 
     return <FirestoreProvider sdk={firestoreInstance}>
-        {analyticsInstance ? <AnalyticsProvider sdk={analyticsInstance}>{children}</AnalyticsProvider> : children}
+        <StorageProvider sdk={storage}>
+            {analyticsInstance ? <AnalyticsProvider sdk={analyticsInstance}>{children}</AnalyticsProvider> : children}
+        </StorageProvider>
     </FirestoreProvider>
 }
 

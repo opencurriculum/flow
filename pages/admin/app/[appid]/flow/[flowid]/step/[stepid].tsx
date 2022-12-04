@@ -7,9 +7,9 @@ import { useRouter } from 'next/router'
 import { v4 as uuidv4 } from 'uuid'
 import {
     applyExperimentToLayoutContent,
-    applyExperimentToContentFormatting, applyExperimentToLayout
-} from '../../../../../../../utils/common.tsx'
-import { ArrowUpIcon, ArrowDownIcon } from '@heroicons/react/24/solid'
+    applyExperimentToContentFormatting, applyExperimentToLayout,
+    applyExperimentToResponseCheck
+} from '../../../../../../../utils/experimentation.tsx'
 import update from 'immutability-helper'
 import Link from 'next/link'
 import Layout from '../../../../../../../components/admin-layout'
@@ -17,6 +17,10 @@ import { useFirestore } from 'reactfire'
 import Head from 'next/head'
 import { ExperimentHeader } from '../../../../../../../components/experimentation'
 import WYSIWYGPanels, {ContentInput} from '../../../../../../../components/wysiwyg'
+import { ResponseTemplate } from '../../../../../../../components/content-types'
+import { StepContentTypes, applyEventsToLayoutContent } from '../../../../../../../utils/common'
+import PropertyEditor from '../../../../../../../components/property-editor'
+import jsonDiff from 'json-diff'
 
 
 const initialLayout = [
@@ -43,6 +47,26 @@ const initialExperiment = (router) => ({
 })
 
 
+export const EventsHeader = ({ events }) => {
+    const router = useRouter()
+    var searchParams = typeof window !== 'undefined' ? new URLSearchParams(window.location.search) : new URLSearchParams()
+
+    return events?.current ? <header className="bg-red-600 text-white">
+      <div className="mx-auto max-w-7xl px-4 sm:px-6 lg:px-8">
+        You are on click
+        <span onClick={() => {
+            const url = new URL(window.location.href)
+            searchParams.delete('event:click')
+            url.search = new URLSearchParams(searchParams)
+
+            router.push(url.toString())
+
+        }}>Exit</span>
+      </div>
+    </header> : null
+}
+
+
 const Step: NextPageWithLayout = ({ userID }) => {
     const [step, setStep] = useState()
 
@@ -54,14 +78,23 @@ const Step: NextPageWithLayout = ({ userID }) => {
     const [contentFormatting, setContentFormatting] = useState(null)
     const contentFormattingRef = useRef(null)
 
-    const [responseFormatChangeOpen, setResponseChangeFormatOpen] = useState(false)
-    const [selectedResponseTemplateItems, setSelectedResponseTemplateItems] = useState([])
     const [responseCheck, setResponseCheck] = useState(null)
     const responseCheckRef = useRef(null)
 
     const [flow, setFlow] = useState()
     const [experiment, setExperiment] = useState()
     const experimentRef = useRef()
+
+    const [events, setEvents] = useState()
+    const eventsRef = useRef()
+
+
+    // const [responseFormatChangeOpen, setResponseChangeFormatOpen] = useState(false)
+    // const [selectedResponseTemplateItems, setSelectedResponseTemplateItems] = useState([])
+
+    const [contentSettings, setContentSettings] = useState({})
+
+    var searchParams = typeof window !== 'undefined' ? new URLSearchParams(window.location.search) : new URLSearchParams()
 
     const router = useRouter(),
         db = useFirestore()
@@ -147,21 +180,100 @@ const Step: NextPageWithLayout = ({ userID }) => {
     }, [experiment])
 
 
+
+    useEffect(() => {
+        if (step){
+            if (!events){
+                // If existing events are not not locally initialized.
+                if (step.events){
+                    // Get the events and initialize it.
+                    eventsRef.current = step.events
+
+                    if (router.query['event:click'])
+                        eventsRef.current.current = router.query['event:click']
+
+                    setEvents(eventsRef.current)
+
+                // Or just set what's current.
+                } else if (router.query['event:click']){
+                    setEvents({
+                        current: router.query['event:click']
+                    })
+                }
+
+            } else {
+                if (router.query['event:click'] !== events.current){
+                    if (router.query['event:click']){
+                        eventsRef.current = {
+                            ...events, current: router.query['event:click'],
+                            [router.query['event:click']]: (events[router.query['event:click']] || { 'click': [] })
+                        }
+
+                    } else {
+                        eventsRef.current = { ...events }
+                        delete eventsRef.current.current
+                    }
+
+                    setEvents(eventsRef.current)
+                }
+            }
+        }
+    }, [step, router.query['event:click']])
+
+    useEffect(() => {
+        if (eventsRef.current !== events){
+            // Save the parts that need to be persisted.
+            if (!events && Object.keys(eventsRef.current).length === 1){
+            //     updateDoc(doc(db, "flows", router.query.flowid, 'steps', router.query.stepid), { events: deleteField() })
+            //
+            //     experimentRef.current = experiment
+            //
+            //     const url = new URL(window.location.href)
+            //     searchParams.delete('group')
+            //     url.search = new URLSearchParams(searchParams)
+            //
+            //     router.push(url.toString())
+            //
+            } else if (eventsRef.current){
+                updateDoc(doc(db, "flows", router.query.flowid, 'steps', router.query.stepid), {
+                    events: update(events, { $unset: ['current'] })
+                })
+
+                eventsRef.current = events
+            //
+            } else {
+                eventsRef.current = { ...events }
+                updateDoc(doc(db, "flows", router.query.flowid, 'steps', router.query.stepid), {
+                    events: { [eventsRef.current.current]: { 'click': [] } }
+                })
+
+                setEvents(eventsRef.current)
+            }
+        }
+    }, [events])
+
+
+
+
     var setInitialData = (docSnapshot) => {
         var snapshotData = docSnapshot.data()
 
-        setStep({ name: snapshotData.name || '' })
+        var step = { name: snapshotData.name || '' }
+        if (snapshotData.events)
+            step.events = snapshotData.events
+
+        setStep(step)
 
         setLayout({ body: snapshotData.layout ? JSON.parse(snapshotData.layout) : initialLayout })
 
         if (snapshotData.layoutContent)
             setLayoutContent(JSON.parse(snapshotData.layoutContent))
 
-        if (snapshotData.responseCheck)
-            setResponseCheck(snapshotData.responseCheck)
-
         if (snapshotData.contentFormatting)
             setContentFormatting(snapshotData.contentFormatting)
+
+        if (snapshotData.responseCheck)
+            setResponseCheck(snapshotData.responseCheck)
     }
 
     useEffect(() => {
@@ -244,7 +356,7 @@ const Step: NextPageWithLayout = ({ userID }) => {
     }, [layout])
 
     useEffect(() => {
-        if (Object.keys(layoutContent).length && JSON.stringify(layoutContentRef.current) !== JSON.stringify(layoutContent)){
+        if (layoutContentRef.current && JSON.stringify(layoutContentRef.current) !== JSON.stringify(layoutContent)){
             updateDoc(doc(db, "flows", router.query.flowid, 'steps', router.query.stepid), {
                 layoutContent: JSON.stringify(layoutContent)
             })
@@ -272,40 +384,129 @@ const Step: NextPageWithLayout = ({ userID }) => {
     if (!router.query.stepid)
         return null
 
-    var updateLayoutContent = (id, value) => {
-        // If there is part of an experiment condition, set the layout content there.
-        if (experiment && experiment.current !== 'All'){
-            const groupIndex = experiment.groups.findIndex(group => group.name === experiment.current)
 
+
+    var experimentAppliedContentFormatting = applyExperimentToContentFormatting(contentFormatting, experiment, router.query.stepid),
+        experimentAppliedLayout = applyExperimentToLayout(layout && layout.body, experiment, router.query.stepid),
+        experimentAppliedLayoutContent = applyEventsToLayoutContent(
+            applyExperimentToLayoutContent(layoutContent, experiment, router.query.stepid), events
+        ),
+        experimentAppliedResponseCheck = applyExperimentToResponseCheck(responseCheck, experiment, router.query.stepid)
+
+
+
+    var updateLayoutContent = (id, value) => {
+        // Determine which wrapper the edits should go in.
+        var edits, groupIndex, experimentStep,
+            setEdits
+
+        if (eventsRef.current && eventsRef.current.current){
+            edits = eventsRef.current[eventsRef.current.current] && eventsRef.current[eventsRef.current.current].click
+
+            setEdits = (change) => {
+                setEvents(events => {
+                    var updater = (es, c) => update(es, { [eventsRef.current.current]: { click: c } })
+
+                    if (typeof(change) === 'function'){
+                        return change(
+                            events,
+                            e => e[eventsRef.current.current].click,
+                            // (es, c) => update(es[eventsRef.current.current].click, c)
+                            updater
+                        )
+                    }
+
+                    return updater(events, change)
+                })
+            }
+
+        } else if (experimentRef.current && experimentRef.current.current !== 'All'){
+            const groupIndex = experimentRef.current.groups.findIndex(group => group.name === experimentRef.current.current),
+                experimentStep = experimentRef.current.groups[groupIndex].steps[router.query.stepid]
+
+            edits = experimentStep
+
+            setEdits = (change) => {
+                setExperiment(experiment => {
+                    var updater = (es, c) => update(es, { groups: { [groupIndex]: { steps: { [router.query.stepid]: c } } } })
+
+                    if (typeof(change) === 'function'){
+                        return change(
+                            experiment,
+                            (e) => e.groups[groupIndex].steps[router.query.stepid],
+                            updater
+                        )
+                    }
+
+                    return updater(experiment, change)
+                })
+            }
+        }
+
+        /* Determine the last content value to see if there has been a change from it.*/
+        var lastEdit
+        if (eventsRef.current && eventsRef.current.current){
+            lastEdit = eventsRef.current[eventsRef.current.current] && eventsRef.current[eventsRef.current.current].click.reverse(
+                ).find(change => change.prop === 'layoutContent' && change.id === id && change.op !== 'remove')
+        }
+        if (!lastEdit && experimentRef.current && experimentRef.current.current !== 'All'){
+            const groupIndex = experimentRef.current.groups.findIndex(group => group.name === experimentRef.current.current),
+                experimentStep = experimentRef.current.groups[groupIndex].steps[router.query.stepid]
+
+            lastEdit = experimentStep.reverse().find(
+                change => change.prop === 'layoutContent' && change.id === id && change.op !== 'remove')
+        }
+        if (!lastEdit && layoutContent.hasOwnProperty(id)){
+            lastEdit = layoutContent[id]
+        }
+        if (lastEdit && value?.body?.hasOwnProperty('entityMap')){
+            if (!jsonDiff.diff(lastEdit.body, value?.body)){
+                return
+            }
+        }
+        /* End of last edit determination */
+
+        // If there is part of an experiment condition, set the layout content there.
+        if (edits){
             if (!value){
-                setExperiment(
-                    update(experiment, { groups: { [groupIndex]: { steps: { [router.query.stepid]: {$push: [{ prop: 'layoutContent', id, op: 'remove' }] } } } } })
-                )
+                // If this was added as a part of the experiment, remove all the
+                var addEdits = edits.filter(change => change.prop === 'layoutContent' && change.id === id && ['add', 'edit'].indexOf(change.op) !== -1)
+
+                if (addEdits.length){
+                    setEdits((edits, finder, updater) => {
+                        var updatedEdits = edits, indexOfAddEdit
+
+                        addEdits.forEach(addEdit => {
+                            indexOfAddEdit = finder ? finder(updatedEdits) : updatedEdits.indexOf(addEdit)
+                            updatedEdits = updater(updatedEdits, {$splice: [[indexOfAddEdit, 1]] })
+                        })
+
+                        return updatedEdits
+                    })
+
+                } else {
+                    // Else, remove it from the main step.
+                    setEdits({$push: [{ prop: 'layoutContent', id, op: 'remove' }]})
+                }
+
             } else {
                 // If this is an edit.
-                var editToDefault = layoutContent.hasOwnProperty(id),
-                    indexOfChange = experiment.groups[groupIndex].steps[router.query.stepid].findIndex(change => change.prop === 'layoutContent' && change.id === id && change.op !== 'remove')
+                var editToDefault = experimentAppliedLayoutContent.hasOwnProperty(id),
+                    indexOfChange = edits.findIndex(change => change.prop === 'layoutContent' && change.id === id && change.op !== 'remove')
 
                 if (indexOfChange !== -1){
-                    setExperiment(
-                        update(experiment, { groups: { [groupIndex]: { steps: { [router.query.stepid]: { [indexOfChange]: { value: {$set: value}, prop: {$set: 'layoutContent'} }} } } } })
-                    )
+                    setEdits({ [indexOfChange]: { value: {$merge: value}, prop: {$set: 'layoutContent'} }})
 
                 } else if (editToDefault) {
-                    setExperiment(
-                        update(experiment, { groups: { [groupIndex]: { steps: { [router.query.stepid]: {$push: [{ prop: 'layoutContent', id, op: 'edit', value } ] } } } } })
-                    )
+                    setEdits({$push: [{ prop: 'layoutContent', id, op: 'edit', value } ] })
 
                 // If this is an add.
                 } else {
-                    setExperiment(
-                        update(experiment, { groups: { [groupIndex]: { steps: { [router.query.stepid]: {$push: [{ prop: 'layoutContent', id, op: 'add', value } ] } } } } })
-                    )
+                    setEdits({$push: [{ prop: 'layoutContent', id, op: 'add', value } ] })
                 }
             }
 
         } else {
-
             if (value){
                 if (layoutContent.hasOwnProperty(id)){
                     layoutContent[id] = { ...layoutContent[id], ...value }
@@ -313,18 +514,182 @@ const Step: NextPageWithLayout = ({ userID }) => {
                     layoutContent[id] = value
                 }
             } else {
-                if (contentFormatting.hasOwnProperty(layoutContent[id].name)){
+                if (contentFormatting && contentFormatting.hasOwnProperty(layoutContent[id].name)){
                     var newContentFormatting = {...contentFormatting}
                     delete newContentFormatting[layoutContent[id].name]
                     setContentFormatting(newContentFormatting)
                 }
 
-                delete layoutContent[id]
+                layoutContent = update(layoutContent, { $unset: [id] })
             }
 
             setLayoutContent({ ...layoutContent })
         }
+
+
+
+        /*
+        // If there is part of an experiment condition, set the layout content there.
+        if (experimentRef.current && experimentRef.current.current !== 'All'){
+            const groupIndex = experimentRef.current.groups.findIndex(group => group.name === experimentRef.current.current),
+                experimentStep = experimentRef.current.groups[groupIndex].steps[router.query.stepid]
+
+            if (!value){
+                // If this was added as a part of the experiment, remove all the
+                var addEdits = experimentStep.filter(change => change.prop === 'layoutContent' && change.id === id && ['add', 'edit'].indexOf(change.op) !== -1)
+
+                if (addEdits.length){
+                    setExperiment(experiment => {
+                        var updatedExperiment = experiment, indexOfAddEdit
+                        addEdits.forEach(addEdit => {
+                            indexOfAddEdit = updatedExperiment.groups[groupIndex].steps[router.query.stepid].indexOf(addEdit)
+                            updatedExperiment = update(updatedExperiment, { groups: { [groupIndex]: { steps: { [router.query.stepid]: {$splice: [[indexOfAddEdit, 1]] } } } } })
+                        })
+
+                        return updatedExperiment
+                    })
+
+                } else {
+                    // Else, remove it from the main step.
+                    setExperiment(experiment => {
+                        return update(experiment, { groups: { [groupIndex]: { steps: { [router.query.stepid]: {$push: [{ prop: 'layoutContent', id, op: 'remove' }] } } } } })
+                    })
+                }
+
+            } else {
+                // If this is an edit.
+                var editToDefault = layoutContent.hasOwnProperty(id),
+                    indexOfChange = experimentStep.findIndex(change => change.prop === 'layoutContent' && change.id === id && change.op !== 'remove')
+
+                if (indexOfChange !== -1){
+                    setExperiment(experiment => {
+                        return update(experiment, { groups: { [groupIndex]: { steps: { [router.query.stepid]: { [indexOfChange]: { value: {$merge: value}, prop: {$set: 'layoutContent'} }} } } } })
+                    })
+
+                } else if (editToDefault) {
+                    setExperiment(experiment => {
+                        return update(experiment, { groups: { [groupIndex]: { steps: { [router.query.stepid]: {$push: [{ prop: 'layoutContent', id, op: 'edit', value } ] } } } } })
+                    })
+
+                // If this is an add.
+                } else {
+                    setExperiment(experiment => {
+                        return update(experiment, { groups: { [groupIndex]: { steps: { [router.query.stepid]: {$push: [{ prop: 'layoutContent', id, op: 'add', value } ] } } } } })
+                    })
+                }
+            }
+        */
+
     }
+
+    var updateFormatting = (id, property, value) => {
+        // If there is part of an experiment condition, set the changed formatting there.
+        if (experimentRef.current && experimentRef.current.current !== 'All'){
+            const groupIndex = experimentRef.current.groups.findIndex(group => group.name === experimentRef.current.current),
+                experimentStep = experimentRef.current.groups[groupIndex].steps[router.query.stepid]
+
+            if (value === undefined){
+                // If this was added as a part of the experiment, remove all the
+                var changes = experimentStep.filter(change => change.prop === 'contentFormatting' && change.id === id && change.op === 'change' && change.value.property === property)
+
+                if (changes.length){
+                    setExperiment(experiment => {
+                        var updatedExperiment = experiment, indexOfChange
+                        changes.forEach(change => {
+                            indexOfChange = updatedExperiment.groups[groupIndex].steps[router.query.stepid].indexOf(change)
+                            updatedExperiment = update(updatedExperiment, { groups: { [groupIndex]: { steps: { [router.query.stepid]: {$splice: [[indexOfChange, 1]] } } } } })
+                        })
+
+                        return updatedExperiment
+                    })
+
+                } else {
+                    // Else, remove it from the main step.
+                    setExperiment(experiment => {
+                        return update(experiment, { groups: { [groupIndex]: { steps: { [router.query.stepid]: {$push: [{ prop: 'contentFormatting', id: id, op: 'remove', value: { property }  }] } } } } })
+                    })
+                }
+
+            } else {
+                var recentChangeToPropertyIndex = experiment.groups[groupIndex].steps[router.query.stepid].findIndex(
+                        change => change.prop === 'contentFormatting' && change.id === id && change.value.property === property)
+
+                if (recentChangeToPropertyIndex !== -1){
+                    setExperiment(experiment => {
+                        return update(experiment, { groups: { [groupIndex]: { steps: { [router.query.stepid]: { [recentChangeToPropertyIndex]: { op: { $set: 'change' }, value: { $set: { property, value } } } } } } } })
+                    })
+
+                } else {
+                    setExperiment(experiment => {
+                        return update(experiment, { groups: { [groupIndex]: { steps: { [router.query.stepid]: {$push: [{ prop: 'contentFormatting', id: id, op: 'change', value: { property, value }  }] } } } } })
+                    })
+                }
+            }
+
+        } else {
+            var newFormatting = { ...(contentFormatting || {}), [id] : {
+                ...(contentFormatting && contentFormatting[id] ? contentFormatting[id] : {}),
+            }}
+
+            if (value !== undefined){
+                newFormatting[id][property] = value
+            } else if (newFormatting[id].hasOwnProperty(property)){
+                delete newFormatting[id][property]
+
+                if (!Object.keys(newFormatting[id]).length){
+                    delete newFormatting[id]
+                }
+            }
+
+            setContentFormatting(newFormatting)
+        }
+    }
+
+    var updateLayout = (newLayout) => {
+        if (experimentRef.current && experimentRef.current.current !== 'All'){
+            const groupIndex = experimentRef.current.groups.findIndex(group => group.name === experimentRef.current.current)
+
+            var recentChangeToPropertyIndex = experimentRef.current.groups[groupIndex].steps[router.query.stepid].findIndex(
+                    change => change.prop === 'layout')
+
+            if (recentChangeToPropertyIndex !== -1){
+                setExperiment(experiment => {
+                    return update(experiment, { groups: { [groupIndex]: { steps: { [router.query.stepid]: { [recentChangeToPropertyIndex]: { value: { $set: JSON.stringify(newLayout) } } } } } } })
+                })
+            } else {
+                setExperiment(experiment => {
+                    return update(experiment, { groups: { [groupIndex]: { steps: { [router.query.stepid]: {$push: [{ prop: 'layout', value: JSON.stringify(newLayout) } ] } } } } })
+                })
+            }
+
+        } else {
+            if (JSON.stringify(newLayout) !== JSON.stringify(layout.body))
+                setLayout({ body: newLayout, changed: true })
+        }
+    }
+
+    var updateResponseCheck = (newResponseCheck) => {
+        if (experimentRef.current && experimentRef.current.current !== 'All'){
+            const groupIndex = experimentRef.current.groups.findIndex(group => group.name === experimentRef.current.current)
+
+            var recentChangeToPropertyIndex = experimentRef.current.groups[groupIndex].steps[router.query.stepid].findIndex(
+                    change => change.prop === 'responseCheck')
+
+            if (recentChangeToPropertyIndex !== -1){
+                setExperiment(experiment => {
+                    return update(experiment, { groups: { [groupIndex]: { steps: { [router.query.stepid]: { [recentChangeToPropertyIndex]: { value: { $set: newResponseCheck } } } } } } })
+                })
+            } else {
+                setExperiment(experiment => {
+                    return update(experiment, { groups: { [groupIndex]: { steps: { [router.query.stepid]: {$push: [{ prop: 'responseCheck', value: newResponseCheck } ] } } } } })
+                })
+            }
+
+        } else {
+            setResponseCheck(newResponseCheck)
+        }
+    }
+
 
     var searchParams = new URLSearchParams(window.location.search)
 
@@ -339,27 +704,6 @@ const Step: NextPageWithLayout = ({ userID }) => {
         })
     }
 
-    function setExperimentLayout(newLayout){
-        const groupIndex = experiment.groups.findIndex(group => group.name === experiment.current)
-
-        var recentChangeToPropertyIndex = experiment.groups[groupIndex].steps[router.query.stepid].findIndex(
-                change => change.prop === 'layout')
-
-        if (recentChangeToPropertyIndex !== -1){
-            setExperiment(
-                update(experiment, { groups: { [groupIndex]: { steps: { [router.query.stepid]: { [recentChangeToPropertyIndex]: { value: { $set: JSON.stringify(newLayout) } } } } } } })
-            )
-        } else {
-            setExperiment(
-                update(experiment, { groups: { [groupIndex]: { steps: { [router.query.stepid]: {$push: [{ prop: 'layout', value: JSON.stringify(newLayout) } ] } } } } })
-            )
-        }
-    }
-
-    var experimentAppliedContentFormatting = applyExperimentToContentFormatting(contentFormatting, experiment, router.query.stepid),
-        experimentAppliedLayout = applyExperimentToLayout(layout && layout.body, experiment, router.query.stepid),
-        experimentAppliedLayoutContent = applyExperimentToLayoutContent(layoutContent, experiment, router.query.stepid)
-
 
     return <div className='flex flex-col flex-auto'>
         {/*<a href={`/app/${router.query.appid}/flow/${router.query.flowid}/step/${router.query.stepid}`} target="_blank" rel="noreferrer">Preview</a>*/}
@@ -371,102 +715,54 @@ const Step: NextPageWithLayout = ({ userID }) => {
 
         <ExperimentHeader experiment={experiment} />
 
+        <EventsHeader events={events} />
+
         <WYSIWYGPanels context='step'
             layout={experimentAppliedLayout}
             onLayoutChange={(newLayout) => {
-                if (experiment && experiment.current !== 'All'){
-                    setExperimentLayout(newLayout)
-                } else {
-                    if (JSON.stringify(newLayout) !== JSON.stringify(layout.body))
-                        setLayout({ body: newLayout, changed: true })
-                }
+                updateLayout(newLayout)
             }}
             onDrop={(newLayout, layoutItem) => {
                 var indexOfNewLayoutItem = newLayout.indexOf(layoutItem)
                 newLayout[indexOfNewLayoutItem] = {
-                    ...newLayout[indexOfNewLayoutItem], i: uuidv4().substring(0, 4)
+                    ...newLayout[indexOfNewLayoutItem], i: uuidv4().substring(0, 6)
                 }
                 delete newLayout[indexOfNewLayoutItem].isDraggable
 
-                if (experiment && experiment.current !== 'All'){
-                    setExperimentLayout(newLayout)
-                } else {
-                    setLayout({ body: newLayout, changed: true })
-                }
+                updateLayout(newLayout)
+            }}
+            onRemove={(id) => {
+                updateLayout(
+                    update(layout.body, { $splice: [[
+                        layout.body.findIndex(box => box.i === id), 1
+                    ]] })
+                )
             }}
 
             layoutContent={experimentAppliedLayoutContent}
             updateLayoutContent={updateLayoutContent}
 
             formatting={experimentAppliedContentFormatting}
-            updateFormatting={(selectedContent, property, value) => {
-                // If there is part of an experiment condition, set the changed formatting there.
-                if (experiment && experiment.current !== 'All'){
-                    const groupIndex = experiment.groups.findIndex(group => group.name === experiment.current)
+            updateFormatting={updateFormatting}
 
-                    if (value !== undefined){
-                        var recentChangeToPropertyIndex = experiment.groups[groupIndex].steps[router.query.stepid].findIndex(
-                                change => change.prop === 'contentFormatting' && change.id === selectedContent && change.value.property === property)
-
-                        if (recentChangeToPropertyIndex !== -1){
-                            setExperiment(
-                                update(experiment, { groups: { [groupIndex]: { steps: { [router.query.stepid]: { [recentChangeToPropertyIndex]: { op: { $set: 'change' }, value: { $set: { property, value } } } } } } } })
-                            )
-
-                        } else {
-                            setExperiment(
-                                update(experiment, { groups: { [groupIndex]: { steps: { [router.query.stepid]: {$push: [{ prop: 'contentFormatting', id: selectedContent, op: 'change', value: { property, value }  }] } } } } })
-                            )
-                        }
-
-                    } else {
-                        setExperiment(
-                            update(experiment, { groups: { [groupIndex]: { steps: { [router.query.stepid]: {$push: [{ prop: 'contentFormatting', id: selectedContent, op: 'remove'  }] } } } } })
-                        )
-                    }
-
-                } else {
-                    var newFormatting = { ...(contentFormatting || {}), [selectedContent] : {
-                        ...(contentFormatting && contentFormatting[selectedContent] ? contentFormatting[selectedContent] : {}),
-                    }}
-
-                    if (value !== undefined){
-                        newFormatting[selectedContent][property] = value
-                    } else if (newFormatting[selectedContent].hasOwnProperty(property)){
-                        delete newFormatting[selectedContent][property]
-
-                        if (!Object.keys(newFormatting[selectedContent]).length){
-                            delete newFormatting[selectedContent]
-                        }
-                    }
-
-                    setContentFormatting(newFormatting)
-                }
+            contentTypes={StepContentTypes}
+            editableProps={{
+                contentSettings, setContentSettings,
+                stepID: router.query.stepid, flowID: router.query.flowid,
+                appID: router.query.appid
             }}
 
-            contentTypes={{
-                'Response': {
-                    editable: (id, body) => <ResponseTemplate
-                        id={id}
-                        content={body}
-                        toggleSelectedResponseTemplateItems={item => {
-                            var indexOfItem = selectedResponseTemplateItems.findIndex(i => item.id === i.id)
-                            if (indexOfItem === -1){
-                                setSelectedResponseTemplateItems([...selectedResponseTemplateItems, item])
-                            } else {
-                                setSelectedResponseTemplateItems(selectedResponseTemplateItems.filter((i, index) => index !== indexOfItem))
-                            }
-                        }}
-                        updateLayoutContent={updateLayoutContent}
-                    />,
-                    option: (id) => <button onClick={() => setResponseChangeFormatOpen(id)}>Change format</button>
-                },
+            formattingPanelAdditions={(selectedContent, toggleSelectedContent) => {
+                var contentType = selectedContent && StepContentTypes.find(contentType => {
+                    return selectedContent.kind.startsWith(contentType.kind)
+                }),
+                    layoutIDs = Object.keys(experimentAppliedLayoutContent),
+                    id = selectedContent && layoutIDs.find(
+                        layoutID => experimentAppliedLayoutContent[layoutID].name === selectedContent.name),
+                    selectedContentContent = id && experimentAppliedLayoutContent[id]
 
-                'Check answer': {}
-            }}
-
-            formattingPanelAdditions={(toggleSelectedContent) => [
-                experiment && experiment.groups ? null : <button onClick={() => {
+                return  [
+                (experiment && experiment.groups) || events?.current ? null : <div><button key={0} onClick={() => {
                     // setExperiment(initialExperiment(router))
 
                     const url = new URL(window.location.href)
@@ -477,24 +773,58 @@ const Step: NextPageWithLayout = ({ userID }) => {
                 }}
                     className="inline-flex items-center rounded border border-transparent bg-indigo-600 px-2.5 py-1.5 text-xs font-medium text-white shadow-sm hover:bg-indigo-700 focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:ring-offset-2"
 
-                >Differentiate</button>,
-                responseFormatChangeOpen ? <ResponseTemplateMaker id={responseFormatChangeOpen}
-                    content={layoutContent[responseFormatChangeOpen]}
-                    closeChangeResponseFormat={() => setResponseChangeFormatOpen(null)}
+                >Differentiate</button></div>,
+
+                selectedContent ? <div><button key={1} onClick={() => {
+                    const url = new URL(window.location.href)
+                    if (searchParams.get('event:click') === selectedContent.name){
+                        searchParams.delete('event:click')
+                    } else {
+                        searchParams.set('event:click', selectedContent.name)
+                    }
+
+                    url.search = new URLSearchParams(searchParams)
+                    router.replace(url.toString())
+                }}
+                    className="inline-flex items-center rounded border border-transparent bg-red-600 px-2.5 py-1.5 text-xs font-medium text-white shadow-sm hover:bg-indigo-700 focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:ring-offset-2"
+
+                >On Click</button></div> : null,
+
+                contentSettings.Response?.changeFormat ? <ResponseTemplateMaker key={2} id={contentSettings.Response.changeFormat}
+                    body={experimentAppliedLayoutContent[contentSettings.Response.changeFormat].body}
+                    updateBody={body => updateLayoutContent(contentSettings.Response.changeFormat, { body })}
+
+                    // closeChangeResponseFormat={() => setResponseChangeFormatOpen(null)}
+                    closeChangeResponseFormat={() => setContentSettings({ ...contentSettings, Response: { ...contentSettings.Response, changeFormat: null } })}
                     updateLayoutContent={updateLayoutContent}
                     toggleSelectedContent={toggleSelectedContent}
                 /> : null,
-                selectedResponseTemplateItems.length ? <ExpectedResponse
-                    responseTemplateItems={selectedResponseTemplateItems}
-                    setResponseCheck={setResponseCheck}
-                    responseCheck={responseCheck}
-                /> : null
-            ]}
+
+                // contentSettings.Response?.templateItems?.length ? <ExpectedResponse key={3}
+                //     responseTemplateItems={contentSettings.Response.templateItems}
+                //     setResponseCheck={updateResponseCheck}
+                //     responseCheck={experimentAppliedResponseCheck}
+                // /> : null,
+
+
+                selectedContent ? <div key={4}>
+                    {contentType.properties ? <PropertyEditor selectedContent={selectedContent}
+                        properties={contentType.properties}
+
+                        value={selectedContentContent ? selectedContentContent.body?.properties : null}
+                        setValue={(value) => {
+                            updateLayoutContent(id, { body: { ...(selectedContentContent.body ? selectedContentContent.body : {}), properties: value } })
+                        }}
+                    /> : null}
+                </div> : null
+            ]}}
 
             lockedContent={experimentLocked}
         />
     </div>
 }
+
+
 
 
 Step.getLayout = function getLayout(page: ReactElement) {
@@ -506,75 +836,26 @@ Step.getLayout = function getLayout(page: ReactElement) {
 }
 
 
-const ResponseTemplateMaker = ({ id, closeChangeResponseFormat, updateLayoutContent, content, toggleSelectedContent }) => {
+const ResponseTemplateMaker = ({ id, body, updateBody, closeChangeResponseFormat, updateLayoutContent, toggleSelectedContent }) => {
     return <div>
         make response template:
         <div>
             <button onClick={() => {
-                updateLayoutContent(id, { body: [...(content.body || []), { kind: 'responsespace', id: 'item_' + uuidv4().substring(0, 7) }]})
+                updateBody([...(body || []), { kind: 'responsespace', id: 'item_' + uuidv4().substring(0, 7) }])
             }}>Add response space</button>
             <button onClick={() => {
-                updateLayoutContent(id, { body: [...(content.body || []), { kind: 'text', id: 'item_' + uuidv4().substring(0, 7) }]})
+                updateBody([...(body || []), { kind: 'text', id: 'item_' + uuidv4().substring(0, 7) }])
             }}>Add text</button>
         </div>
         <ResponseTemplate
-            id={id}
-            content={content.body}
+            body={body}
+            updateBody={updateBody}
             updateLayoutContent={updateLayoutContent}
             toggleSelectedContent={toggleSelectedContent}
         />
         <button onClick={() => {
             closeChangeResponseFormat()
         }}>Done</button>
-    </div>
-}
-
-
-const ResponseTemplate = ({ id, content, responseItemSelected, toggleSelectedResponseTemplateItems, updateLayoutContent, toggleSelectedContent }) => {
-    // This is a temp hack variable.
-    var isInsideContentLayout = toggleSelectedResponseTemplateItems
-
-    return <div>
-        {content && content.map((responseItem, i) => <div key={i} className='flex' onClick={toggleSelectedResponseTemplateItems ? () => toggleSelectedResponseTemplateItems(responseItem) : null} >
-            {isInsideContentLayout ? null : <div>
-                {i ? <button
-                    onClick={() => updateLayoutContent(id, { body: update(content, {
-                        $splice: [
-                            [i, 1],
-                            [i - 1, 0, content[i]]
-                        ]
-                    }) })}
-                    type="button"
-                  className="inline-flex items-center px-1.5 py-1 border border-gray-300 shadow-sm text-sm leading-4 font-medium rounded-md bg-white hover:bg-gray-50 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-indigo-500"
-                >
-                  <ArrowUpIcon className="-ml-0.5 h-4 w-4" aria-hidden="true" />
-                </button> : null}
-                {i !== content.length - 1 ? <button
-                    onClick={() => updateLayoutContent(id, { body: update(content, {
-                        $splice: [
-                            [i, 1],
-                            [i + 1, 0, content[i]]
-                        ]
-                    }) })}
-
-                    type="button"
-                  className="inline-flex items-center px-1.5 py-1 border border-gray-300 shadow-sm text-sm leading-4 font-medium rounded-md bg-white hover:bg-gray-50 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-indigo-500"
-                >
-                  <ArrowDownIcon className="-ml-0.5 h-4 w-4" aria-hidden="true" />
-                </button> : null}
-
-            </div>}
-
-            <div className='flex-grow'>{responseItem.kind === 'text' && isInsideContentLayout ? <ContentInput name='text' body={responseItem.body} updateBody={(body) => {
-                var newBody = [...content]
-                newBody[i] = { ...responseItem, body }
-                updateLayoutContent(id, { body: newBody })
-            }} /> : <span onClick={isInsideContentLayout ? null : () => toggleSelectedContent(responseItem.id)}>{responseItem.kind}</span>} {isInsideContentLayout ? null : <span onClick={() => updateLayoutContent(id, { body: update(content, {
-                    $splice: [[i, 1]]
-                })
-            })}>(Remove)</span>}
-            </div>
-        </div>)}
     </div>
 }
 

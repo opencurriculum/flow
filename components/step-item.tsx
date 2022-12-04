@@ -9,21 +9,65 @@ import {Editor, EditorState, ContentState, convertFromRaw } from 'draft-js';
 import 'draft-js/dist/Draft.css';
 import { useRouter } from 'next/router'
 import {
-    blockStyleFn, applyExperimentToLayoutContent,
-    applyExperimentToLayout, applyExperimentToContentFormatting
-} from '../utils/common.tsx'
+    applyExperimentToLayoutContent,
+    applyExperimentToLayout, applyExperimentToContentFormatting,
+    applyExperimentToResponseCheck
+} from '../utils/experimentation.tsx'
 import styles from '../styles/components/StepAdmin.module.sass'
 import { useFirestore, useAnalytics } from 'reactfire'
+import { applyEventsToLayoutContent } from '../utils/common'
+import { v4 as uuidv4 } from 'uuid'
 
 
-export const StepItem = ({ userID, step, stepID, progress, experiment, flowSteps, onResponseAssess }) => {
+const slateHost = process.env.NODE_ENV === 'development' ? 'http://localhost:5000' : 'https://slate-eta.vercel.app'
+
+export const StepItem = ({ userID, step, stepID, progress, experiment, flowSteps, onResponseAssess, contentTypes, contentSettings, setContentSettings }) => {
     const [response, setResponse] = useState({})
 
     const router = useRouter(),
         db = useFirestore()
 
+    var processIframeData = function(event){
+        if (event.origin  === slateHost){
+            var eventResponses = {}
+
+            // Determine which content it is coming from.
+            var iframes = document.getElementsByTagName('iframe'), i = 0,
+                contentName
+            for (i = 0; i < iframes.length; i++){
+                if (event.source === iframes[i].contentWindow){
+                    var parent = iframes[i].parentNode
+                    while (!contentName && parent !== document.body){
+                        contentName = parent.dataset.contentname
+                        parent = parent.parentNode
+                    }
+                    break
+                }
+            }
+
+            event.data?.data.forEach(
+                pieceOfData => eventResponses[`{${contentName}}.${pieceOfData.id}`] = pieceOfData.value)
+
+            setResponse({ ...response, [stepID]: {
+                ...(response[stepID] || {}), ...eventResponses }
+            })
+        }
+    }
+
+    useEffect(() => {
+        window.addEventListener('message', processIframeData);
+
+        return () => {
+            window.removeEventListener('message', processIframeData);
+        }
+    }, [])
+
+
     var layout = step ? applyExperimentToLayout(JSON.parse(step.layout), experiment, stepID) : null,
-        layoutContent = step ? applyExperimentToLayoutContent(JSON.parse(step.layoutContent), experiment, stepID) : null
+        layoutContent = step ? applyEventsToLayoutContent(applyExperimentToLayoutContent(JSON.parse(step.layoutContent), experiment, stepID), {
+            ...step.events, current: router.query['event:click']
+        }) : null,
+        responseCheck = step ? applyExperimentToResponseCheck(step.responseCheck, experiment, stepID) : null
 
     // Merge the response and progress.
     var lastUserResponse
@@ -42,62 +86,78 @@ export const StepItem = ({ userID, step, stepID, progress, experiment, flowSteps
     }
 
     return <div>
-        {step ? <div className={styles.GridLayoutWrapper}><GridLayout
+        {step ? <div className={styles.GridLayoutWrapper + ' mx-auto'} style={{ width: '1200px' }}><GridLayout
               className="layout"
               layout={layout}
-              cols={12}
-              rowHeight={30}
+              cols={36}
+              rowHeight={12}
               width={1200}
               isResizable={false}
               isDraggable={false}
               isDroppable={false}
             >
-                {layout.map(box => <div key={box.i}>
-                    <BoxBody content={layoutContent[box.i]}
-                        checkResponse={function(){
-                            var flowProgressRef = doc(db, "users", userID, 'progress', router.query.flowid)
-                            if (lastUserResponse){
-                                let variableDeclations = []
-                                for (var prop in lastUserResponse){
-                                    if (prop !== 'timestamp'){
-                                        variableDeclations.push(`${prop} = ${lastUserResponse[prop]}`)
+                {layout.map(box => {
+                    var contentType = contentTypes.find(ct => layoutContent[box.i] && (layoutContent[box.i].kind === ct.kind || layoutContent[box.i].name.startsWith(ct.kind))),
+                        content = layoutContent[box.i]
+
+                    return <div key={box.i}>
+                        <BoxBody content={content}
+                            checkResponse={function(responseCheck){
+                                var flowProgressRef = doc(db, "users", userID, 'progress', router.query.flowid)
+                                if (lastUserResponse){
+                                    let variableDeclations = [], tempVariableName
+                                    var cleanedResponseCheck = responseCheck.value
+
+                                    for (var prop in lastUserResponse){
+                                        if (prop !== 'timestamp'){
+                                            tempVariableName = 'var' + uuidv4().substring(0, 5)
+                                            cleanedResponseCheck = cleanedResponseCheck.replace(prop, tempVariableName)
+                                            variableDeclations.push(parseFloat(lastUserResponse[prop]) ? (
+                                                `${tempVariableName} = ${lastUserResponse[prop]}`) : `${tempVariableName} = "${lastUserResponse[prop]}"`
+                                            )
+                                        }
+                                    }
+                                    if (Function(`'use strict'; var ${variableDeclations.join(',')}; return (${cleanedResponseCheck})`)()){
+                                        updateDoc(flowProgressRef, {
+                                            [`steps.${stepID}.attempts`]: arrayUnion({
+                                                timestamp: Timestamp.now(), response: lastUserResponse
+                                            }),
+                                            [`steps.${stepID}.completed`]: 100,
+                                            completed: increment(
+                                                (progress.steps && progress.steps[stepID] && progress.steps[stepID].completed) === 100 ? 0 : (100 / flowSteps.length)
+                                            )
+                                        })
+
+                                        onResponseAssess(true)
+                                    } else {
+                                        onResponseAssess(false)
+
+                                        updateDoc(flowProgressRef, {
+                                            [`steps.${stepID}.attempts`]: arrayUnion({
+                                                timestamp: Timestamp.now(), response: lastUserResponse
+                                            }),
+                                        })
                                     }
                                 }
-                                if (Function(`'use strict'; var ${variableDeclations.join(',')}; return (${step.responseCheck})`)()){
-                                    updateDoc(flowProgressRef, {
-                                        [`steps.${stepID}.attempts`]: arrayUnion({
-                                            timestamp: Timestamp.now(), response: lastUserResponse
-                                        }),
-                                        [`steps.${stepID}.completed`]: 100,
-                                        completed: increment(
-                                            (progress.steps && progress.steps[stepID] && progress.steps[stepID].completed) === 100 ? 0 : (100 / flowSteps.length)
-                                        )
-                                    })
 
-                                    onResponseAssess(true)
+                            }}
+                            response={lastUserResponse}
+                            setResponse={(id, value) => {
+                                setResponse({ ...response, [stepID]: {
+                                    ...(response[stepID] || {}), [id]: value }
+                                })
+                            }}
+                            contentFormatting={applyExperimentToContentFormatting(step.contentFormatting, experiment, stepID)}
+                            stepID={stepID}
 
-                                } else {
-                                    onResponseAssess(false)
+                            render={contentType?.render}
+                            contentSettings={contentSettings}
+                            setContentSettings={setContentSettings}
 
-                                    updateDoc(flowProgressRef, {
-                                        [`steps.${stepID}.attempts`]: arrayUnion({
-                                            timestamp: Timestamp.now(), response: lastUserResponse
-                                        }),
-                                    })
-                                }
-                            }
-
-                        }}
-                        response={lastUserResponse}
-                        setResponse={(id, value) => {
-                            setResponse({ ...response, [stepID]: {
-                                ...(response[stepID] ? response[stepID] : {}), [id]: value }
-                            })
-                        }}
-                        contentFormatting={applyExperimentToContentFormatting(step.contentFormatting, experiment, stepID)}
-                        stepID={stepID}
-                    />
-                </div>)}
+                            contentEvents={content ? (step.events && step.events[content.name]) : null}
+                        />
+                    </div>
+                })}
             </GridLayout>
             {<style jsx global>{`
                 .${styles.GridLayoutWrapper} .textAlign-center .public-DraftStyleDefault-ltr {
@@ -109,60 +169,24 @@ export const StepItem = ({ userID, step, stepID, progress, experiment, flowSteps
 }
 
 
-const BoxBody = ({ content, response, checkResponse, setResponse, contentFormatting, stepID }) => {
-    if (!content)
+const BoxBody = ({ content, response, checkResponse, setResponse, contentFormatting, stepID, render, contentSettings, setContentSettings, contentEvents }) => {
+    const router = useRouter()
+
+    if (!content || !render)
         return null
 
     var formatting = {...(contentFormatting && contentFormatting[content.name] ? contentFormatting[content.name] : {})}
-    if (content.name === 'Check answer'){
-        return <div style={formatting}><button
-          type="button" onClick={checkResponse}
-          className="inline-flex items-center px-3 py-2 border border-transparent text-sm leading-4 font-medium rounded-md text-indigo-700 bg-indigo-100 hover:bg-indigo-200 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-indigo-500"
-        >
-          {content.name}
-        </button></div>
-    } else if (content.name.startsWith('Response')){
-        return <div>{content.body && content.body.map((responseItem, i) => {
-            var responseItemFormatting = {...(contentFormatting && contentFormatting[responseItem.id] ? contentFormatting[responseItem.id] : {})}
-            if (responseItem.kind === 'responsespace')
-                return <ResponseSpace key={i}
-                    responseItem={responseItem} setResponse={setResponse}
-                    response={response && response[responseItem.id]}
-                    formatting={responseItemFormatting}
-                    stepID={stepID}
-                />
-            else
-                return <span key={i} style={responseItemFormatting}><Editor editorState={responseItem.body ? EditorState.createWithContent(convertFromRaw(responseItem.body)) : EditorState.createEmpty()} readOnly={true} /></span>
-        })}</div>
-    } else {
-        return <div style={formatting}>
-            <Editor
-                blockStyleFn={blockStyleFn.bind(this, formatting)}
-                editorState={EditorState.createWithContent(convertFromRaw(content.body))}
-                readOnly={true}
-            />
-        </div>
-    }
 
-    return <div>{content.name}</div>
-}
+    return <div onClick={contentEvents && contentEvents.click ? () => {
+            var searchParams = new URLSearchParams(window.location.search)
 
+            const url = new URL(window.location.href)
+            searchParams.set('event:click', content.name)
+            url.search = new URLSearchParams(searchParams)
 
+            router.replace(url.toString())
 
-const ResponseSpace = ({ setResponse, responseItem, response, formatting, stepID }) => {
-    const router = useRouter()
-    const inputRef = useRef()
-
-    useEffect(() => {
-        if (response){
-            inputRef.current.value = response;
-        } else {
-            inputRef.current.value = '';
-        }
-    }, [stepID])
-
-    return <input type='text' ref={inputRef}
-        className={"shadow-sm focus:ring-indigo-500 focus:border-indigo-500 border-gray-300 rounded-md" + (formatting.display === 'inline-block' ? '' : ' block w-full')}
-        onChange={(event) => setResponse(responseItem.id, event.target.value) }
-    />
+        } : null} className={contentEvents && contentEvents.click ? 'cursor-pointer' : ''} data-contentname={content.name}>
+        {render(content.body, formatting, {contentFormatting, stepID, checkResponse, response, setResponse})}
+    </div>
 }

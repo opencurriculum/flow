@@ -15,10 +15,11 @@ import Head from 'next/head'
 import { useFirestore, useAnalytics } from 'reactfire'
 import { StepItem } from '../../../../../../components/step-item.tsx'
 import { getOrInitializeFlowExperiment } from '../../../../../../utils/experimentation.tsx'
-import { updateFlowProgressStateUponStepCompletion } from '../../../../../../utils/common.tsx'
+import { updateFlowProgressStateUponStepCompletion, StepContentTypes, LoadingSpinner } from '../../../../../../utils/common'
 
 
 const Step = ({ userID }) => {
+    const [flow, setFlow] = useState()
     const [step, setStep] = useState(null)
     const [progress, setProgress] = useState()
     const [flowSteps, setFlowSteps] = useState()
@@ -87,6 +88,14 @@ const Step = ({ userID }) => {
         }
     }, [progress, router.query.stepid])
 
+    useEffect(() => {
+        if (router.query.flowid){
+            getDoc(doc(db, "flows", router.query.flowid)).then(docSnapshot => {
+                setFlow(docSnapshot.data())
+            })
+        }
+    }, [router.query.flowid])
+
     var searchParams = typeof window !== 'undefined' ? new URLSearchParams(window.location.search) : new URLSearchParams()
 
     var submitScore = function(score){
@@ -104,14 +113,15 @@ const Step = ({ userID }) => {
 
     return <div className='funky'>
         <Head>
-            <title>{step && step.name}</title>
-            <meta property="og:title" content={step && step.name} key="title" />
+            <title>{(step && step.name) || 'Untitled step'}</title>
+            <meta property="og:title" content={(step && step.name) || 'Untitled step'} key="title" />
         </Head>
 
-        <UserAppHeader db={db} hideBack={progress && !progress.completed} />
+        <UserAppHeader db={db} hideBack={flow && flow.assignStepsIndividually ? true : (progress && !progress.completed)} />
 
         {step ? <div>
-            <StepItem userID={userID} step={step} stepID={router.query.stepid}
+            <StepItem
+                userID={userID} step={step} stepID={router.query.stepid}
                 progress={progress} flowSteps={flowSteps} experiment={experiment}
                 onResponseAssess={(success) => {
                     if (success){
@@ -119,24 +129,27 @@ const Step = ({ userID }) => {
 
                         setOpenResponseCheckResult({ status: 1, title: 'That\'s correct!', message: 'Good work.' })
 
-                        setTimeout(() => {
-                            // Get the next step and move to it.
-                            var indexOfCurrentStep = flowSteps.findIndex(step => step.id === router.query.stepid)
+                        if (!flow.assignStepsIndividually){
+                            setTimeout(() => {
+                                // Get the next step and move to it.
+                                var indexOfCurrentStep = flowSteps.findIndex(step => step.id === router.query.stepid)
 
-                            if (indexOfCurrentStep === flowSteps.length - 1){
-                                setOpenResponseCheckResult({ status: 2, title: 'You are all wrapped up with this level!', message: 'Great job!' })
+                                if (indexOfCurrentStep === flowSteps.length - 1){
+                                    setOpenResponseCheckResult({ status: 2, title: 'You are all wrapped up with this level!', message: 'Great job!' })
 
-                            } else {
-                                setOpenResponseCheckResult(false)
-                                router.push(`/app/${router.query.appid}/flow/${router.query.flowid}/step/${flowSteps[indexOfCurrentStep + 1].id}${window.location.search}`)
-                            }
-                        }, 2000)
+                                } else {
+                                    setOpenResponseCheckResult(false)
+                                    router.push(`/app/${router.query.appid}/flow/${router.query.flowid}/step/${flowSteps[indexOfCurrentStep + 1].id}${window.location.search}`)
+                                }
+                            }, 2000)
+                        }
 
                     } else {
                         setOpenResponseCheckResult({ status: 0, title: 'That\'s not quite right', message: 'Try again!' })
                         setTimeout(() => setOpenResponseCheckResult(false), 2000)
                     }
                 }}
+                contentTypes={StepContentTypes}
             />
 
             {searchParams.has('ltik') ? <button
@@ -188,10 +201,7 @@ const Step = ({ userID }) => {
               Finish and submit
             </button> : null}
         </div>: <div className='py-10'>
-            <svg className="animate-spin h-5 w-5 text-black mx-auto" fill="none" viewBox="0 0 24 24">
-                <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4"></circle>
-                <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
-            </svg>
+            <LoadingSpinner />
         </div>}
 
         <Transition.Root show={openResponseCheckResult ? true : false} as={Fragment}>

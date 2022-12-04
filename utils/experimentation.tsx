@@ -1,4 +1,5 @@
 import {getDoc, doc, updateDoc} from "firebase/firestore"
+import extend from "deep-extend"
 
 
 function assignExperimentGroupToStudent(db, experimentData, newGroupIndex, userID, experimentID){
@@ -60,4 +61,93 @@ export function getOrInitializeFlowExperiment(db, flowID, userID, group, setExpe
             })
         }
     })
+}
+
+
+export function applyExperimentToLayoutContent(layoutContent, experiment, stepID){
+    // Apply the experiment's changes, if one is active.
+    if (experiment && experiment && experiment.current && experiment.current !== 'All'){
+        var updatedLayoutContent = extend({}, layoutContent)
+
+        const groupIndex = experiment.groups && experiment.groups.findIndex(group => group.name === experiment.current)
+        experiment.groups && experiment.groups[groupIndex].steps[stepID] && experiment.groups[groupIndex].steps[stepID].forEach(change => {
+            if (change.prop === 'layoutContent'){
+                if (change.op === 'remove'){
+                    delete updatedLayoutContent[change.id]
+                } else if (['edit', 'add'].indexOf(change.op) !== -1){
+                    updatedLayoutContent[change.id] = {
+                        ...updatedLayoutContent[change.id], ...change.value
+                    }
+                }
+            }
+        })
+
+        return updatedLayoutContent
+    }
+
+    return layoutContent
+}
+
+
+export function applyExperimentToContentFormatting(contentFormatting, experiment, stepID){
+    // Apply the experiment's changes, if one is active.
+    if (experiment && experiment && experiment.current && experiment.current !== 'All'){
+        var updatedContentFormatting = extend({}, contentFormatting)
+
+        const groupIndex = experiment.groups && experiment.groups.findIndex(group => group.name === experiment.current)
+        experiment.groups && experiment.groups[groupIndex].steps[stepID] && experiment.groups[groupIndex].steps[stepID].forEach(change => {
+            if (change.prop === 'contentFormatting'){
+                if (change.op === 'remove'){
+                    delete updatedContentFormatting[change.id][change.value.property]
+                } else {
+                    updatedContentFormatting[change.id] = {
+                        ...updatedContentFormatting[change.id],
+                        [change.value.property]: change.value.value
+                    }
+                }
+            }
+        })
+
+        return updatedContentFormatting
+    }
+
+    return contentFormatting
+}
+
+
+export function applyExperimentToLayout(layout, experiment, stepID){
+    // Apply the experiment's changes, if one is active.
+    if (experiment && experiment && experiment.current && experiment.current !== 'All'){
+        var updatedLayout = layout
+
+        const groupIndex = experiment.groups && experiment.groups.findIndex(group => group.name === experiment.current)
+        experiment.groups && experiment.groups[groupIndex].steps[stepID] && experiment.groups[groupIndex].steps[stepID].forEach(change => {
+            if (change.prop === 'layout'){
+                updatedLayout = JSON.parse(change.value)
+            }
+        })
+
+        return updatedLayout
+    }
+
+    return layout
+}
+
+
+export function applyExperimentToResponseCheck(responseCheck, experiment, stepID){
+    // Apply the experiment's changes, if one is active.
+    if (experiment && experiment && experiment.current && experiment.current !== 'All'){
+        var updatedResponseCheck = responseCheck
+
+        const groupIndex = experiment.groups && experiment.groups.findIndex(group => group.name === experiment.current)
+        experiment.groups && experiment.groups[groupIndex].steps[stepID] && experiment.groups[groupIndex].steps[stepID].forEach(change => {
+            if (change.prop === 'responseCheck'){
+                updatedResponseCheck = change.value
+            }
+        })
+
+        return updatedResponseCheck
+    }
+
+    return responseCheck
 }

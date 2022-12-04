@@ -11,11 +11,20 @@ import { useFirestore } from 'reactfire'
 import { EllipsisVerticalIcon } from '@heroicons/react/24/solid'
 
 
-export default function Layout({ db, children }) {
+export default function Layout({ children }) {
   return (
     <>
-      <AdminAppHeader db={db} />
+      <AdminAppHeader />
       {children}
+    </>
+  )
+}
+
+
+export function TabbedPageLayout({ children, page, tabs }) {
+  return (
+    <>
+      <TabbedPageHeader children={children} page={page} tabs={tabs} />
     </>
   )
 }
@@ -29,7 +38,7 @@ const user = {
 }
 const userNavigation = [
   // { name: 'Your Profile', href: '#' },
-  // { name: 'Settings', href: '#' },
+  { name: 'Settings', href: '/settings' },
   { name: 'Sign out', href: '#' },
 ]
 
@@ -37,16 +46,21 @@ const userNavigation = [
 export const AdminAppHeader = () => {
     var [flow, setFlow] = useState()
     var [step, setStep] = useState()
+    var [app, setApp] = useState()
     var [editNameOpen, setEditNameOpen] = useState(false)
 
     const router = useRouter(),
         db = useFirestore()
 
-    const breadcrumb = router.query.appid === 'none' ? [] : [
-      { name: 'App', href: `/admin/app/${router.query.appid}`, current: false },
+    const breadcrumb = (router.query.appid === 'none' || !router.query.appid) ? [] : [
+      { name: app && app.name || 'Untitled app', href: `/admin/app/${router.query.appid}`, current: false },
     ]
 
     var previewURL
+    if (router.query.appid){
+        previewURL = `/app/${router.query.appid}`
+    }
+
     if (router.query.flowid){
         breadcrumb.push({ name: flow && flow.name || 'Untitled flow', href: `/admin/app/${router.query.appid}/flow/${router.query.flowid}`, current: false })
         previewURL = `/app/${router.query.appid}/flow/${router.query.flowid}`
@@ -56,6 +70,16 @@ export const AdminAppHeader = () => {
         breadcrumb.push({ name: step && step.name || 'Untitled step', href: `/admin/app/${router.query.appid}/flow/${router.query.flowid}/step/${router.query.stepid}`, current: true })
         previewURL = `/app/${router.query.appid}/flow/${router.query.flowid}/step/${router.query.stepid}`
     }
+
+    useEffect(() => {
+        if (router.query.appid){
+            getDoc(doc(db, "apps", router.query.appid)).then(docSnapshot => {
+                if (docSnapshot.exists()){
+                    setApp(docSnapshot.data())
+                }
+            })
+        }
+    }, [router.query.appid])
 
     useEffect(() => {
         if (router.query.flowid){
@@ -91,7 +115,7 @@ export const AdminAppHeader = () => {
         <Disclosure as="nav" className="bg-gray-800">
           {({ open }) => (
             <>
-              <div className="mx-auto max-w-7xl px-4 sm:px-6 lg:px-8">
+              <div className="mx-auto px-4 sm:px-6 lg:px-8">
                 <div className="flex h-12 items-center justify-between">
                   <div className="flex items-center">
                     <div className="flex-shrink-0">
@@ -205,15 +229,14 @@ export const AdminAppHeader = () => {
                             {userNavigation.map((item) => (
                               <Menu.Item key={item.name}>
                                 {({ active }) => (
-                                  <a
-                                    href={item.href}
+                                  <Link href={item.href}><a
                                     className={classNames(
                                       active ? 'bg-gray-100' : '',
                                       'block px-4 py-2 text-sm text-gray-700'
                                     )}
                                   >
                                     {item.name}
-                                  </a>
+                                  </a></Link>
                                 )}
                               </Menu.Item>
                             ))}
@@ -369,4 +392,156 @@ export const EditNameModal = ({ name, kind, open, setOpen, update }) => {
       </Dialog>
     </Transition.Root>
 
+}
+
+function Tab({ tab }){
+    return <Link
+      href={tab.href}
+    >
+      <a
+
+      className={classNames(
+        tab.current
+          ? 'border-indigo-500 text-indigo-600'
+          : 'border-transparent text-gray-500 hover:text-gray-700 hover:border-gray-300',
+        'whitespace-nowrap py-3 px-1 border-b-2 font-medium text-sm'
+      )}
+      aria-current={tab.current ? 'page' : undefined}
+
+      >{tab.name}</a>
+    </Link>
+}
+
+
+
+export const TabbedPageHeader = ({ children, page, tabs }) => {
+    var nameRef = useRef()
+
+    var [editNameOpen, setEditNameOpen] = useState(false)
+    const cancelButtonRef = useRef(null)
+
+    const router = useRouter(),
+        db = useFirestore()
+
+    return <div className='h-full bg-gray-100 flex-auto'>
+        <div className="min-h-full">
+            <header className="bg-white shadow">
+              <div className="mx-auto max-w-7xl px-4 sm:px-6 lg:px-8">
+                  <div>
+                    <div className="sm:hidden">
+                      <label htmlFor="tabs" className="sr-only">
+                        Select a tab
+                      </label>
+                      {/* Use an "onChange" listener to redirect the user to the selected tab URL. */}
+                      <select
+                        id="tabs"
+                        name="tabs"
+                        className="block w-full rounded-md border-gray-300 py-2 pl-3 pr-10 text-base focus:border-indigo-500 focus:outline-none focus:ring-indigo-500 sm:text-sm"
+                        defaultValue={tabs?.flat().find((tab) => tab.current).name}
+                      >
+                        {tabs?.flat().map((tab) => (
+                          <option key={tab.name}>{tab.name}</option>
+                        ))}
+                      </select>
+                    </div>
+                    <div className="hidden sm:block">
+                      <div>
+                        <nav className="-mb-px h-12 flex items-center justify-between" aria-label="Tabs">
+                              <div className="hidden md:block space-x-8">
+                                  {tabs && tabs[0].map((tab) => <Tab tab={tab} key={tab.name} />)}
+                              </div>
+                              <div className="hidden md:block space-x-8">
+                                  {tabs && tabs[1].map((tab) => <Tab tab={tab} key={tab.name} />)}
+                            </div>
+                        </nav>
+                      </div>
+                    </div>
+                  </div>
+              </div>
+            </header>
+
+            <main>
+              <div className="mx-auto max-w-7xl py-6 sm:px-6 lg:px-8">
+                <div className='max-w-xs mx-auto'>
+                    {children}
+                </div>
+              </div>
+            </main>
+        </div>
+
+
+        <Transition.Root show={editNameOpen} as={Fragment}>
+          <Dialog as="div" className="relative z-10" initialFocus={cancelButtonRef} onClose={setEditNameOpen}>
+            <Transition.Child
+              as={Fragment}
+              enter="ease-out duration-300"
+              enterFrom="opacity-0"
+              enterTo="opacity-100"
+              leave="ease-in duration-200"
+              leaveFrom="opacity-100"
+              leaveTo="opacity-0"
+            >
+              <div className="fixed inset-0 bg-gray-500 bg-opacity-75 transition-opacity" />
+            </Transition.Child>
+
+            <div className="fixed inset-0 z-10 overflow-y-auto">
+              <div className="flex min-h-full items-end justify-center p-4 text-center sm:items-center sm:p-0">
+                <Transition.Child
+                  as={Fragment}
+                  enter="ease-out duration-300"
+                  enterFrom="opacity-0 translate-y-4 sm:translate-y-0 sm:scale-95"
+                  enterTo="opacity-100 translate-y-0 sm:scale-100"
+                  leave="ease-in duration-200"
+                  leaveFrom="opacity-100 translate-y-0 sm:scale-100"
+                  leaveTo="opacity-0 translate-y-4 sm:translate-y-0 sm:scale-95"
+                >
+                  <Dialog.Panel className="relative transform overflow-hidden rounded-lg bg-white text-left shadow-xl transition-all sm:my-8 sm:w-full sm:max-w-lg">
+                    <div className="bg-white px-4 pt-5 pb-4 sm:p-6 sm:pb-4">
+                      <div className="sm:flex sm:items-start">
+                          <Dialog.Title as="h3" className="text-lg font-medium leading-6 text-gray-900">
+                            Deactivate account
+                          </Dialog.Title>
+
+                          <div className="mt-2">
+                            <label htmlFor="email" className="block text-sm font-medium text-gray-700">
+                              Name
+                            </label>
+                            <div className="mt-1">
+                              <input
+                                ref={nameRef}
+                                type="text"
+                                name="name"
+                                className="shadow-sm focus:ring-indigo-500 focus:border-indigo-500 block w-full sm:text-sm border-gray-300 rounded-md"
+                                placeholder="Flow name"
+                                onBlur={(event) => updateDoc(doc(db, "flows", router.query.flowid), { name: event.target.value })}
+                              />
+                            </div>
+
+                          </div>
+                      </div>
+                    </div>
+                    <div className="bg-gray-50 px-4 py-3 sm:flex sm:flex-row-reverse sm:px-6">
+                      <button
+                        type="button"
+                        className="inline-flex w-full justify-center rounded-md border border-transparent bg-red-600 px-4 py-2 text-base font-medium text-white shadow-sm hover:bg-red-700 focus:outline-none focus:ring-2 focus:ring-red-500 focus:ring-offset-2 sm:ml-3 sm:w-auto sm:text-sm"
+                        onClick={() => setEditNameOpen(false)}
+                      >
+                        Deactivate
+                      </button>
+                      <button
+                        type="button"
+                        className="mt-3 inline-flex w-full justify-center rounded-md border border-gray-300 bg-white px-4 py-2 text-base font-medium text-gray-700 shadow-sm hover:bg-gray-50 focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:ring-offset-2 sm:mt-0 sm:ml-3 sm:w-auto sm:text-sm"
+                        onClick={() => setEditNameOpen(false)}
+                        ref={cancelButtonRef}
+                      >
+                        Cancel
+                      </button>
+                    </div>
+                  </Dialog.Panel>
+                </Transition.Child>
+              </div>
+            </div>
+          </Dialog>
+        </Transition.Root>
+    </div>
 }

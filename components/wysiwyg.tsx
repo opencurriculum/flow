@@ -17,8 +17,9 @@ const WYSIWYGPanelsDraggable: NextPageWithLayout = (props) => {
 }
 
 
-const WYSIWYGPanels = ({ context, layout, onLayoutChange, onDrop, layoutContent,
-    updateLayoutContent, formatting, updateFormatting, contentTypes, formattingPanelAdditions, lockedContent }) => {
+const WYSIWYGPanels = ({ context, layout, onRemove, onLayoutChange, onDrop, layoutContent,
+    updateLayoutContent, formatting, updateFormatting, contentTypes, editableProps,
+    formattingPanelAdditions, lockedContent }) => {
     const [isContentBeingDragged, setIsContentBeingDragged] = useState(false)
     const [selectedContent, setSelectedContent] = useState()
 
@@ -40,8 +41,6 @@ const WYSIWYGPanels = ({ context, layout, onLayoutChange, onDrop, layoutContent,
         })
     }
 
-    var contentTypesNames = contentTypes ? Object.keys(contentTypes) : []
-
     return <div className='flex flex-auto'>
         <div className='flex-none w-64 bg-gray-800 p-6 text-white'>
             {/*<button className='p-2' onClick={() => setLayout(initialLayout)}>Reset layout</button>*/}
@@ -51,7 +50,7 @@ const WYSIWYGPanels = ({ context, layout, onLayoutChange, onDrop, layoutContent,
 
                 <div role="list" className="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-2">
                     <div
-                      className="droppable-element cursor-pointer col-span-1 divide-y divide-gray-200"
+                      className="droppable-element cursor-pointer col-span-1 opacity-70 hover:opacity-100"
                       draggable={true}
                       unselectable="on"
                       // this is a hack for firefox
@@ -71,39 +70,45 @@ const WYSIWYGPanels = ({ context, layout, onLayoutChange, onDrop, layoutContent,
             <div className='mb-4'>
                 <h3 className="text-lg font-medium leading-10">Blocks</h3>
                 <ul role="list" className="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-2">
-                    {(context === 'step' ? [{ name: 'Prompt' }, { name: 'Question' }, { name: 'Response' }, { name: 'Check answer' }] : [{ name: 'Text' }]).map(item => <li key={item.name} className='cursor-pointer'>
-                        <div className='border border-white h-12 w-full opacity-70'></div>
+                    {(context === 'step' ? contentTypes.map(ct => ({ name: ct.kind })) : [{ name: 'Text' }]).map(item => <li key={item.name} className='cursor-pointer opacity-70 hover:opacity-100'>
                         <DraggableContent name={item.name} onDragBegin={onDragContentBegin} onDragEnd={onDragContentEnd} />
                     </li>)}
                 </ul>
             </div>
         </div>
 
-        <div className='flex-auto relative overflow-auto'>
-            {layout && layoutContent ? <div className={styles.GridLayoutWrapper + ' absolute'} style={{ width: '800px' }}>
+        <div className='flex-auto relative overflow-auto bg-gray-100' >
+            {layout && layoutContent ? <div className={styles.GridLayoutWrapper + ' mx-auto shadow-md'} style={{ width: '1200px', minHeight: 'calc(100vh - 3rem - 20px)', backgroundColor: '#fcfcfc' }} onClick={() => setSelectedContent() }>
                 <GridLayout
                   className="layout"
                   layout={layout}
                   onLayoutChange={onLayoutChange}
-                  cols={12}
-                  rowHeight={30}
-                  width={800}
+                  cols={36}
+                  rowHeight={12}
+                  width={1200}
+                  droppingItem={{ i: 'new', w: 5, h: 5 }}
                   onDrop={onDrop}
+                  compactType={null}
                   isDroppable={!isContentBeingDragged}
                 >
                     {layout.map(box => {
-                        var contentIsCustom = layoutContent[box.i] && contentTypesNames.find(contentTypesName => {
-                            return layoutContent[box.i].name.startsWith(contentTypesName)
+                        var contentType = layoutContent[box.i] && contentTypes.find(contentType => {
+                            return layoutContent[box.i].kind === contentType.kind || layoutContent[box.i].name.startsWith(contentType.kind)
                         })
 
                         return <div key={box.i}>
                             <DroppableContentContainer id={box.i}
-                                contentType={contentIsCustom ? contentTypes[contentIsCustom] : null}
+                                contentType={contentType}
+                                editableProps={editableProps}
 
+                                onRemove={onRemove}
                                 layoutContent={layoutContent}
                                 updateLayoutContent={updateLayoutContent}
-                                toggleSelectedContent={toggleSelectedContent}
                                 contentFormatting={formatting}
+
+                                selectedContent={selectedContent}
+                                toggleSelectedContent={toggleSelectedContent}
+                                // selectContent={setSelectedContent}
 
                                 experimentLock={lockedContent ? lockedContent.layoutContent.indexOf(box.i) !== -1 : false}
                             />
@@ -111,25 +116,26 @@ const WYSIWYGPanels = ({ context, layout, onLayoutChange, onDrop, layoutContent,
                     })}
                 </GridLayout>
                 {<style jsx global>{`
-                    .${styles.GridLayoutWrapper} .react-grid-item {
-                        border: 1px solid #000
+                    .${styles.GridLayoutWrapper} .react-grid-item.react-grid-placeholder {
+                        background-color: rgb(226 232 240);
                     }
                 `}</style>}
             </div> : null}
 
         </div>
         <div className='flex-none w-64 bg-gray-100 p-4'>
-            {formattingPanelAdditions ? formattingPanelAdditions(toggleSelectedContent) : null}
+            {formattingPanelAdditions ? formattingPanelAdditions(selectedContent, toggleSelectedContent) : null}
 
             {selectedContent ? <Formatting
                 selectedContent={selectedContent}
                 contentFormatting={formatting}
-                update={(property, value) => updateFormatting(selectedContent, property, value)}
+                update={(property, value) => updateFormatting(selectedContent.name, property, value)}
             /> : null}
 
         </div>
     </div>
 }
+
 
 const Formatting = ({ selectedContent, contentFormatting, update }) => {
     var properties =  [
@@ -139,11 +145,11 @@ const Formatting = ({ selectedContent, contentFormatting, update }) => {
     ]
 
     return <div>
-        <h3 className="text-lg font-medium leading-10">Formatting</h3>
+        <h3 className="text-md font-medium leading-10">Formatting</h3>
         {properties.map((prop, i) => <FormattingProperty {...prop} key={i}
             content={selectedContent}
             update={update}
-            value={contentFormatting && contentFormatting[selectedContent] && contentFormatting[selectedContent][prop.property]}
+            value={contentFormatting && contentFormatting[selectedContent?.name] && contentFormatting[selectedContent.name][prop.property]}
         />)}
     </div>
 }
@@ -167,12 +173,12 @@ const FormattingProperty = ({ content, name, property, type, valueType, selected
     }
 
     useEffect(() => {
-      if (content && contentRef.current !== content){
+      if (content.name && contentRef.current !== content.name){
           updateValueEls(valueType, value)
       }
 
-      contentRef.current = content
-    }, [content])
+      contentRef.current = content.name
+  }, [content.name])
 
     useEffect(() => {
         if (valueRef.current !== value){
@@ -211,25 +217,25 @@ const FormattingProperty = ({ content, name, property, type, valueType, selected
 
      var body;
      if (type === 'text'){
-         body = <input type='text' ref={elRef}
+         body = <input type='text' ref={elRef} className="py-0.5 px-1 border-slate-200 hover:border-slate-400"
             defaultValue={valueType === 'number' ? value && parseFloat(value) : value}
             onChange={applyFormatting}
         />
     } else if (type === 'select'){
-        body = <select defaultValue={value} ref={elRef}
+        body = <select defaultValue={value} ref={elRef} className="py-0.5 px-1 pr-8 border-slate-200 hover:border-slate-400"
             onChange={applyFormatting}>
             <option value="left">Left</option>
             <option value="center">Center</option>
             <option value="right">Right</option>
         </select>
     } else if (type === 'checkbox'){
-        body = <input type='checkbox' ref={elRef}
+        body = <input type='checkbox' ref={elRef} className="border-slate-200 hover:border-slate-400"
             defaultChecked={value}
             onChange={applyFormatting}
         />
     }
 
-    return <div>
+    return <div className="text-sm mb-1">
         <div>{name}</div>
         {body}
     </div>
@@ -250,19 +256,15 @@ const DraggableContent = ({ name, onDragBegin, onDragEnd }) => {
     }), [])
 
     return (
-        <div ref={dragRef} style={{ opacity }} className='text-sm leading-8'>
-            {name}
+        <div ref={dragRef} style={{ opacity }}>
+            <div className='border border-white h-12 w-full opacity-70'></div>
+            <div className='text-sm mt-2 leading-2'>{name}</div>
         </div>
     )
 }
 
 
-const DroppableContentContainer = ({ id,
-        updateLayoutContent, layoutContent, toggleSelectedContent,
-        contentFormatting, experimentLock,
-
-        contentType
-    }) => {
+const DroppableContentContainer = ({ id, onRemove, updateLayoutContent, layoutContent, selectedContent, toggleSelectedContent, selectContent, contentFormatting, experimentLock, contentType, editableProps}) => {
     const [{ canDrop, isOver }, dropRef] = useDrop(() => ({
         accept: 'content',
         drop: (item) => {
@@ -277,7 +279,7 @@ const DroppableContentContainer = ({ id,
             }
 
             updateLayoutContent(id, { name: numberOfSuchContentAlreadyCreated ? (
-                `${item.id} ${numberOfSuchContentAlreadyCreated + 1}`) : item.id })
+                `${item.id} ${numberOfSuchContentAlreadyCreated + 1}`) : item.id, kind: item.id })
             return ({ name: 'Droppable-Content' });
         },
         collect: (monitor) => ({
@@ -286,73 +288,92 @@ const DroppableContentContainer = ({ id,
       }),
     }))
 
-    return <div ref={dropRef}>
-        {layoutContent.hasOwnProperty(id) ? <div>
+    var content = layoutContent[id],
+        settings = content && editableProps.contentSettings[content.name] || {},
+        setSettings = value => editableProps.setContentSettings({ ...editableProps.contentSettings, [content.name]: { ...settings, ...value } })
+
+    var isSelected = selectedContent && content && selectedContent.name === content.name
+
+    return <div
+        className={"h-full relative border" + (isOver ? " bg-slate-200" : '') + (
+            content ? (' hover:border-blue-500' + (isSelected ? ' border-blue-300' : '')) : ' border-dashed border-2 border-gray-200 hover:border-gray-400')}
+        ref={dropRef}
+    >
+        {layoutContent.hasOwnProperty(id) ? <>
             {experimentLock ? <div>DONT TOUCH ME I AM LOCKED BY A GROUP CHANGE</div> : null}
+
+            {editableProps.contentSettings?.all?.showContentLabels ? <div title='Click to copy' onClick={e => {
+                navigator.clipboard.writeText(`{${content.name}}`);
+                e.stopPropagation()
+            }} className='absolute right-0 bg-yellow-600 text-white text-sm leading-4 p-1 rounded-r-md' style={{ left: '100%', width: (Math.log10(content.name.length) * 125) + 'px' }}>
+                <div>{`{${content.name}}`}</div>
+                {contentType.responseProperties?.map(rp => <div className="pl-2 text-xs">.{rp}</div>)}
+            </div> : null}
+
             <EditableContent content={layoutContent[id]} id={id}
                 updateLayoutContent={updateLayoutContent}
                 toggleSelectedContent={toggleSelectedContent}
+                selectContent={selectContent}
+                isSelected={isSelected}
                 contentFormatting={contentFormatting}
-                contentType={contentType}
-            />
-            <button onClick={() => updateLayoutContent(id)}>Remove</button>
 
-            {contentType && contentType.option ? contentType.option(id) : null}
-        </div> : 'Drop'}
+                contentType={contentType}
+                settings={settings}
+                setSettings={setSettings}
+                editableProps={editableProps}
+            />
+            <div className='absolute' style={{ bottom: '-2rem'}}>
+                <button onClick={() => updateLayoutContent(id)}
+                    className="inline-flex items-center rounded border border-transparent bg-sky-300 px-1.5 py-1 text-xs font-medium text-white shadow-sm hover:bg-sky-700 focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:ring-offset-2"
+                >Remove "{content.name}"</button>
+            </div>
+
+            {contentType && contentType.option ? contentType.option(id, {settings, setSettings}) : null}
+        </> : null}
+        <div className='absolute right-0' style={{ bottom: '-2rem'}}>
+            <button onClick={() => onRemove(id)}
+                className="inline-flex items-center rounded border border-transparent bg-gray-300 px-1.5 py-1 text-xs font-medium text-white shadow-sm hover:bg-gray-700 focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:ring-offset-2"
+            >Remove</button>
+        </div>
     </div>
 }
 
 
-const EditableContent = ({ content, id,
-    // toggleSelectedResourceTemplateItems,
-    updateLayoutContent, toggleSelectedContent, contentFormatting, contentType }) => {
+// toggleSelectedResourceTemplateItems,
+const EditableContent = ({ content, id, updateLayoutContent, toggleSelectedContent, selectContent, isSelected, contentFormatting, contentType, settings, setSettings, editableProps }) => {
     var body = content.name;
-    if (contentType){
-        if (contentType.editable)
-            body = contentType.editable(id, content && content.body)
+    var formatting = contentFormatting && contentFormatting[content.name] ? contentFormatting[content.name] : {}
 
-    } else {
-        body = <ContentInput name='text' body={content.body} formatting={contentFormatting && contentFormatting[content.name]} updateBody={(body) => {
-            updateLayoutContent(id, { body })
-        }} />
-    }
+    body = contentType.editable(
+        // body
+        content && content.body,
 
-    return <div className='border border-transparent border-2 border-dashed hover:border-gray-200' style={{ cursor: 'pointer',
-        ...(contentFormatting && contentFormatting[content.name] ? contentFormatting[content.name] : {}),
-    }} onClick={() => {
-        toggleSelectedContent(content.name)
-    }}>
+        // formatting.
+        formatting,
+
+        // updateBody
+        body => updateLayoutContent(id, { body }),
+
+        // toggleSelectedContent
+        (selected) => toggleSelectedContent(selected || { name: content.name, kind: content.kind }),
+
+        {
+            contentFormatting, settings, setSettings, ...editableProps,
+
+            selectContent: () => selectContent({ name: content.name, kind: content.kind }),
+
+            isSelected
+        }
+    )
+
+    return <div className='h-full'
+        style={{ ...formatting }}
+        onClick={(e) => {
+            toggleSelectedContent({ name: content.name, kind: content.kind || content.name })
+            e.stopPropagation()
+        }}>
         {body}
     </div>
-}
-
-
-export var ContentInput = ({ name, body, updateBody, formatting }) => {
-    const [editorState, setEditorState] = useState(EditorState.createEmpty())
-    const [isEditing, setIsEditing] = useState()
-
-    const bodyRef = useRef()
-
-    useEffect(() => {
-        if (body && body !== bodyRef.current && !isEditing){
-            var newEditorState = EditorState.createWithContent(convertFromRaw(body))
-            setEditorState(newEditorState)
-
-            bodyRef.current = body
-        }
-    }, [body])
-
-    return <Editor editorState={editorState}
-        placeholder={`Add some ${name}`}
-        blockStyleFn={blockStyleFn.bind(this, formatting)}
-        onChange={(newEditorState) => {
-            setIsEditing(true)
-            setEditorState(newEditorState)
-        }}
-        onBlur={() => {
-            updateBody(convertToRaw(editorState.getCurrentContent()))
-            setTimeout(() => setIsEditing(false), 1)
-        }} />
 }
 
 
