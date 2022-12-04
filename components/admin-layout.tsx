@@ -24,7 +24,7 @@ export default function Layout({ children }) {
 export function TabbedPageLayout({ children, page, tabs }) {
   return (
     <>
-      <TabbedPageHeader children={children} page={page} tabs={tabs} />
+      <TabbedPageHeader page={page} tabs={tabs}>{children}</TabbedPageHeader>
     </>
   )
 }

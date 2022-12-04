@@ -210,9 +210,7 @@ const Flow: NextPageWithLayout = ({ userID }: AppProps) => {
 }
 
 
-export function getTabs(page){
-    const router = useRouter()
-
+export function getTabs(page, router){
     var urlProps = { appid: router.query.appid, flowid: router.query.flowid },
         subpagePathname = '/admin/app/[appid]/flow/[flowid]/[subpage]',
         baseURL = `/admin/app/${router.query.appid}/flow/${router.query.flowid}`
@@ -230,9 +228,10 @@ export function getTabs(page){
 
 
 Flow.getLayout = function getLayout(page: ReactElement) {
+    const router = useRouter()
   return (
     <Layout>
-        <TabbedPageLayout tabs={getTabs()}>
+        <TabbedPageLayout tabs={getTabs(null, router)}>
             {page}
         </TabbedPageLayout>
     </Layout>

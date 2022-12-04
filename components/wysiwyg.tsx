@@ -307,7 +307,7 @@ const DroppableContentContainer = ({ id, onRemove, updateLayoutContent, layoutCo
                 e.stopPropagation()
             }} className='absolute right-0 bg-yellow-600 text-white text-sm leading-4 p-1 rounded-r-md' style={{ left: '100%', width: (Math.log10(content.name.length) * 125) + 'px' }}>
                 <div>{`{${content.name}}`}</div>
-                {contentType.responseProperties?.map(rp => <div className="pl-2 text-xs">.{rp}</div>)}
+                {contentType.responseProperties?.map(rp => <div key={rp} className="pl-2 text-xs">.{rp}</div>)}
             </div> : null}
 
             <EditableContent content={layoutContent[id]} id={id}
@@ -325,7 +325,7 @@ const DroppableContentContainer = ({ id, onRemove, updateLayoutContent, layoutCo
             <div className='absolute' style={{ bottom: '-2rem'}}>
                 <button onClick={() => updateLayoutContent(id)}
                     className="inline-flex items-center rounded border border-transparent bg-sky-300 px-1.5 py-1 text-xs font-medium text-white shadow-sm hover:bg-sky-700 focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:ring-offset-2"
-                >Remove "{content.name}"</button>
+                >Remove &quot;{content.name}&quot;</button>
             </div>
 
             {contentType && contentType.option ? contentType.option(id, {settings, setSettings}) : null}

@@ -84,9 +84,7 @@ const UserApp: NextPageWithLayout =  ({ userID }: AppProps) => {
     </div>
 }
 
-export function getTabs(page){
-    const router = useRouter()
-
+export function getTabs(page, router){
     var urlProps = { appid: router.query.appid },
         subpagePathname = '/admin/app/[appid]/[subpage]',
         baseURL = `/admin/app/${router.query.appid}/`
@@ -101,9 +99,10 @@ export function getTabs(page){
 
 
 UserApp.getLayout = function getLayout(page: ReactElement) {
+    const router = useRouter()
   return (
     <Layout>
-        <TabbedPageLayout tabs={getTabs()}>
+        <TabbedPageLayout tabs={getTabs(null, router)}>
             {page}
         </TabbedPageLayout>
     </Layout>
