@@ -3,8 +3,7 @@ import type { AppProps } from 'next/app'
 import {useState, useEffect, useRef} from 'react'
 import { collection, getDocs, setDoc, getDoc, doc, updateDoc,
     getCollection, arrayUnion, writeBatch, deleteDoc, serverTimestamp } from "firebase/firestore"
-import { useRouter } from 'next/router'
-import Router from 'next/router'
+import { useRouter, router } from 'next/router'
 import Link from 'next/link'
 import { v4 as uuidv4 } from 'uuid'
 import { useDrag, useDrop, DndProvider } from 'react-dnd'
@@ -211,9 +210,9 @@ const Flow: NextPageWithLayout = ({ userID }: AppProps) => {
 }
 
 
-export function getTabs(page, router){
-    const appid = Router.router?.state.query.appid,
-        flowid = Router.router?.state.query.flowid
+export function getTabs(page){
+    const appid = router?.state.query.appid,
+        flowid = router?.state.query.flowid
 
     var urlProps = { appid, flowid },
         subpagePathname = '/admin/app/[appid]/flow/[flowid]/[subpage]',

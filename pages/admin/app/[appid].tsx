@@ -5,7 +5,7 @@ import {
     collection, query, where, getDocs, setDoc, getDoc, doc, updateDoc,
     getCollection, documentId, arrayUnion, writeBatch, deleteDoc
 } from "firebase/firestore"
-import { useRouter } from 'next/router'
+import { useRouter, router } from 'next/router'
 import Link from 'next/link'
 import { v4 as uuidv4 } from 'uuid'
 import update from 'immutability-helper'
@@ -84,8 +84,8 @@ const UserApp: NextPageWithLayout =  ({ userID }: AppProps) => {
     </div>
 }
 
-export function getTabs(page, router){
-    const appid = Router.router?.state.query.appid
+export function getTabs(page){
+    const appid = router?.state.query.appid
 
     var urlProps = { appid },
         subpagePathname = '/admin/app/[appid]/[subpage]',
