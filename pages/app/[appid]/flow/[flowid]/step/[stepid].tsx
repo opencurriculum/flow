@@ -65,7 +65,7 @@ const Step = ({ userID }) => {
             //     logEvent(app.analytics, 'step_shown', { stepID: router.query.stepid });
             // }
         }
-    }, [])
+    }, [router.query.flowid])
 
     useEffect(() => {
         if (router.query.flowid){

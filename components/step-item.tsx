@@ -112,7 +112,7 @@ export const StepItem = ({ userID, step, stepID, progress, experiment, flowSteps
                                         if (prop !== 'timestamp'){
                                             tempVariableName = 'var' + uuidv4().substring(0, 5)
                                             cleanedResponseCheck = cleanedResponseCheck.replace(prop, tempVariableName)
-                                            variableDeclations.push(parseFloat(lastUserResponse[prop]) ? (
+                                            variableDeclations.push(lastUserResponse[prop].match(/^-?\d+\.?\d*$/) ? (
                                                 `${tempVariableName} = ${lastUserResponse[prop]}`) : `${tempVariableName} = "${lastUserResponse[prop]}"`
                                             )
                                         }
@@ -177,7 +177,7 @@ const BoxBody = ({ content, response, checkResponse, setResponse, contentFormatt
 
     var formatting = {...(contentFormatting && contentFormatting[content.name] ? contentFormatting[content.name] : {})}
 
-    return <div onClick={contentEvents && contentEvents.click ? () => {
+    return <div className='h-full' onClick={contentEvents && contentEvents.click ? () => {
             var searchParams = new URLSearchParams(window.location.search)
 
             const url = new URL(window.location.href)

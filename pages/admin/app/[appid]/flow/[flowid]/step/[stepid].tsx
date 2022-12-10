@@ -24,9 +24,9 @@ import jsonDiff from 'json-diff'
 
 
 const initialLayout = [
-  { i: "a", x: 0, y: 0, w: 1, h: 2 },
-  { i: "b", x: 1, y: 0, w: 3, h: 2 },
-  { i: "c", x: 4, y: 0, w: 1, h: 2 }
+  // { i: "a", x: 0, y: 0, w: 1, h: 2 },
+  // { i: "b", x: 1, y: 0, w: 3, h: 2 },
+  // { i: "c", x: 4, y: 0, w: 1, h: 2 }
 ];
 
 
@@ -197,7 +197,8 @@ const Step: NextPageWithLayout = ({ userID }) => {
                 // Or just set what's current.
                 } else if (router.query['event:click']){
                     setEvents({
-                        current: router.query['event:click']
+                        current: router.query['event:click'],
+                        [router.query['event:click']]: { 'click': [] }
                     })
                 }
 
