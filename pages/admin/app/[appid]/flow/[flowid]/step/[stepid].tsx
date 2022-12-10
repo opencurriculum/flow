@@ -507,23 +507,25 @@ const Step: NextPageWithLayout = ({ userID }) => {
             }
 
         } else {
-            if (value){
-                if (layoutContent.hasOwnProperty(id)){
-                    layoutContent[id] = { ...layoutContent[id], ...value }
+            setLayoutContent(layoutContent => {
+                if (value){
+                    if (layoutContent.hasOwnProperty(id)){
+                        layoutContent[id] = { ...layoutContent[id], ...value }
+                    } else {
+                        layoutContent[id] = value
+                    }
                 } else {
-                    layoutContent[id] = value
-                }
-            } else {
-                if (contentFormatting && contentFormatting.hasOwnProperty(layoutContent[id].name)){
-                    var newContentFormatting = {...contentFormatting}
-                    delete newContentFormatting[layoutContent[id].name]
-                    setContentFormatting(newContentFormatting)
+                    if (contentFormatting && contentFormatting.hasOwnProperty(layoutContent[id].name)){
+                        var newContentFormatting = {...contentFormatting}
+                        delete newContentFormatting[layoutContent[id].name]
+                        setContentFormatting(newContentFormatting)
+                    }
+
+                    layoutContent = update(layoutContent, { $unset: [id] })
                 }
 
-                layoutContent = update(layoutContent, { $unset: [id] })
-            }
-
-            setLayoutContent({ ...layoutContent })
+                return { ...layoutContent }
+            })
         }
 
 

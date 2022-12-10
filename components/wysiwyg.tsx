@@ -265,15 +265,21 @@ const DraggableContent = ({ name, onDragBegin, onDragEnd }) => {
 
 
 const DroppableContentContainer = ({ id, onRemove, updateLayoutContent, layoutContent, selectedContent, toggleSelectedContent, selectContent, contentFormatting, experimentLock, contentType, editableProps}) => {
+    var layoutContentRef = useRef()
+
+    useEffect(() => {
+        layoutContentRef.current = layoutContent
+    }, [layoutContent])
+
     const [{ canDrop, isOver }, dropRef] = useDrop(() => ({
         accept: 'content',
         drop: (item) => {
             var numberOfSuchContentAlreadyCreated = 0
-            for (var layoutID in layoutContent){
-                var nameMatch = layoutContent[layoutID].name.match(new RegExp(`${item.id} (?<number>\\d)`))
+            for (var layoutID in layoutContentRef.current){
+                var nameMatch = layoutContentRef.current[layoutID].name.match(new RegExp(`${item.id} (?<number>\\d)`))
                 if (nameMatch){
                     numberOfSuchContentAlreadyCreated = nameMatch.groups.number
-                } else if (layoutContent[layoutID].name === item.id){
+                } else if (layoutContentRef.current[layoutID].name === item.id){
                     numberOfSuchContentAlreadyCreated = 1
                 }
             }
