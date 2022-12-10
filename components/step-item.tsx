@@ -177,7 +177,7 @@ const BoxBody = ({ content, response, checkResponse, setResponse, contentFormatt
 
     var formatting = {...(contentFormatting && contentFormatting[content.name] ? contentFormatting[content.name] : {})}
 
-    return <div className='h-full' onClick={contentEvents && contentEvents.click ? () => {
+    return <div onClick={contentEvents && contentEvents.click ? () => {
             var searchParams = new URLSearchParams(window.location.search)
 
             const url = new URL(window.location.href)
@@ -186,7 +186,7 @@ const BoxBody = ({ content, response, checkResponse, setResponse, contentFormatt
 
             router.replace(url.toString())
 
-        } : null} className={contentEvents && contentEvents.click ? 'cursor-pointer' : ''} data-contentname={content.name}>
+        } : null} className={'h-full' + (contentEvents && contentEvents.click ? ' cursor-pointer' : '')} data-contentname={content.name}>
         {render(content.body, formatting, {contentFormatting, stepID, checkResponse, response, setResponse})}
     </div>
 }
