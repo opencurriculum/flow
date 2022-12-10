@@ -87,7 +87,7 @@ const EditableImage = (body, formatting, updateBody, toggleSelectedContent, {app
             var fileFullname = event.target.files[0].name
             var [filename, extension] = fileFullname.split('.')
 
-            const storageRef = ref(storage, `images/app/${appID}/flow/${flowID}/step/${stepID}/${filename}-${uuidv4().substring(0, 3)}.${extension}`)
+            const storageRef = ref(storage, `app/${appID}/flow/${flowID}/step/${stepID}/${filename}-${uuidv4().substring(0, 3)}.${extension}`)
 
             uploadBytes(storageRef, event.target.files[0]).then((snapshot) => {
                 getDownloadURL(storageRef).then((url) => {
@@ -220,7 +220,7 @@ const MultipleChoice = function(body, formatting){
             if (choicesIDs.length){
                 choicesIDs.forEach(choiceID => {
                     choice = choices[choiceID]
-                    serializedChoices.push(`option=${choice.value}`)
+                    serializedChoices.push(`option=${encodeURIComponent(choice.value)}`)
                 })
             }
         }
