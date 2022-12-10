@@ -11,9 +11,9 @@ const Home: NextPage = () => {
     const router = useRouter()
     useEffect(() => {
         if (!Cookies.get('newUser')){
-            Cookies.remove('newUser')
             router.replace('/admin')
         } else {
+            Cookies.remove('newUser')
             router.replace('/admin/app/none/flow/new')
         }
     })

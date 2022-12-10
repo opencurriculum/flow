@@ -16,7 +16,8 @@ const Admin: NextPageWithLayout = ({ userID }: AppProps) => {
     var db = useFirestore()
 
     useEffect(() => {
-        getDoc(doc(db, "users", userID)).then(docSnapshot => {
+        var userRef = doc(db, "users", userID)
+        getDoc(userRef).then(docSnapshot => {
             if (docSnapshot.exists()){
                 var user = docSnapshot.data(), appIDs = user.apps || []
 
@@ -27,6 +28,8 @@ const Admin: NextPageWithLayout = ({ userID }: AppProps) => {
                         setApps(unsortedApps.sort(app => appIDs.indexOf(app.id)))
                     })
                 }
+            } else {
+                setDoc(userRef, { name: 'Someone something' })
             }
         })
     }, [])
