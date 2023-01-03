@@ -82,6 +82,19 @@ Once you have these, setup using the following steps:
 6. Visit http://localhost:3000/admin to open the admin interface where you can start making apps. Enjoy!
 
 
+Possible features roadmap
+-
+- [ ] Documentation / manual / how-to videos
+- [ ] Add H5P Blocks
+- [ ] Add readymade image graphics (assets like Canva has)
+- [ ] Add OCR and webcam blocks
+- [ ] Add text similarity response for short answers using language model
+- [ ] Custom implement LTI support (move away from LTIAAS)
+- [ ] Importing curriculum
+- [ ] Custom domains for hosted version
+
+
+
 License
 -
 We haven't determined the right open source license yet. So feel free to use the source in the most liberal way.
