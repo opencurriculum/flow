@@ -18,7 +18,7 @@ import Head from 'next/head'
 import { ExperimentHeader } from '../../../../../../../components/experimentation'
 import WYSIWYGPanels, {ContentInput} from '../../../../../../../components/wysiwyg'
 import { ResponseTemplate } from '../../../../../../../components/content-types'
-import { StepContentTypes, applyEventsToLayoutContent } from '../../../../../../../utils/common'
+import { StepContentTypes, applyEventsToLayoutContent, useResponse } from '../../../../../../../utils/common'
 import PropertyEditor from '../../../../../../../components/property-editor'
 import jsonDiff from 'json-diff'
 
@@ -88,7 +88,6 @@ const Step: NextPageWithLayout = ({ userID }) => {
     const [events, setEvents] = useState()
     const eventsRef = useRef()
 
-
     // const [responseFormatChangeOpen, setResponseChangeFormatOpen] = useState(false)
     // const [selectedResponseTemplateItems, setSelectedResponseTemplateItems] = useState([])
 
@@ -98,6 +97,8 @@ const Step: NextPageWithLayout = ({ userID }) => {
 
     const router = useRouter(),
         db = useFirestore()
+
+    const [response, setResponse] = useResponse(router?.query?.stepid)
 
     useEffect(() => {
         if (flow){
@@ -752,7 +753,7 @@ const Step: NextPageWithLayout = ({ userID }) => {
             editableProps={{
                 contentSettings, setContentSettings,
                 stepID: router.query.stepid, flowID: router.query.flowid,
-                appID: router.query.appid
+                appID: router.query.appid, response: response && response[router.query.stepid]
             }}
 
             formattingPanelAdditions={(selectedContent, toggleSelectedContent) => {

@@ -3,14 +3,20 @@ import { v4 as uuidv4 } from 'uuid'
 import update from 'immutability-helper'
 
 
-export default function PropertyEditor({ properties, value, setValue }){
+export default function PropertyEditor({ selectedContent, properties, value, setValue }){
     const [data, setData] = useState(value || [])
+    const selectedContentRef = useRef(selectedContent)
 
     useEffect(() => {
         if (data?.length){
             setValue(data)
         }
     }, [data])
+
+    useEffect(() => {
+        setData(value || [])
+        selectedContentRef.current = selectedContent
+    }, [selectedContent])
 
     var setItem = (propertiesIndex, itemID, propertyTitle, value) => {
         var propertyIndex

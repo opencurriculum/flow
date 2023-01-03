@@ -8,12 +8,22 @@ import update from 'immutability-helper'
 import { useStorage } from 'reactfire'
 import { v4 as uuidv4 } from 'uuid'
 import { CursorArrowRaysIcon } from '@heroicons/react/24/outline'
+import * as formulajs from '@formulajs/formulajs'
+
+
+var nonExcelForumlae = {
+        'FINDWHERE': (arr, key, value, propToPick) => arr.find(item => item[key] === value)[propToPick]
+    },
+    nonExcelForumlaeNames = Object.keys(nonExcelForumlae),
+    allFormulaeNames = Object.keys(formulajs).concat(nonExcelForumlaeNames),
+
+    formulaJSRegex = new RegExp(`(${allFormulaeNames.join('|')})\\((?!.*(${allFormulaeNames.join('|')})\\().+?\\)`)
 
 
 const slateHost = process.env.NODE_ENV === 'development' ? 'http://localhost:5000' : 'https://slate-eta.vercel.app'
 
 
-export var ContentInput = (body, formatting, updateBody, toggleSelectedContent, { selectContent }) => {
+export var ContentInput = (body, formatting, { updateBody, toggleSelectedContent, selectContent }) => {
     const [editorState, setEditorState] = useState(EditorState.createEmpty())
     const [isEditing, setIsEditing] = useState()
 
@@ -59,7 +69,7 @@ export var ContentInput = (body, formatting, updateBody, toggleSelectedContent, 
 }
 
 
-const EditableImage = (body, formatting, updateBody, toggleSelectedContent, {appID, flowID, stepID}) => {
+const EditableImage = (body, formatting, {updateBody, toggleSelectedContent, appID, flowID, stepID}) => {
     const storage = useStorage()
 
     return <div>
@@ -106,9 +116,65 @@ const IframeSelector = () => {
 }
 
 
-const ArrayType = function(body, formatting){
+function executeExcelFunction(fn){
+    try {
+        return Function('formulajs', `'use strict'; return formulajs.${fn}`)(formulajs)
+    } catch (e){
+        console.log(e)
+        return
+    }
+}
+
+
+function executeJSFunction(fn){
+    try {
+        return Function('formulae', `'use strict'; return formulae.${fn}`)(nonExcelForumlae)
+    } catch (e){
+        console.log(e)
+        return
+    }
+}
+
+
+function serializeProperty(key, value, response){
+    if (value.startsWith('=')){
+        var prop, finalValue = value.substring(1)
+
+        for (prop in response){
+            if (finalValue.indexOf(prop) !== -1){
+                finalValue = finalValue.replace(prop, typeof(response[prop]) === 'object' ? JSON.stringify(response[prop]) : response[prop])
+            }
+        }
+
+        var excelFunctionMatch = true
+        while (excelFunctionMatch){
+            excelFunctionMatch = formulaJSRegex.exec(finalValue)
+
+            if (excelFunctionMatch){
+                var isExcelFormula = nonExcelForumlaeNames.indexOf(
+                    excelFunctionMatch[0].substring(0, excelFunctionMatch[0].indexOf('('))) === -1,
+
+                    functionResult = (
+                        isExcelFormula ? executeExcelFunction(excelFunctionMatch[0]) : executeJSFunction(excelFunctionMatch[0]))
+
+                if (functionResult === undefined)
+                    return
+
+                finalValue = finalValue.substring(0, excelFunctionMatch.index) + functionResult + finalValue.substring(excelFunctionMatch.index + excelFunctionMatch[0].length)
+            }
+        }
+
+        return `${key}=${encodeURIComponent(finalValue)}`
+
+    } else {
+        return `${key}=${encodeURIComponent(value)}`
+    }
+}
+
+
+const ArrayType = function(body, formatting, {response}){
     const [properties, setProperties] = useState(body?.properties)
-    const query = useIframeQuery(body, (properties) => {
+    const query = useIframeQuery(body, response, (properties) => {
         var number = properties.find(property => property.id === 'number')?.value
 
         if (number)
@@ -127,7 +193,7 @@ const ArrayType = function(body, formatting){
 
 
 let iframeQuerylineUpdateTimeout
-function useIframeQuery(body, serialize){
+function useIframeQuery(body, response, serialize){
     const [query, setQuery] = useState()
     const queryRef = useRef()
 
@@ -137,6 +203,7 @@ function useIframeQuery(body, serialize){
 
             if (serializedQuery?.length && queryRef.current !== serializedQuery){
                 clearTimeout(iframeQuerylineUpdateTimeout)
+
                 // setSaving(true)
                 iframeQuerylineUpdateTimeout = setTimeout(function(){
                     setQuery(serializedQuery)
@@ -144,11 +211,13 @@ function useIframeQuery(body, serialize){
                     // Persist this change.
                     clearTimeout(iframeQuerylineUpdateTimeout)
                 }.bind(this), 5000);
+            } else if (!serializedQuery?.length){
+                setQuery(null)
             }
 
             queryRef.current = serializedQuery
         }
-    }, [body?.properties])
+    }, [body?.properties, response])
 
     return query
 }
@@ -208,10 +277,11 @@ const Numberline = function(body, formatting){
 }
 
 
-const MultipleChoice = function(body, formatting){
-    // option=asd&option=qwer&option=zxc&option=yuop
+const MultipleChoice = function(body, formatting, {updateBody, toggleSelectedContent, response, stepID}){
+    // Example: option=asd&option=qwer&option=zxc&option=yuop
     const [properties, setProperties] = useState(body?.properties)
-    const query = useIframeQuery(body, (properties) => {
+
+    const query = useIframeQuery(body, response, (properties) => {
         var serializedChoices = [],
             choices = properties.find(property => property.id === 'choices')?.value
 
@@ -219,8 +289,10 @@ const MultipleChoice = function(body, formatting){
             var choicesIDs = Object.keys(choices), choice
             if (choicesIDs.length){
                 choicesIDs.forEach(choiceID => {
-                    choice = choices[choiceID]
-                    serializedChoices.push(`option=${encodeURIComponent(choice.value)}`)
+                    var serializedProperty = serializeProperty('option', choices[choiceID].value, response)
+
+                    if (serializedProperty)
+                        serializedChoices.push(serializedProperty)
                 })
             }
         }
@@ -306,7 +378,7 @@ const ResponseSpace = ({ setResponse, responseItem, response, formatting, stepID
 }
 
 
-const CheckAnswerInput = (body, formatting, updateBody, toggleSelectedContent, { isSelected, contentSettings, setContentSettings }) => {
+const CheckAnswerInput = (body, formatting, { updateBody, toggleSelectedContent, isSelected, contentSettings, setContentSettings }) => {
     const isSelectedRef = useRef()
 
     useEffect(() => {
@@ -363,7 +435,7 @@ const ContentTypes = {
     },
 
     Response: {
-        editable: (body, formatting, updateBody, toggleSelectedContent, {settings, setSettings}) => <ResponseTemplate
+        editable: (body, formatting, {updateBody, toggleSelectedContent, settings, setSettings}) => <ResponseTemplate
             body={body}
             formatting={formatting}
             updateBody={updateBody}
@@ -408,7 +480,8 @@ const ContentTypes = {
             {
                 id: 'number', title: 'Number of boxes', kind: 'string'
             }
-        ]
+        ],
+        responseProperties: ['columns', 'rows', 'remainder']
     },
 
     Numberline: {
@@ -423,7 +496,8 @@ const ContentTypes = {
                     ]
                 }
             }
-        ]
+        ],
+        responseProperties: ['scale', 'range', ['pieces', ['title', 'length', 'position']] ]
     },
 
     MultipleChoice: {
@@ -436,7 +510,7 @@ const ContentTypes = {
                 }
             }
         ],
-        responseProperties: ['selected']
+        responseProperties: [['selected', { 0: ['content', 'index']} ]]
     }
 }
 

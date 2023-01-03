@@ -9,6 +9,7 @@
     "lint": "next lint"
   },
   "dependencies": {
+    "@formulajs/formulajs": "^3.2.0",
     "@headlessui/react": "^1.6.6",
     "@heroicons/react": "^2.0.10",
     "@popperjs/core": "^2.11.5",

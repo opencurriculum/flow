@@ -8,6 +8,7 @@ import styles from '../styles/components/StepAdmin.module.sass'
 import {Editor, EditorState, ContentState, convertToRaw, convertFromRaw } from 'draft-js';
 import 'draft-js/dist/Draft.css';
 import {blockStyleFn} from '../utils/common.tsx'
+import { Switch } from '@headlessui/react'
 
 
 const WYSIWYGPanelsDraggable: NextPageWithLayout = (props) => {
@@ -40,6 +41,8 @@ const WYSIWYGPanels = ({ context, layout, onRemove, onLayoutChange, onDrop, layo
             }
         })
     }
+
+    var showContentLabels = editableProps.contentSettings?.all?.showContentLabels
 
     return <div className='flex flex-auto'>
         <div className='flex-none w-64 bg-gray-800 p-6 text-white'>
@@ -124,13 +127,41 @@ const WYSIWYGPanels = ({ context, layout, onRemove, onLayoutChange, onDrop, layo
 
         </div>
         <div className='flex-none w-64 bg-gray-100 p-4'>
-            {formattingPanelAdditions ? formattingPanelAdditions(selectedContent, toggleSelectedContent) : null}
+            <div className="flex flex-col h-full">
+                <div className="flex-grow">
+                    {formattingPanelAdditions ? formattingPanelAdditions(selectedContent, toggleSelectedContent) : null}
 
-            {selectedContent ? <Formatting
-                selectedContent={selectedContent}
-                contentFormatting={formatting}
-                update={(property, value) => updateFormatting(selectedContent.name, property, value)}
-            /> : null}
+                    {selectedContent ? <Formatting
+                        selectedContent={selectedContent}
+                        contentFormatting={formatting}
+                        update={(property, value) => updateFormatting(selectedContent.name, property, value)}
+                    /> : null}
+                </div>
+
+                <div>
+                    <Switch.Group as="div" className="flex items-center">
+                        <Switch
+                          checked={showContentLabels}
+                          onChange={enabled => editableProps.setContentSettings(
+                              { ...editableProps.contentSettings, all: { ...(editableProps.contentSettings.all || {}), showContentLabels: enabled } })}
+                          className={`${
+                            showContentLabels ? 'bg-blue-600' : 'bg-gray-200'
+                          } relative inline-flex h-6 w-11 items-center rounded-full`}
+                        >
+                          <span className="sr-only">Show block labels</span>
+                          <span
+                            className={`${
+                              showContentLabels ? 'translate-x-6' : 'translate-x-1'
+                            } inline-block h-4 w-4 transform rounded-full bg-white transition`}
+                          />
+                        </Switch>
+
+                      <Switch.Label as="span" className="ml-3">
+                        <span className="text-sm font-medium text-gray-900">Show block labels</span>
+                      </Switch.Label>
+                    </Switch.Group>
+                </div>
+            </div>
 
         </div>
     </div>
@@ -300,6 +331,22 @@ const DroppableContentContainer = ({ id, onRemove, updateLayoutContent, layoutCo
 
     var isSelected = selectedContent && content && selectedContent.name === content.name
 
+    var responsePropertiesEl = []
+    if (layoutContent.hasOwnProperty(id) && contentType?.responseProperties){
+        contentType.responseProperties.forEach(rp => {
+            var body = `.${rp}`
+
+            if (rp instanceof Array){
+                body = <>
+                    <span>.{rp[0]} {rp[1] instanceof Array ? <span className="italic">[number]</span> : null}</span>
+                    {(rp[1] instanceof Array ? rp[1] : rp[1][0]).map(subRP => <div className="pl-4">.{subRP}</div>)}
+                </>
+            }
+
+            responsePropertiesEl.push(<div key={rp} className="pl-2 text-xs">{body}</div>)
+        })
+    }
+
     return <div
         className={"h-full relative border" + (isOver ? " bg-slate-200" : '') + (
             content ? (' hover:border-blue-500' + (isSelected ? ' border-blue-300' : '')) : ' border-dashed border-2 border-gray-200 hover:border-gray-400')}
@@ -313,7 +360,7 @@ const DroppableContentContainer = ({ id, onRemove, updateLayoutContent, layoutCo
                 e.stopPropagation()
             }} className='absolute right-0 bg-yellow-600 text-white text-sm leading-4 p-1 rounded-r-md' style={{ left: '100%', width: (Math.log10(content.name.length) * 125) + 'px' }}>
                 <div>{`{${content.name}}`}</div>
-                {contentType.responseProperties?.map(rp => <div key={rp} className="pl-2 text-xs">.{rp}</div>)}
+                {responsePropertiesEl}
             </div> : null}
 
             <EditableContent content={layoutContent[id]} id={id}
@@ -357,22 +404,19 @@ const EditableContent = ({ content, id, updateLayoutContent, toggleSelectedConte
         // formatting.
         formatting,
 
-        // updateBody
-        body => updateLayoutContent(id, { body }),
-
-        // toggleSelectedContent
-        (selected) => toggleSelectedContent(selected || { name: content.name, kind: content.kind }),
-
         {
-            contentFormatting, settings, setSettings, ...editableProps,
+            updateBody: body => updateLayoutContent(id, { body }),
 
+            toggleSelectedContent: (selected) => toggleSelectedContent(selected || { name: content.name, kind: content.kind }),
             selectContent: () => selectContent({ name: content.name, kind: content.kind }),
+            isSelected,
 
-            isSelected
+            contentFormatting, settings, setSettings, ...editableProps
         }
     )
 
     return <div className='h-full'
+        data-contentname={content.name}
         style={{ ...formatting }}
         onClick={(e) => {
             toggleSelectedContent({ name: content.name, kind: content.kind || content.name })

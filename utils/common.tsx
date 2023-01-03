@@ -1,5 +1,6 @@
 import ContentTypes from '../components/content-types'
 import extend from "deep-extend"
+import {useState, useEffect, useRef} from 'react'
 
 
 export const blockStyleFn = (formatting, block) => {
@@ -101,3 +102,52 @@ export const LoadingSpinner = () => <svg className="animate-spin h-5 w-5 text-bl
     <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4"></circle>
     <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
 </svg>
+
+
+const slateHost = process.env.NODE_ENV === 'development' ? 'http://localhost:5000' : 'https://slate-eta.vercel.app'
+
+
+export function useResponse(stepID){
+    const [response, setResponse] = useState({})
+    const responseRef = useRef(response)
+
+    var processIframeData = function(event){
+        if (event.origin === slateHost){
+            var eventResponses = {}
+
+            // Determine which content it is coming from.
+            var iframes = document.getElementsByTagName('iframe'), i = 0,
+                contentName
+            for (i = 0; i < iframes.length; i++){
+                if (event.source === iframes[i].contentWindow){
+                    var parent = iframes[i].parentNode
+                    while (!contentName && parent !== document.body){
+                        contentName = parent.dataset.contentname
+                        parent = parent.parentNode
+                    }
+                    break
+                }
+            }
+
+            event.data?.data.forEach(
+                pieceOfData => eventResponses[`{${contentName}}.${pieceOfData.id}`] = pieceOfData.value)
+
+            responseRef.current = { ...responseRef.current, [stepID]: {
+                ...(responseRef.current[stepID] || {}), ...eventResponses }
+            }
+            setResponse(responseRef.current)
+        }
+    }
+
+    useEffect(() => {
+        if (stepID){
+            window.addEventListener('message', processIframeData);
+
+            return () => {
+                window.removeEventListener('message', processIframeData);
+            }
+        }
+    }, [stepID])
+
+    return [response, setResponse]
+}

@@ -15,52 +15,14 @@ import {
 } from '../utils/experimentation.tsx'
 import styles from '../styles/components/StepAdmin.module.sass'
 import { useFirestore, useAnalytics } from 'reactfire'
-import { applyEventsToLayoutContent } from '../utils/common'
+import { applyEventsToLayoutContent, useResponse } from '../utils/common'
 import { v4 as uuidv4 } from 'uuid'
 
 
-const slateHost = process.env.NODE_ENV === 'development' ? 'http://localhost:5000' : 'https://slate-eta.vercel.app'
-
 export const StepItem = ({ userID, step, stepID, progress, experiment, flowSteps, onResponseAssess, contentTypes, contentSettings, setContentSettings }) => {
-    const [response, setResponse] = useState({})
-
     const router = useRouter(),
-        db = useFirestore()
-
-    var processIframeData = function(event){
-        if (event.origin  === slateHost){
-            var eventResponses = {}
-
-            // Determine which content it is coming from.
-            var iframes = document.getElementsByTagName('iframe'), i = 0,
-                contentName
-            for (i = 0; i < iframes.length; i++){
-                if (event.source === iframes[i].contentWindow){
-                    var parent = iframes[i].parentNode
-                    while (!contentName && parent !== document.body){
-                        contentName = parent.dataset.contentname
-                        parent = parent.parentNode
-                    }
-                    break
-                }
-            }
-
-            event.data?.data.forEach(
-                pieceOfData => eventResponses[`{${contentName}}.${pieceOfData.id}`] = pieceOfData.value)
-
-            setResponse({ ...response, [stepID]: {
-                ...(response[stepID] || {}), ...eventResponses }
-            })
-        }
-    }
-
-    useEffect(() => {
-        window.addEventListener('message', processIframeData);
-
-        return () => {
-            window.removeEventListener('message', processIframeData);
-        }
-    }, [])
+        db = useFirestore(),
+        [response, setResponse] = useResponse(stepID)
 
 
     var layout = step ? applyExperimentToLayout(JSON.parse(step.layout), experiment, stepID) : null,
@@ -112,11 +74,17 @@ export const StepItem = ({ userID, step, stepID, progress, experiment, flowSteps
                                         if (prop !== 'timestamp'){
                                             tempVariableName = 'var' + uuidv4().substring(0, 5)
                                             cleanedResponseCheck = cleanedResponseCheck.replace(prop, tempVariableName)
-                                            variableDeclations.push(lastUserResponse[prop].match(/^-?\d+\.?\d*$/) ? (
-                                                `${tempVariableName} = ${lastUserResponse[prop]}`) : `${tempVariableName} = "${lastUserResponse[prop]}"`
-                                            )
+
+                                            if (typeof(lastUserResponse[prop]) === 'object'){
+                                                variableDeclations.push(`${tempVariableName} = ${JSON.stringify(lastUserResponse[prop])}`)
+                                            } else if (typeof(lastUserResponse[prop]) === 'number' || lastUserResponse[prop].match(/^-?\d+\.?\d*$/)){
+                                                variableDeclations.push(`${tempVariableName} = ${lastUserResponse[prop]}`)
+                                            } else {
+                                                variableDeclations.push(`${tempVariableName} = "${lastUserResponse[prop]}"`)
+                                            }
                                         }
                                     }
+
                                     if (Function(`'use strict'; var ${variableDeclations.join(',')}; return (${cleanedResponseCheck})`)()){
                                         updateDoc(flowProgressRef, {
                                             [`steps.${stepID}.attempts`]: arrayUnion({
