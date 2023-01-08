@@ -81,7 +81,11 @@ const WYSIWYGPanels = ({ context, layout, onRemove, onLayoutChange, onDrop, layo
         </div>
 
         <div className='flex-auto relative overflow-auto bg-gray-100' >
-            {layout && layoutContent ? <div className={styles.GridLayoutWrapper + ' mx-auto shadow-md'} style={{ width: '1200px', minHeight: 'calc(100vh - 3rem - 20px)', backgroundColor: '#fcfcfc' }} onClick={() => setSelectedContent() }>
+            {layout && layoutContent ? <div className={styles.GridLayoutWrapper + ' mx-auto shadow-md'} style={{
+                width: '1200px',
+                //minHeight: 'calc(100vh - 3rem - 20px)',
+                backgroundColor: '#fcfcfc'
+            }} onClick={() => setSelectedContent() }>
                 <GridLayout
                   className="layout"
                   layout={layout}
@@ -91,6 +95,7 @@ const WYSIWYGPanels = ({ context, layout, onRemove, onLayoutChange, onDrop, layo
                   width={1200}
                   droppingItem={{ i: 'new', w: 5, h: 5 }}
                   onDrop={onDrop}
+                  autoSize={false}
                   compactType={null}
                   isDroppable={!isContentBeingDragged}
                 >
@@ -121,6 +126,9 @@ const WYSIWYGPanels = ({ context, layout, onRemove, onLayoutChange, onDrop, layo
                 {<style jsx global>{`
                     .${styles.GridLayoutWrapper} .react-grid-item.react-grid-placeholder {
                         background-color: rgb(226 232 240);
+                    }
+                    .${styles.GridLayoutWrapper} .react-grid-layout {
+                        min-height: calc(100vh - 3rem - 20px)
                     }
                 `}</style>}
             </div> : null}

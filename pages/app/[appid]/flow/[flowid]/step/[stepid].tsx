@@ -1,6 +1,6 @@
 import type { NextPage } from 'next'
 import type { AppProps } from 'next/app'
-import {useState, useEffect, useRef, Fragment} from 'react'
+import {useState, useEffect, useRef, Fragment, useContext} from 'react'
 import {
     collection, getDocs, getDoc, doc, updateDoc, setDoc, arrayUnion,
     increment, Timestamp, documentId, query, where
@@ -16,9 +16,10 @@ import { useFirestore, useAnalytics } from 'reactfire'
 import { StepItem } from '../../../../../../components/step-item.tsx'
 import { getOrInitializeFlowExperiment } from '../../../../../../utils/experimentation.tsx'
 import { updateFlowProgressStateUponStepCompletion, StepContentTypes, LoadingSpinner } from '../../../../../../utils/common'
+import { UserContext } from '../../../../../_app'
 
 
-const Step = ({ userID }) => {
+const Step = ({}) => {
     const [flow, setFlow] = useState()
     const [step, setStep] = useState(null)
     const [progress, setProgress] = useState()
@@ -32,6 +33,7 @@ const Step = ({ userID }) => {
         db = useFirestore()
     var analytics
 
+    const [user, userID] = useContext(UserContext)
     // try {
     //     analytics = useAnalytics()
     // } catch (e){
@@ -39,7 +41,7 @@ const Step = ({ userID }) => {
     // }
 
     useEffect(() => {
-        if (router.query.flowid){
+        if (router.query.flowid && userID){
             var flowProgressRef = doc(db, "users", userID, 'progress', router.query.flowid)
 
             getDoc(flowProgressRef).then(docSnapshot => {
@@ -65,7 +67,7 @@ const Step = ({ userID }) => {
             //     logEvent(app.analytics, 'step_shown', { stepID: router.query.stepid });
             // }
         }
-    }, [router.query.flowid])
+    }, [router.query.flowid, userID])
 
     useEffect(() => {
         if (router.query.flowid){

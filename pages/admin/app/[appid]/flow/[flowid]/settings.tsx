@@ -1,6 +1,6 @@
 import Layout, { TabbedPageLayout } from '../../../../../../components/admin-layout'
 import type { NextPageWithLayout } from '../../../_app'
-import {useState, useEffect, useRef} from 'react'
+import {useState, useEffect, useRef, useContext} from 'react'
 import {
     getDoc, doc, updateDoc
 } from "firebase/firestore"
@@ -8,14 +8,17 @@ import { useRouter } from 'next/router'
 import { useFirestore } from 'reactfire'
 import Link from 'next/link'
 import {getTabs} from '../[flowid]'
+import { UserContext } from '../../../../../_app'
 
 
-const Settings: NextPageWithLayout = ({ userID }: AppProps) => {
+const Settings: NextPageWithLayout = ({}: AppProps) => {
     var singlePageFlowRef = useRef(),
         assignStepsIndividuallyRef = useRef()
 
     const router = useRouter(),
         db = useFirestore()
+
+    const [user, userID] = useContext(UserContext)
 
     useEffect(() => {
         if (router.query.flowid){

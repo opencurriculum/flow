@@ -1,4 +1,4 @@
-import { useState, useEffect, useRef } from 'react'
+import { useState, useEffect, useRef, useContext } from 'react'
 import Layout from '../../../../../../components/admin-layout'
 import type { NextPageWithLayout } from '../../../_app'
 import WYSIWYGPanels from '../../../../../../components/wysiwyg'
@@ -8,6 +8,8 @@ import { useRouter } from 'next/router'
 import { useFirestore } from 'reactfire'
 import { collection, getDocs, getDoc, doc, updateDoc, setDoc, writeBatch, deleteField, deleteDoc } from "firebase/firestore"
 import { diff } from 'json-diff'
+import { UserContext } from '../../../../../_app'
+
 
 
 const initialLayout = [
@@ -15,7 +17,7 @@ const initialLayout = [
 ]
 
 
-const Header: NextPage = ({ userID }: AppProps) => {
+const Header: NextPage = ({}: AppProps) => {
     const [layout, setLayout] = useState(null)
     const layoutRef = useRef(null)
 
@@ -27,6 +29,8 @@ const Header: NextPage = ({ userID }: AppProps) => {
 
     const router = useRouter(),
         db = useFirestore()
+
+    const [user, userID] = useContext(UserContext)
 
     var setInitialData = (docSnapshot) => {
         var snapshotData = docSnapshot.data()

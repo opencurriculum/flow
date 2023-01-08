@@ -24,9 +24,8 @@ export const StepItem = ({ userID, step, stepID, progress, experiment, flowSteps
         db = useFirestore(),
         [response, setResponse] = useResponse(stepID)
 
-
-    var layout = step ? applyExperimentToLayout(JSON.parse(step.layout), experiment, stepID) : null,
-        layoutContent = step ? applyEventsToLayoutContent(applyExperimentToLayoutContent(JSON.parse(step.layoutContent), experiment, stepID), {
+    var layout = step ? applyExperimentToLayout(step.layout && JSON.parse(step.layout), experiment, stepID) : null,
+        layoutContent = step ? applyEventsToLayoutContent(applyExperimentToLayoutContent(step.layoutContent && JSON.parse(step.layoutContent), experiment, stepID), {
             ...step.events, current: router.query['event:click']
         }) : null,
         responseCheck = step ? applyExperimentToResponseCheck(step.responseCheck, experiment, stepID) : null
@@ -59,8 +58,8 @@ export const StepItem = ({ userID, step, stepID, progress, experiment, flowSteps
               isDroppable={false}
             >
                 {layout.map(box => {
-                    var contentType = contentTypes.find(ct => layoutContent[box.i] && (layoutContent[box.i].kind === ct.kind || layoutContent[box.i].name.startsWith(ct.kind))),
-                        content = layoutContent[box.i]
+                    var contentType = contentTypes.find(ct => layoutContent && layoutContent[box.i] && (layoutContent[box.i].kind === ct.kind || layoutContent[box.i].name.startsWith(ct.kind))),
+                        content = layoutContent && layoutContent[box.i]
 
                     return <div key={box.i}>
                         <BoxBody content={content}

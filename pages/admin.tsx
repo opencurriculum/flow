@@ -1,45 +1,63 @@
 import type { NextPage } from 'next'
 import type { AppProps } from 'next/app'
-import {useState, useEffect, useRef} from 'react'
+import {useState, useEffect, useRef, useContext} from 'react'
 import { getFirestore, collection, query, where, getDocs, setDoc, getDoc, doc, updateDoc, getCollection, documentId } from "firebase/firestore"
 import { useRouter } from 'next/router'
 import Link from 'next/link'
 import { useFirestore } from 'reactfire'
 import Layout from '../components/admin-layout'
 import type { NextPageWithLayout } from './_app'
+import { UserContext } from './_app'
 import Head from 'next/head'
+import { LoadingSpinner } from '../utils/common'
 
 
-const Admin: NextPageWithLayout = ({ userID }: AppProps) => {
+const Admin: NextPageWithLayout = ({ }: AppProps) => {
     var [apps, setApps] = useState()
+    var [flows, setFlows] = useState()
     const router = useRouter()
     var db = useFirestore()
+    const [user, userID] = useContext(UserContext)
 
     useEffect(() => {
-        var userRef = doc(db, "users", userID)
-        getDoc(userRef).then(docSnapshot => {
-            if (docSnapshot.exists()){
-                var user = docSnapshot.data(), appIDs = user.apps || []
+        if (userID){
+            var userRef = doc(db, "users", userID)
+            getDoc(userRef).then(docSnapshot => {
+                if (docSnapshot.exists()){
+                    var user = docSnapshot.data(),
+                        appIDs = user.apps || [],
+                        flowIDs = user.flows || []
 
-                if (appIDs.length){
-                    getDocs(query(collection(db, "apps"), where(documentId(), 'in', appIDs))).then(docsSnapshot => {
-                        var unsortedApps = []
-                        docsSnapshot.forEach(doc => unsortedApps.push({ id: doc.id, ...doc.data() }))
-                        setApps(unsortedApps.sort(app => appIDs.indexOf(app.id)))
-                    })
+                    if (appIDs.length){
+                        getDocs(query(collection(db, "apps"), where(documentId(), 'in', appIDs))).then(docsSnapshot => {
+                            var unsortedApps = []
+                            docsSnapshot.forEach(doc => unsortedApps.push({ id: doc.id, ...doc.data() }))
+                            setApps(unsortedApps.sort(app => appIDs.indexOf(app.id)))
+                        })
+                    }
+
+                    if (flowIDs.length){
+                        getDocs(query(collection(db, "flows"), where(documentId(), 'in', flowIDs))).then(docsSnapshot => {
+                            var unsortedFlows = []
+                            docsSnapshot.forEach(doc => unsortedFlows.push({ id: doc.id, ...doc.data() }))
+                            setFlows(unsortedFlows.sort(flow => flowIDs.indexOf(flow.id)))
+                        })
+                    }
+
+                } else {
+                    setDoc(userRef, { name: 'Someone something' })
                 }
-            } else {
-                setDoc(userRef, { name: 'Someone something' })
-            }
-        })
-    }, [])
+            })
+        }
+    }, [userID])
 
     return <>
         <Head>
             <title>Flow</title>
             <meta property="og:title" content='Flow' key="title" />
         </Head>
-        <div className='h-full bg-gray-100 flex-auto'>
+
+        {user !== undefined ? <div className='h-full bg-gray-100 flex-auto'>
             <div className="min-h-full">
                 <main>
                   <div className="mx-auto max-w-7xl py-6 sm:px-6 lg:px-8">
@@ -75,6 +93,18 @@ const Admin: NextPageWithLayout = ({ userID }: AppProps) => {
                         <h3 className="text-lg font-medium leading-6 text-gray-900">Flows <span className="text-gray-400">(not in any app)</span></h3>
                       </div>
                       <ul className="grid grid-cols-1 gap-4 sm:grid-cols-4 md:grid-cols-6 lg:grid-cols-6">
+                        {flows?.map((flow, i) => (
+                          <li key={i}>
+                            <Link href={{
+                                  pathname: '/admin/app/[appid]/flow/[flowid]',
+                                  query: { appid: 'none', flowid: flow.id }
+                              }}>
+                            <a className="relative flex items-center space-x-3 rounded-lg border border-gray-300 bg-white px-6 py-5 shadow-sm focus-within:ring-2 focus-within:ring-indigo-500 focus-within:ring-offset-2 hover:border-gray-400">
+                              {flow.name}
+                            </a></Link>
+                          </li>
+                        ))}
+
                         <li key='new'>
                           <a onClick={() => {
                               router.push(`/admin/app/none/flow/new`)
@@ -87,7 +117,7 @@ const Admin: NextPageWithLayout = ({ userID }: AppProps) => {
 
                 </main>
             </div>
-        </div>
+        </div> : <LoadingSpinner />}
     </>
 }
 

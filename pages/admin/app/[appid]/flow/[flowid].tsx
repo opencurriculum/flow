@@ -1,6 +1,6 @@
 import type { NextPage } from 'next'
 import type { AppProps } from 'next/app'
-import {useState, useEffect, useRef} from 'react'
+import {useState, useEffect, useRef, useContext} from 'react'
 import { collection, getDocs, setDoc, getDoc, doc, updateDoc,
     getCollection, arrayUnion, writeBatch, deleteDoc, serverTimestamp } from "firebase/firestore"
 import { useRouter, router } from 'next/router'
@@ -15,27 +15,16 @@ import { Menu, Transition, Dialog } from '@headlessui/react'
 import Head from 'next/head'
 import { EllipsisVerticalIcon } from '@heroicons/react/24/solid'
 import Layout, { TabbedPageLayout } from '../../../../../components/admin-layout'
-import type { NextPageWithLayout } from '../../_app'
+import type { NextPageWithLayout } from '../../../../_app'
 import { classNames } from '../../../../../utils/common.tsx'
 import { useFirestore } from 'reactfire'
-
-
-const user = {
-  name: 'Tom Cook',
-  email: 'tom@example.com',
-  imageUrl:
-    'https://images.unsplash.com/photo-1472099645785-5658abf4ff4e?ixlib=rb-1.2.1&ixid=eyJhcHBfaWQiOjEyMDd9&auto=format&fit=facearea&facepad=2&w=256&h=256&q=80',
-}
-const userNavigation = [
-  // { name: 'Your Profile', href: '#' },
-  // { name: 'Settings', href: '#' },
-  { name: 'Sign out', href: '#' },
-]
+import { UserContext } from '../../../../_app'
+import Cookies from 'js-cookie'
 
 
 let stepsChangeInterval
 
-const Flow: NextPageWithLayout = ({ userID }: AppProps) => {
+const Flow: NextPageWithLayout = ({}: AppProps) => {
     var [flow, setFlow] = useState()
 
     var [steps, setSteps] = useState()
@@ -46,8 +35,10 @@ const Flow: NextPageWithLayout = ({ userID }: AppProps) => {
     const router = useRouter(),
         db = useFirestore()
 
+    const [user, userID] = useContext(UserContext)
+
     useEffect(() => {
-        if (router.query.flowid){
+        if (router.query.flowid && userID){
             if (router.query.flowid === 'new'){
                 // Create a new flow.
                 var newFlowID = uuidv4().substring(0, 8)
@@ -74,7 +65,10 @@ const Flow: NextPageWithLayout = ({ userID }: AppProps) => {
                     })
 
                 } else {
-                    setDoc(doc(db, "flows", newFlowID), { name: 'Untitled flow', timestamp: serverTimestamp() }).then(() => {
+                    setDoc(doc(db, "flows", newFlowID), {
+                        name: 'Untitled flow', timestamp: serverTimestamp(),
+                        users: [userID]
+                    }).then(() => {
                         if (router.query.appid !== 'none'){
                             updateDoc(doc(db, "apps", router.query.appid), { flows: arrayUnion(newFlowID) }).then(() => {
                                 router.replace(`/admin/app/${router.query.appid}/flow/${newFlowID}`)
@@ -111,7 +105,7 @@ const Flow: NextPageWithLayout = ({ userID }: AppProps) => {
 
         }
 
-    }, [router.query.flowid])
+    }, [router.query.flowid, userID])
 
     useEffect(() => {
         if (stepsRef.current && steps !== stepsRef.current){
@@ -239,7 +233,6 @@ Flow.getLayout = function getLayout(page: ReactElement) {
     </Layout>
   )
 }
-
 
 
 const DraggableStep = ({ step, moveStep, setDuplicateStepToOpen, deleteStep }) => {

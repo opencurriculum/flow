@@ -1,9 +1,9 @@
 import type { NextPage } from 'next'
 import type { AppProps } from 'next/app'
-import {useState, useEffect, useRef} from 'react'
+import {useState, useEffect, useRef, useContext} from 'react'
 import {
     collection, query, where, getDocs, setDoc, getDoc, doc, updateDoc,
-    getCollection, documentId, arrayUnion, writeBatch, deleteDoc
+    getCollection, documentId, arrayUnion, arrayRemove, writeBatch, deleteDoc
 } from "firebase/firestore"
 import { useRouter, router } from 'next/router'
 import Link from 'next/link'
@@ -18,11 +18,13 @@ import { EllipsisVerticalIcon } from '@heroicons/react/24/solid'
 import { Fragment } from 'react'
 import { classNames } from '../../../utils/common.tsx'
 import Head from 'next/head'
+import { UserContext } from '../../_app'
 
 
-const UserApp: NextPageWithLayout =  ({ userID }: AppProps) => {
+const UserApp: NextPageWithLayout =  ({}: AppProps) => {
     var [flows, setFlows] = useState()
     var [app, setApp] = useState()
+    const [user, userID] = useContext(UserContext)
 
     const router = useRouter(),
         db = useFirestore()
@@ -31,7 +33,12 @@ const UserApp: NextPageWithLayout =  ({ userID }: AppProps) => {
         if (router.query.appid){
             if (router.query.appid === 'new'){
                 var newAppID = uuidv4().substring(0, 8)
-                setDoc(doc(db, "apps", newAppID), { name: 'Untitled learning app', owner: doc(db, "users", userID) }).then(() => {
+
+                setDoc(doc(db, "apps", newAppID), {
+                    name: 'Untitled learning app',
+                    owner: doc(db, "users", userID),
+                    users: [userID]
+                }).then(() => {
                     updateDoc(doc(db, "users", userID), { apps: arrayUnion(newAppID) }).then(() => {
                         router.replace(`/admin/app/${newAppID}`)
                     })
@@ -71,6 +78,8 @@ const UserApp: NextPageWithLayout =  ({ userID }: AppProps) => {
                         deleteDoc(doc(db, "flows", flowID))
                         batch.commit()
                     })
+
+                    updateDoc(doc(db, "users", userID), { flows: arrayRemove(flowID) })
                 }}
             />)}
 
@@ -114,7 +123,6 @@ UserApp.getLayout = function getLayout(page: ReactElement) {
 
 const Flow = ({ flow, deleteFlow }) => {
     const router = useRouter()
-
 
     return <li className='relative rounded-md bg-indigo-600 text-white px-6 py-4 shadow'>
         <div className="absolute top-0 right-0 hidden pt-4 pr-4 sm:block">

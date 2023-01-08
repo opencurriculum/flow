@@ -1,6 +1,6 @@
 import '../styles/globals.css'
 import type { AppProps } from 'next/app'
-import {useEffect, useState} from 'react'
+import {useEffect, useState, createContext} from 'react'
 import Cookies from 'js-cookie'
 import { v4 as uuidv4 } from 'uuid'
 import type { ReactElement, ReactNode } from 'react'
@@ -8,6 +8,8 @@ import { FirebaseAppProvider, FirestoreProvider, AnalyticsProvider, StorageProvi
 import { getAnalytics, isSupported } from "firebase/analytics"
 import { getFirestore, connectFirestoreEmulator, enableIndexedDbPersistence } from "firebase/firestore"
 import { getStorage } from "firebase/storage";
+import {Login, useLogin} from '../components/login'
+import { getFunctions, connectFunctionsEmulator } from "firebase/functions";
 
 
 export type NextPageWithLayout<P = {}, IP = P> = NextPage<P, IP> & {
@@ -31,30 +33,27 @@ function MyApp({ Component, pageProps }: AppPropsWithLayout) {
 
     var db;
 
-    let userID = Cookies.get('userID')
-    if (!userID){
-        userID = uuidv4().substring(0, 8)
-        Cookies.set('userID', userID, { expires: 365 })
-        Cookies.set('newUser', true, { expires: 1 })
-    }
-
     // Use the layout defined at the page level, if available
     const getLayout = Component.getLayout ?? ((page) => page)
 
     return <div className='min-h-full flex flex-col'>
         <FirebaseAppProvider firebaseConfig={firebaseConfig}>
             <DatabaseSupportedApp>
-                {getLayout(<Component {...pageProps} userID={userID} />)}
+                {getLayout(<Component {...pageProps} />)}
             </DatabaseSupportedApp>
         </FirebaseAppProvider>
     </div>
 }
 
 
+export const UserContext = createContext({});
+
+
 function DatabaseSupportedApp({ children }){
     const app = useFirebaseApp()
     var firestoreInstance = getFirestore()
     const storage = getStorage()
+    const functions = getFunctions(app);
 
     var analyticsInstance
 
@@ -63,7 +62,8 @@ function DatabaseSupportedApp({ children }){
     }
 
     if (process.env.NODE_ENV === 'development' && !global.connectedToFirestore) {
-        connectFirestoreEmulator(firestoreInstance, 'localhost', 8080);
+        connectFirestoreEmulator(firestoreInstance, 'localhost', 8080)
+        connectFunctionsEmulator(functions, "localhost", 5001)
         global.connectedToFirestore = true;
 
     }  else {
@@ -71,11 +71,24 @@ function DatabaseSupportedApp({ children }){
         // enableIndexedDbPersistence(firestoreInstance)
     }
 
+    var loggedInChildren = <LoggedInApp>{children}</LoggedInApp>
+
     return <FirestoreProvider sdk={firestoreInstance}>
         <StorageProvider sdk={storage}>
-            {analyticsInstance ? <AnalyticsProvider sdk={analyticsInstance}>{children}</AnalyticsProvider> : children}
+            {analyticsInstance ? <AnalyticsProvider sdk={analyticsInstance}>
+                {loggedInChildren}
+            </AnalyticsProvider> : loggedInChildren}
         </StorageProvider>
     </FirestoreProvider>
+}
+
+
+function LoggedInApp({ children }){
+    const [user, userID] = useLogin()
+
+    return <UserContext.Provider value={[user, userID]}>
+        {children}
+    </UserContext.Provider>
 }
 
 

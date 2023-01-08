@@ -1,6 +1,6 @@
 import type { NextPage } from 'next'
 import type { AppProps } from 'next/app'
-import {useState, useEffect} from 'react'
+import {useState, useEffect, useContext} from 'react'
 import { collection, query, where, getDocs, setDoc, getDoc, doc, updateDoc, getCollection, documentId } from "firebase/firestore"
 import { useRouter } from 'next/router'
 import Link from 'next/link'
@@ -13,6 +13,7 @@ import Head from 'next/head'
 import { getAppFlows, getFlowsProgress } from '../../utils/store'
 import {t} from '../../utils/common.tsx'
 import { useFirestore } from 'reactfire'
+import { UserContext } from '../_app'
 
 
 export const UserAppHeader = ({ hideBack }) => {
@@ -83,12 +84,14 @@ export const UserAppHeader = ({ hideBack }) => {
 }
 
 
-const UserApp: NextPage = ({ userID }: AppProps) => {
+const UserApp: NextPage = ({}: AppProps) => {
     var [progress, setProgress] = useState()
     var [app, setApp] = useState()
     var [flows, setFlows] = useState()
     const router = useRouter(),
         db = useFirestore()
+
+    const [user, userID] = useContext(UserContext)
 
     useEffect(() => {
         if (router.query.appid){

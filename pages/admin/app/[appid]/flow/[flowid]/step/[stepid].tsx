@@ -1,6 +1,6 @@
 import type { NextPage } from 'next'
 import type { AppProps } from 'next/app'
-import React, { useState, useEffect, useRef } from 'react'
+import React, { useState, useEffect, useRef, useContext } from 'react'
 import { collection, getDocs, getDoc, doc, updateDoc, setDoc, writeBatch, deleteField, deleteDoc } from "firebase/firestore"
 import { logEvent } from "firebase/analytics"
 import { useRouter } from 'next/router'
@@ -21,6 +21,7 @@ import { ResponseTemplate } from '../../../../../../../components/content-types'
 import { StepContentTypes, applyEventsToLayoutContent, useResponse } from '../../../../../../../utils/common'
 import PropertyEditor from '../../../../../../../components/property-editor'
 import jsonDiff from 'json-diff'
+import { UserContext } from '../../../../../../_app'
 
 
 const initialLayout = [
@@ -67,7 +68,7 @@ export const EventsHeader = ({ events }) => {
 }
 
 
-const Step: NextPageWithLayout = ({ userID }) => {
+const Step: NextPageWithLayout = ({}) => {
     const [step, setStep] = useState()
 
     const [layout, setLayout] = useState(null)
@@ -99,6 +100,8 @@ const Step: NextPageWithLayout = ({ userID }) => {
         db = useFirestore()
 
     const [response, setResponse] = useResponse(router?.query?.stepid)
+
+    const [user, userID] = useContext(UserContext)
 
     useEffect(() => {
         if (flow){

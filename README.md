@@ -39,7 +39,7 @@ To run this on your computer or a server (or a NodeJS app hosting environment li
 
 1. NodeJS (and working familiarity with the command line)
    *Flow runs on NextJS, which is a framework/environment to run ReactJS applications*
-2. A Firebase account (with a new app with Firestore and Storage enabled, and a web app added which will give you credentials for later)
+2. A Firebase account (with a new app with Firestore, Storage, and Functions enabled, and a web app added which will give you credentials for later)
 
 Once you have these, setup using the following steps:
 
@@ -63,7 +63,7 @@ Once you have these, setup using the following steps:
 
 4. Initialize the Firestore database collections manually.
 
-   While there is some dummy data you can use to initialize a Firestore emulator using the command `firebase emulators:start --import=./data --only=firestore,hub`, here is a general idea of how the DB is structured, in case you have to manually generate it:
+   Here is a general idea of how the DB is structured, in case you have to manually generate it:
    ```javascript
    {
      "apps": [],  // Collection for apps.
@@ -71,6 +71,12 @@ Once you have these, setup using the following steps:
      "users": [], // Collection for users and their app IDs.
      "experiments": [] // Collection for A/B tests.
    }
+   ```
+
+4. Run a local emulator for Firestore and Functions, using:
+
+   ```bash
+   firebase emulators:start --only=firestore,functions
    ```
 
 5. Run the development server:
@@ -85,6 +91,8 @@ Once you have these, setup using the following steps:
 Possible features roadmap
 -
 - [ ] Documentation / manual / how-to videos
+- [ ] Add experimentation to flows' steps sequence
+- [ ] Add UI templates to steps
 - [ ] Add H5P Blocks
 - [ ] Add readymade image graphics (assets like Canva has)
 - [ ] Add OCR and webcam blocks
@@ -98,5 +106,3 @@ Possible features roadmap
 License
 -
 We haven't determined the right open source license yet. So feel free to use the source in the most liberal way.
-
-

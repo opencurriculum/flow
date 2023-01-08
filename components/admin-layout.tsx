@@ -1,4 +1,4 @@
-import { Fragment, useState, useEffect, useRef } from 'react'
+import { Fragment, useState, useEffect, useRef, useContext } from 'react'
 import { Disclosure, Menu, Transition, Dialog } from '@headlessui/react'
 import { Bars3Icon, XMarkIcon } from '@heroicons/react/24/outline'
 import Head from 'next/head'
@@ -9,6 +9,8 @@ import { classNames } from '../utils/common.tsx'
 import { getDoc, doc, collection, getCollection, updateDoc } from "firebase/firestore"
 import { useFirestore } from 'reactfire'
 import { EllipsisVerticalIcon } from '@heroicons/react/24/solid'
+import { UserContext } from '../pages/_app'
+import login, {logout} from '../components/login.tsx'
 
 
 export default function Layout({ children }) {
@@ -30,16 +32,8 @@ export function TabbedPageLayout({ children, page, tabs }) {
 }
 
 
-const user = {
-  name: 'Tom Cook',
-  email: 'tom@example.com',
-  imageUrl:
-    'https://images.unsplash.com/photo-1472099645785-5658abf4ff4e?ixlib=rb-1.2.1&ixid=eyJhcHBfaWQiOjEyMDd9&auto=format&fit=facearea&facepad=2&w=256&h=256&q=80',
-}
 const userNavigation = [
-  // { name: 'Your Profile', href: '#' },
-  { name: 'Settings', href: '/settings' },
-  { name: 'Sign out', href: '#' },
+    { name: 'Sign out', onClick: logout }
 ]
 
 
@@ -48,6 +42,7 @@ export const AdminAppHeader = () => {
     var [step, setStep] = useState()
     var [app, setApp] = useState()
     var [editNameOpen, setEditNameOpen] = useState(false)
+    const [user, userID] = useContext(UserContext)
 
     const router = useRouter(),
         db = useFirestore()
@@ -72,7 +67,7 @@ export const AdminAppHeader = () => {
     }
 
     useEffect(() => {
-        if (router.query.appid){
+        if (router.query.appid && router.query.appid !== 'none'){
             getDoc(doc(db, "apps", router.query.appid)).then(docSnapshot => {
                 if (docSnapshot.exists()){
                     setApp(docSnapshot.data())
@@ -160,13 +155,14 @@ export const AdminAppHeader = () => {
                   <div className="hidden md:block">
                     <div className="ml-4 flex items-center md:ml-6">
 
+                        {/* Preview button */}
                         <div className="p-1 inline-flex rounded-md shadow-sm">
-                          <a
+                          {previewURL ? <a
                             href={previewURL} target="_blank" rel="noreferrer"
                             className={classNames(router.query.group ? 'border-r-indigo-500' : 'rounded-r-md', "rounded-l-md relative inline-flex items-center border border-transparent bg-indigo-600 px-4 py-0.5 text-sm font-medium text-white shadow-sm hover:bg-indigo-700 focus:z-10 focus:outline-none focus:ring-1 focus:ring-indigo-500")}
                           >
                             Preview
-                          </a>
+                          </a> : null}
                           {router.query.group ? <Menu as="div" className="relative block">
                             <Menu.Button className="h-full relative inline-flex items-center rounded-r-md border border-transparent bg-indigo-600 px-2 py-0.5 text-sm font-medium text-slate-400 hover:bg-indigo-700 focus:z-10 focus:outline-none focus:ring-1 focus:ring-indigo-500">
                               <span className="sr-only">Open options</span>
@@ -207,13 +203,14 @@ export const AdminAppHeader = () => {
                             </Transition>
                           </Menu> : null}
                         </div>
+                        {/* End of preview button */}
 
                       {/* Profile dropdown */}
-                      <Menu as="div" className="relative ml-3">
+                      {user && !user.isAnonymous ? <Menu as="div" className="relative ml-3">
                         <div>
                           <Menu.Button className="flex max-w-xs items-center rounded-full bg-gray-800 text-sm focus:outline-none focus:ring-2 focus:ring-white focus:ring-offset-2 focus:ring-offset-gray-800">
                             <span className="sr-only">Open user menu</span>
-                            <img className="h-8 w-8 rounded-full" src={user.imageUrl} alt="" />
+                            <img className="h-8 w-8 rounded-full" src={user.photoURL} alt="" referrerPolicy="no-referrer" />
                           </Menu.Button>
                         </div>
                         <Transition
@@ -228,21 +225,32 @@ export const AdminAppHeader = () => {
                           <Menu.Items className="absolute right-0 z-10 mt-2 w-48 origin-top-right rounded-md bg-white py-1 shadow-lg ring-1 ring-black ring-opacity-5 focus:outline-none">
                             {userNavigation.map((item) => (
                               <Menu.Item key={item.name}>
-                                {({ active }) => (
-                                  <Link href={item.href}><a
-                                    className={classNames(
-                                      active ? 'bg-gray-100' : '',
-                                      'block px-4 py-2 text-sm text-gray-700'
-                                    )}
-                                  >
-                                    {item.name}
-                                  </a></Link>
-                                )}
+                                {({ active }) => {
+                                    let itemClassNames = [
+                                        active ? 'bg-gray-100' : '',
+                                        'block px-4 py-2 text-sm text-gray-700'
+                                    ]
+
+                                    if (item.onClick){
+                                        itemClassNames.push('cursor-pointer')
+                                        return <a onClick={item.onClick} className={classNames(...itemClassNames)}>{item.name}</a>
+                                    }
+                                    return <Link href={item.href}><a
+                                        className={classNames(...itemClassNames)}
+                                      >
+                                        {item.name}
+                                    </a></Link>
+                                }}
                               </Menu.Item>
                             ))}
                           </Menu.Items>
                         </Transition>
-                      </Menu>
+                      </Menu> : (user === undefined ? null : <a
+                        onClick={login}
+                        className={classNames("cursor-pointer rounded-r-md rounded-l-md relative inline-flex items-center border border-transparent bg-cyan-600 px-4 py-0.5 text-sm font-medium text-white shadow-sm hover:bg-cyan-700 focus:z-10 focus:outline-none focus:ring-1 focus:ring-cyan-500")}
+                      >
+                        Login and save progress
+                      </a>)}
                     </div>
                   </div>
                   <div className="-mr-2 flex md:hidden">
@@ -259,13 +267,14 @@ export const AdminAppHeader = () => {
                 </div>
               </div>
 
-              <Disclosure.Panel className="md:hidden">
+              {/* Profile menu */}
+              {user && !user.isAnonymous ? <Disclosure.Panel className="md:hidden">
                 <div className="space-y-1 px-2 pt-2 pb-3 sm:px-3">
                 </div>
                 <div className="border-t border-gray-700 pt-4 pb-3">
                   <div className="flex items-center px-5">
                     <div className="flex-shrink-0">
-                      <img className="h-10 w-10 rounded-full" src={user.imageUrl} alt="" />
+                      <img className="h-10 w-10 rounded-full" src={user.photoURL} alt="" referrerPolicy="no-referrer" />
                     </div>
                     <div className="ml-3">
                       <div className="text-base font-medium leading-none text-white">{user.name}</div>
@@ -286,7 +295,7 @@ export const AdminAppHeader = () => {
                     ))}
                   </div>
                 </div>
-              </Disclosure.Panel>
+              </Disclosure.Panel> : null}
             </>
           )}
         </Disclosure>

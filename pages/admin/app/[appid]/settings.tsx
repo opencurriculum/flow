@@ -1,6 +1,6 @@
 import Layout, { TabbedPageLayout } from '../../../../components/admin-layout'
 import type { NextPageWithLayout } from '../../_app'
-import {useState, useEffect, useRef} from 'react'
+import {useState, useEffect, useRef, useContext} from 'react'
 import {
     getDoc, doc, updateDoc
 } from "firebase/firestore"
@@ -8,10 +8,12 @@ import { useRouter } from 'next/router'
 import { useFirestore } from 'reactfire'
 import Link from 'next/link'
 import {getTabs} from '../[appid]'
+import { UserContext } from '../../../_app'
 
 
-const Settings: NextPageWithLayout = ({ userID }: AppProps) => {
+const Settings: NextPageWithLayout = ({}: AppProps) => {
     var [app, setApp] = useState()
+    const [user, userID] = useContext(UserContext)
 
     var nameRef = useRef(),
         allowStepsListingRef = useRef(),

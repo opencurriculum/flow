@@ -1,6 +1,6 @@
 import type { NextPage } from 'next'
 import type { AppProps } from 'next/app'
-import {useState, useEffect} from 'react'
+import {useState, useEffect, useContext} from 'react'
 import { collection, getDocs, setDoc, getDoc, doc, updateDoc, getCollection } from "firebase/firestore"
 import { useRouter } from 'next/router'
 import Head from 'next/head'
@@ -12,14 +12,16 @@ import { StepItem } from '../../../../components/step-item.tsx'
 import { getOrInitializeFlowExperiment } from '../../../../utils/experimentation.tsx'
 import { CheckIcon, XMarkIcon } from '@heroicons/react/24/outline'
 import GridContainer from '../../../../components/grid-container.tsx'
+import { UserContext } from '../../../_app'
 
 
-const Flow: NextPage = ({ userID }: AppProps) => {
+const Flow: NextPage = ({}: AppProps) => {
     var [flow, setFlow] = useState()
     var [progress, setProgress] = useState()
     var [steps, setSteps] = useState()
     var [app, setApp] = useState()
     const [experiment, setExperiment] = useState()
+    const [user, userID] = useContext(UserContext)
 
     const router = useRouter(),
         db = useFirestore()
@@ -34,7 +36,7 @@ const Flow: NextPage = ({ userID }: AppProps) => {
     }, [router.query.appid])
 
     useEffect(() => {
-        if (router.query.flowid){
+        if (router.query.flowid && userID){
             var flowProgressRef = doc(db, "users", userID, 'progress', router.query.flowid)
             getDoc(flowProgressRef).then(docSnapshot => {
                 if (!docSnapshot.exists()){
@@ -54,7 +56,7 @@ const Flow: NextPage = ({ userID }: AppProps) => {
 
             getOrInitializeFlowExperiment(db, router.query.flowid, userID, router.query.group, setExperiment)
         }
-    }, [router.query.flowid])
+    }, [router.query.flowid, userID])
 
     useEffect(() => {
         if (flow && steps && progress && app){

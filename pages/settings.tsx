@@ -1,18 +1,20 @@
 import type { NextPage } from 'next'
 import type { AppProps } from 'next/app'
-import {useState, useEffect, useRef} from 'react'
+import {useState, useEffect, useRef, useContext} from 'react'
 import { getFirestore, collection, query, where, getDocs, setDoc, getDoc, doc, updateDoc, getCollection, documentId } from "firebase/firestore"
 import { useRouter } from 'next/router'
 import Link from 'next/link'
 import { useFirestore } from 'reactfire'
 import Layout from '../components/admin-layout'
 import type { NextPageWithLayout } from './_app'
+import { UserContext } from './_app'
 
 
-const Settings: NextPageWithLayout = ({ userID }: AppProps) => {
+const Settings: NextPageWithLayout = ({}: AppProps) => {
     var [user, setUser] = useState()
     const router = useRouter()
     var nameRef = useRef(), websiteRef = useRef()
+    const [user, userID] = useContext(UserContext)
 
     var db = useFirestore()
 
