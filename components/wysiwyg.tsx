@@ -42,7 +42,7 @@ const WYSIWYGPanels = ({ context, layout, onRemove, onLayoutChange, onDrop, layo
         })
     }
 
-    var showContentLabels = editableProps.contentSettings?.all?.showContentLabels
+    var showContentLabels = editableProps?.contentSettings?.all?.showContentLabels
 
     return <div className='flex flex-auto'>
         <div className='flex-none w-64 bg-gray-800 p-6 text-white'>
@@ -334,7 +334,7 @@ const DroppableContentContainer = ({ id, onRemove, updateLayoutContent, layoutCo
     }))
 
     var content = layoutContent[id],
-        settings = content && editableProps.contentSettings[content.name] || {},
+        settings = content && editableProps?.contentSettings[content.name] || {},
         setSettings = value => editableProps.setContentSettings({ ...editableProps.contentSettings, [content.name]: { ...settings, ...value } })
 
     var isSelected = selectedContent && content && selectedContent.name === content.name
@@ -363,7 +363,7 @@ const DroppableContentContainer = ({ id, onRemove, updateLayoutContent, layoutCo
         {layoutContent.hasOwnProperty(id) ? <>
             {experimentLock ? <div>DONT TOUCH ME I AM LOCKED BY A GROUP CHANGE</div> : null}
 
-            {editableProps.contentSettings?.all?.showContentLabels ? <div title='Click to copy' onClick={e => {
+            {editableProps?.contentSettings?.all?.showContentLabels ? <div title='Click to copy' onClick={e => {
                 navigator.clipboard.writeText(`{${content.name}}`);
                 e.stopPropagation()
             }} className='absolute right-0 bg-yellow-600 text-white text-sm leading-4 p-1 rounded-r-md' style={{ left: '100%', width: (Math.log10(content.name.length) * 125) + 'px' }}>
