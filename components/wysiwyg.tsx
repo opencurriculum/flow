@@ -347,7 +347,7 @@ const DroppableContentContainer = ({ id, onRemove, updateLayoutContent, layoutCo
             if (rp instanceof Array){
                 body = <>
                     <span>.{rp[0]} {rp[1] instanceof Array ? <span className="italic">[number]</span> : null}</span>
-                    {(rp[1] instanceof Array ? rp[1] : rp[1][0]).map(subRP => <div className="pl-4">.{subRP}</div>)}
+                    {(rp[1] instanceof Array ? rp[1] : rp[1][0]).map(subRP => <div className="pl-4" key={subRP}>.{subRP}</div>)}
                 </>
             }
 

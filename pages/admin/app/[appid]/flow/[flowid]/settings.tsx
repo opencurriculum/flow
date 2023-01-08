@@ -29,7 +29,7 @@ const Settings: NextPageWithLayout = ({}: AppProps) => {
                 assignStepsIndividuallyRef.current.checked = flowData.assignStepsIndividually || false
             })
         }
-    }, [router.query.appid])
+    }, [router.query.appid, db])
 
     return <>
         <div className="relative flex items-start">

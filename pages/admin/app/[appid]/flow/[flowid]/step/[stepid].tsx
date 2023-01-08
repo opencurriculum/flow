@@ -181,10 +181,10 @@ const Step: NextPageWithLayout = ({}) => {
                 setExperiment(experimentRef.current)
             }
         }
-    }, [experiment])
+    }, [experiment, db])
 
 
-
+    var queryClick = router.query['event:click']
     useEffect(() => {
         if (step){
             if (!events){
@@ -193,25 +193,25 @@ const Step: NextPageWithLayout = ({}) => {
                     // Get the events and initialize it.
                     eventsRef.current = step.events
 
-                    if (router.query['event:click'])
-                        eventsRef.current.current = router.query['event:click']
+                    if (queryClick)
+                        eventsRef.current.current = queryClick
 
                     setEvents(eventsRef.current)
 
                 // Or just set what's current.
                 } else if (router.query['event:click']){
                     setEvents({
-                        current: router.query['event:click'],
-                        [router.query['event:click']]: { 'click': [] }
+                        current: queryClick,
+                        [queryClick]: { 'click': [] }
                     })
                 }
 
             } else {
-                if (router.query['event:click'] !== events.current){
-                    if (router.query['event:click']){
+                if (queryClick !== events.current){
+                    if (queryClick){
                         eventsRef.current = {
-                            ...events, current: router.query['event:click'],
-                            [router.query['event:click']]: (events[router.query['event:click']] || { 'click': [] })
+                            ...events, current: queryClick,
+                            [queryClick]: (events[queryClick] || { 'click': [] })
                         }
 
                     } else {
@@ -223,7 +223,7 @@ const Step: NextPageWithLayout = ({}) => {
                 }
             }
         }
-    }, [step, router.query['event:click']])
+    }, [step, queryClick])
 
     useEffect(() => {
         if (eventsRef.current !== events){
@@ -255,7 +255,7 @@ const Step: NextPageWithLayout = ({}) => {
                 setEvents(eventsRef.current)
             }
         }
-    }, [events])
+    }, [events, db, router.query.flowid, router.query.stepid])
 
 
 
@@ -341,7 +341,7 @@ const Step: NextPageWithLayout = ({}) => {
                 })
             }
         }
-    }, [router.query.stepid])
+    }, [router.query.stepid, db])
 
     useEffect(() => {
         if (router.query.flowid){
@@ -349,7 +349,7 @@ const Step: NextPageWithLayout = ({}) => {
                 setFlow(docSnapshot.data())
             })
         }
-    }, [router.query.flowid])
+    }, [router.query.flowid, db])
 
     useEffect(() => {
         if (layout && layout.changed && layout.body){
@@ -358,7 +358,7 @@ const Step: NextPageWithLayout = ({}) => {
             })
             setLayout({ ...layout, changed: false })
         }
-    }, [layout])
+    }, [layout, db, router.query.flowid, router.query.stepid])
 
     useEffect(() => {
         if (layoutContentRef.current && JSON.stringify(layoutContentRef.current) !== JSON.stringify(layoutContent)){
@@ -368,7 +368,7 @@ const Step: NextPageWithLayout = ({}) => {
         }
 
         layoutContentRef.current = { ...layoutContent }
-    }, [layoutContent])
+    }, [layoutContent, db, router.query.flowid, router.query.stepid])
 
     useEffect(() => {
         if (responseCheck && responseCheckRef.current !== responseCheck){
@@ -376,7 +376,7 @@ const Step: NextPageWithLayout = ({}) => {
         }
 
         responseCheckRef.current = responseCheck
-    }, [responseCheck])
+    }, [responseCheck, db, router.query.flowid, router.query.stepid])
 
     useEffect(() => {
         if (contentFormatting && contentFormattingRef.current !== contentFormatting){
@@ -384,7 +384,7 @@ const Step: NextPageWithLayout = ({}) => {
         }
 
         contentFormattingRef.current = contentFormatting
-    }, [contentFormatting])
+    }, [contentFormatting, db, router.query.flowid, router.query.stepid])
 
     if (!router.query.stepid)
         return null

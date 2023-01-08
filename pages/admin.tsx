@@ -49,7 +49,7 @@ const Admin: NextPageWithLayout = ({ }: AppProps) => {
                 }
             })
         }
-    }, [userID])
+    }, [userID, db])
 
     return <>
         <Head>

@@ -52,7 +52,7 @@ const Header: NextPage = ({}: AppProps) => {
                 }
             })
         }
-    }, [router.query.flowid])
+    }, [router.query.flowid, db])
 
     useEffect(() => {
         if (layout && layoutRef.current && diff(layoutRef.current, layout)){
@@ -60,7 +60,7 @@ const Header: NextPage = ({}: AppProps) => {
         }
 
         layoutRef.current = layout
-    }, [layout])
+    }, [layout, db])
 
     useEffect(() => {
         if (layoutContent && Object.keys(layoutContent).length && JSON.stringify(layoutContentRef.current) !== JSON.stringify(layoutContent)){
@@ -68,7 +68,7 @@ const Header: NextPage = ({}: AppProps) => {
         }
 
         layoutContentRef.current = { ...layoutContent }
-    }, [layoutContent])
+    }, [layoutContent, db])
 
     useEffect(() => {
         if (contentFormatting && contentFormattingRef.current !== contentFormatting){
@@ -76,7 +76,7 @@ const Header: NextPage = ({}: AppProps) => {
         }
 
         contentFormattingRef.current = contentFormatting
-    }, [contentFormatting])
+    }, [contentFormatting, db])
 
 
     var flow

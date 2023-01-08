@@ -57,7 +57,7 @@ const UserApp: NextPageWithLayout =  ({}: AppProps) => {
                 })
             }
         }
-    }, [router.query.appid])
+    }, [router.query.appid, db])
 
     return <div>
         <Head>

@@ -34,7 +34,7 @@ const Settings: NextPageWithLayout = ({}: AppProps) => {
             })
 
         }
-    }, [router.query.appid])
+    }, [router.query.appid, db])
 
     return <>
         <div className='max-w-xs mx-auto'>
