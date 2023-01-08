@@ -11,7 +11,6 @@ import { UserContext } from './_app'
 
 
 const Settings: NextPageWithLayout = ({}: AppProps) => {
-    var [user, setUser] = useState()
     const router = useRouter()
     var nameRef = useRef(), websiteRef = useRef()
     const [user, userID] = useContext(UserContext)
