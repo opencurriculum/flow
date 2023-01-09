@@ -95,6 +95,10 @@ export const StepItem = ({ userID, step, stepID, progress, experiment, flowSteps
                                             )
                                         })
 
+                                        updateDoc(doc(db, "flows", router.query.flowid), {
+                                            [`progress.${userID}.steps.${stepID}.completed`]: 100
+                                        })
+
                                         onResponseAssess(true)
                                     } else {
                                         onResponseAssess(false)

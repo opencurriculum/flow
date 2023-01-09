@@ -29,7 +29,7 @@ const Settings: NextPageWithLayout = ({}: AppProps) => {
                 assignStepsIndividuallyRef.current.checked = flowData.assignStepsIndividually || false
             })
         }
-    }, [router.query.appid, db])
+    }, [router.query.flowid, db])
 
     return <>
         <div className="relative flex items-start">
@@ -101,7 +101,7 @@ const Settings: NextPageWithLayout = ({}: AppProps) => {
 Settings.getLayout = function getLayout(page: ReactElement) {
   return (
     <Layout>
-        <TabbedPageLayout tabs={getTabs('settings')}>
+        <TabbedPageLayout tabs={getTabs('settings')} compress={true}>
             {page}
         </TabbedPageLayout>
     </Layout>

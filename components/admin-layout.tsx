@@ -23,10 +23,10 @@ export default function Layout({ children }) {
 }
 
 
-export function TabbedPageLayout({ children, page, tabs }) {
+export function TabbedPageLayout({ children, page, tabs, compress }) {
   return (
     <>
-      <TabbedPageHeader page={page} tabs={tabs}>{children}</TabbedPageHeader>
+      <TabbedPageHeader page={page} tabs={tabs} compress={compress}>{children}</TabbedPageHeader>
     </>
   )
 }
@@ -423,7 +423,7 @@ function Tab({ tab }){
 
 
 
-export const TabbedPageHeader = ({ children, page, tabs }) => {
+export const TabbedPageHeader = ({ children, page, tabs, compress }) => {
     var nameRef = useRef()
 
     var [editNameOpen, setEditNameOpen] = useState(false)
@@ -471,7 +471,7 @@ export const TabbedPageHeader = ({ children, page, tabs }) => {
 
             <main>
               <div className="mx-auto max-w-7xl py-6 sm:px-6 lg:px-8">
-                <div className='max-w-xs mx-auto'>
+                <div className={classNames(compress ? 'max-w-md' : '', 'mx-auto')}>
                     {children}
                 </div>
               </div>

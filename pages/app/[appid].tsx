@@ -28,9 +28,12 @@ export const UserAppHeader = ({ hideBack }) => {
                 var appData = docSnapshot.data()
                 setApp(appData)
 
+                /*
+                // TODO: Fix schema to avoid conflict with security policy.
                 getDoc(appData.owner).then(docSnapshot => {
                     setAppOwner(docSnapshot.data())
                 })
+                */
             })
         }
     }, [router.query.appid])
@@ -46,6 +49,7 @@ export const UserAppHeader = ({ hideBack }) => {
                     <Link href={`/app/${router.query.appid}`}><a className="text-2xl font-bold">{app && app.name}</a></Link>
                   </div>
                 </div>
+                {/*
                 <div className="hidden sm:ml-6 sm:flex sm:items-center">
                   <a
                     href={appOwner && appOwner.website || null}
@@ -55,6 +59,7 @@ export const UserAppHeader = ({ hideBack }) => {
                     {appOwner ? <span>By {appOwner.name}</span> : null}
                   </a>
                 </div>
+                */}
               </div>
             </div>
           </>

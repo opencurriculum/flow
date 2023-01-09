@@ -70,14 +70,28 @@ const Step = ({}) => {
     }, [router.query.flowid, userID])
 
     useEffect(() => {
-        if (router.query.flowid){
+        if (router.query.flowid && userID){
             getOrInitializeFlowExperiment(db, router.query.flowid, userID, router.query.group, setExperiment)
 
             getDoc(doc(db, "flows", router.query.flowid, 'steps', router.query.stepid)).then(docSnapshot => {
                 setStep(docSnapshot.data())
             })
         }
-    }, [router.query.stepid])
+    }, [router.query.stepid, userID])
+
+    useEffect(() => {
+        if (flow && !(flow.progress && flow.progress[userID])){
+            updateDoc(doc(db, "flows", router.query.flowid), {
+                [`progress.${userID}.name`]: user.displayName || `Anonymous ${userID.substring(0, 5)}`
+            })
+        }
+
+        if (flow && !(flow.progress && flow.progress[userID] && flow.progress.steps && flow.progress.steps[router.query.stepid] && flow.progress.steps[router.query.stepid].hasOwnProperty('completed'))){
+            updateDoc(doc(db, "flows", router.query.flowid), {
+                [`progress.${userID}.steps.${router.query.stepid}.completed`]: 0
+            })
+        }
+    }, [flow])
 
     useEffect(() => {
         if (progress){
@@ -88,7 +102,7 @@ const Step = ({}) => {
                 })
             }
         }
-    }, [progress, router.query.stepid])
+    }, [progress, router.query.stepid, router.query.flowid])
 
     useEffect(() => {
         if (router.query.flowid){

@@ -173,9 +173,11 @@ const Step: NextPageWithLayout = ({}) => {
 
             } else {
                 var id = uuidv4().substring(0, 8),
-                    newExperimentDoc = doc(db, "experiments", id)
-                setDoc(newExperimentDoc, update(experiment, { $unset: ['current', 'id'] }))
-                updateDoc(doc(db, "flows", router.query.flowid), { experiment: newExperimentDoc })
+                    newExperimentDoc = doc(db, "experiments", id),
+                    flowRef = doc(db, "flows", router.query.flowid)
+
+                setDoc(newExperimentDoc, { ...update(experiment, { $unset: ['current', 'id'] }), flow: flowRef })
+                updateDoc(flowRef, { experiment: newExperimentDoc })
 
                 experimentRef.current = { ...experiment, id }
                 setExperiment(experimentRef.current)

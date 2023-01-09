@@ -1,5 +1,6 @@
 import {getDoc, doc, updateDoc} from "firebase/firestore"
 import extend from "deep-extend"
+import update from 'immutability-helper'
 
 
 function assignExperimentGroupToStudent(db, experimentData, newGroupIndex, userID, experimentID){

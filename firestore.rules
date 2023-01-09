@@ -4,18 +4,23 @@ service cloud.firestore {
     match /users/{userID}/{document=**} {
       allow create: if request.auth.uid != null
       allow get, update: if request.auth.uid == userID
+
+      match /progress/{flowID} {
+        allow read, write: if request.auth.uid == userID
+        allow read, write: if request.auth.uid in get(/databases/$(database)/documents/flows/$(flowID)).data.users
+      }
     }
 
     match /apps/{appID} {
       allow get
       allow create: if request.auth.uid != null
-      allow list, update, delete: if request.auth.uid in get(/databases/$(database)/documents/apps/$(appID)).data.users
+      allow list, update, delete: if request.auth.uid in resource.data.users
     }
 
     match /flows/{flowID}/{document=**} {
       allow get
       allow create: if request.auth.uid != null
-      allow list, update, delete: if request.auth.uid in get(/databases/$(database)/documents/flows/$(flowID)).data.users
+      allow list, update, delete: if request.auth.uid in resource.data.users
 
       match /steps/{stepID} {
         allow read
@@ -23,9 +28,12 @@ service cloud.firestore {
       }
     }
 
-    match /experiments/{flowID}/{document=**} {
+    match /experiments/{experimentID}/{document=**} {
       allow read
-      allow create, update, delete: if request.auth.uid in get(/databases/$(database)/documents/flows/$(flowID)).data.users
+      allow update: if request.auth.uid != null
+
+      allow create, update, delete: if request.auth.uid in get(/databases/$(database)/documents/flows/$(resource.data.flow.id)).data.users
+
     }
   }
 }

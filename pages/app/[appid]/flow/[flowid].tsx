@@ -41,6 +41,12 @@ const Flow: NextPage = ({}: AppProps) => {
             getDoc(flowProgressRef).then(docSnapshot => {
                 if (!docSnapshot.exists()){
                     setDoc(flowProgressRef, { completed: 0, steps: {} })
+
+                    updateDoc(doc(db, "flows", router.query.flowid), {
+                        [`progress.${userID}.completed`]: 0,
+                        [`progress.${userID}.steps`]: {}
+                    })
+
                     setProgress({ completed: 0, steps: {} })
                 } else {
                     setProgress(docSnapshot.data())
@@ -52,7 +58,6 @@ const Flow: NextPage = ({}: AppProps) => {
                 docsSnapshot.forEach(doc => unsortedSteps.push({ id: doc.id, ...doc.data() }))
                 setSteps(unsortedSteps.sort((a, b) => a.position - b.position))
             })
-
 
             getOrInitializeFlowExperiment(db, router.query.flowid, userID, router.query.group, setExperiment)
         }
