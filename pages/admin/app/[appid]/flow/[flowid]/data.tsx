@@ -53,7 +53,7 @@ const Data: NextPageWithLayout = ({}: AppProps) => {
                       >
                         Student Name
                       </th>
-                      {steps?.map(step => <th
+                      {steps?.map(step => <th key={step.id}
                             scope="col"
                             className="sticky top-0 z-10 hidden bg-gray-50 bg-opacity-75 px-3 py-3.5 text-left text-sm font-semibold text-gray-900 backdrop-blur backdrop-filter sm:table-cell"
                           >
@@ -73,7 +73,7 @@ const Data: NextPageWithLayout = ({}: AppProps) => {
                         >
                           {person.name}
                         </td>
-                        {steps?.map(step => <td
+                        {steps?.map(step => <td key={step.id}
                             className={classNames(
                               personIdx !== peopleIDs.length - 1 ? 'border-b border-gray-200' : '',
                               'whitespace-nowrap px-3 py-4 text-sm text-gray-500'
