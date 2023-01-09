@@ -834,8 +834,6 @@ const Step: NextPageWithLayout = ({}) => {
 }
 
 
-
-
 Step.getLayout = function getLayout(page: ReactElement) {
   return (
     <Layout>

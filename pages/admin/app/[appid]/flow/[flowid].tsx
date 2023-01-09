@@ -227,7 +227,7 @@ export function getTabs(page){
 Flow.getLayout = function getLayout(page: ReactElement) {
   return (
     <Layout>
-        <TabbedPageLayout tabs={getTabs(null)}>
+        <TabbedPageLayout tabs={getTabs(null)} compress={true}>
             {page}
         </TabbedPageLayout>
     </Layout>
