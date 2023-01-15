@@ -232,7 +232,8 @@ const Numberline = function(body, formatting, {updateBody}){
     const queryRef = useRef()
 
     function serializePieces(properties){
-        var serializedPieces = [], propertiesAsArray = Object.keys(properties).map(p => properties[p]),
+        var serializedPieces = [], propertiesAsArray = Object.keys(properties).map(
+                p => properties[p]).sort((a, b) => a.position - b.position),
             pieces = propertiesAsArray.find(property => property?.id === 'pieces')?.value,
             makepiececopy = propertiesAsArray.find(property => property?.id === 'makepiececopy')?.value
 
@@ -288,7 +289,8 @@ const MultipleChoice = function(body, formatting, {updateBody, toggleSelectedCon
     const [properties, setProperties] = useState(body?.properties)
 
     const query = useIframeQuery(body, response, (properties) => {
-        var serializedChoices = [], propertiesAsArray = Object.keys(properties).map(p => properties[p]),
+        var serializedChoices = [], propertiesAsArray = Object.keys(properties).map(
+                p => properties[p]).sort((a, b) => a.position - b.position),
             choices = propertiesAsArray.find(property => property.id === 'choices')?.value
 
         if (choices){
