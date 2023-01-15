@@ -311,7 +311,7 @@ const MultipleChoice = function(body, formatting, {updateBody, toggleSelectedCon
 
     return <div className='h-full'>
         {/* Bad way to figure out if this is editable or render */}
-        {typeof(arguments[2]) === 'function' ? <IframeSelector /> : null}
+        {updateBody ? <IframeSelector /> : null}
         <iframe src={`${slateHost}/show?template=multiple-choice&${query || ''}`} style={{ width: '100%', height: '100%' }}/>
     </div>
 }
