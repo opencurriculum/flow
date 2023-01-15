@@ -233,15 +233,15 @@ const Numberline = function(body, formatting, {updateBody}){
 
     function serializePieces(properties){
         var serializedPieces = [], propertiesAsArray = Object.keys(properties).map(
-                p => properties[p]).sort((a, b) => a.position - b.position),
-            pieces = propertiesAsArray.find(property => property?.id === 'pieces')?.value,
+                p => properties[p]),
+            pieces = propertiesAsArray.find(property => property?.id === 'pieces')?.value?.sort((a, b) => a.position - b.position),
             makepiececopy = propertiesAsArray.find(property => property?.id === 'makepiececopy')?.value
 
         if (pieces){
-            var piecesIDs = Object.keys(pieces), piece
-            if (piecesIDs.length){
-                piecesIDs.forEach(pieceID => {
-                    piece = pieces[pieceID]
+            var piecesAsArray = Object.keys(pieces)?.map(
+                id => pieces[id]).sort((a, b) => a.position - b.position)
+            if (piecesAsArray.length){
+                piecesAsArray.forEach(piece => {
                     serializedPieces.push(`piece=${piece.items.find(prop => prop.title === 'Name').value}|${piece.items.find(prop => prop.title === 'Length').value}`)
                 })
             }
@@ -290,14 +290,15 @@ const MultipleChoice = function(body, formatting, {updateBody, toggleSelectedCon
 
     const query = useIframeQuery(body, response, (properties) => {
         var serializedChoices = [], propertiesAsArray = Object.keys(properties).map(
-                p => properties[p]).sort((a, b) => a.position - b.position),
+                p => properties[p]),
             choices = propertiesAsArray.find(property => property.id === 'choices')?.value
 
         if (choices){
-            var choicesIDs = Object.keys(choices), choice
-            if (choicesIDs.length){
-                choicesIDs.forEach(choiceID => {
-                    var serializedProperty = serializeProperty('option', choices[choiceID].value, response)
+            var choicesAsArray = Object.keys(choices)?.map(
+                id => choices[id]).sort((a, b) => a.position - b.position)
+            if (choicesAsArray.length){
+                choicesAsArray.forEach(choice => {
+                    var serializedProperty = serializeProperty('option', choice.value, response)
 
                     if (serializedProperty)
                         serializedChoices.push(serializedProperty)
