@@ -152,19 +152,19 @@ const SingleProperty = ({ property, setValue, defaultValue }) => {
     var body
     if (property.kind === 'text'){
         body = [
-            <div>{property.title}</div>,
-            <div><textarea ref={inputRef} onBlur={onBlur} /></div>
+            <div key='title'>{property.title}</div>,
+            <div key='body'><textarea ref={inputRef} onBlur={onBlur} /></div>
         ]
     } else if (property.kind === 'boolean'){
         body = <div>
-            <input type="checkbox" ref={inputRef}
+            <input key='body' type="checkbox" ref={inputRef}
                 onChange={e => setValue(property.title, e.target.checked)} />
-            <label className="ml-1">{property.title}</label>
+            <label key='title' className="ml-1">{property.title}</label>
         </div>
     } else {
         body = [
-            <div>{property.title}</div>,
-            <div><input type="text" ref={inputRef} onBlur={onBlur} /></div>
+            <div key='body'>{property.title}</div>,
+            <div key='title'><input type="text" ref={inputRef} onBlur={onBlur} /></div>
         ]
     }
 
