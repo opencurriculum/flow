@@ -1,7 +1,7 @@
 import { useState, useEffect, useRef } from 'react'
 import { v4 as uuidv4 } from 'uuid'
 import update from 'immutability-helper'
-import { PlusIcon } from '@heroicons/react/20/solid'
+import { PlusIcon, XMarkIcon } from '@heroicons/react/20/solid'
 
 
 export default function PropertyEditor({ selectedContent, properties, value, setValue }){
@@ -33,6 +33,12 @@ export default function PropertyEditor({ selectedContent, properties, value, set
         }
     }
 
+    var deleteItem = (propertiesIndex, itemID) => {
+        if (properties[propertiesIndex].kind === 'list'){
+            setData(update(data, { [propertiesIndex]: { value: { $unset: [itemID] } } }))
+        }
+    }
+
     return <div>
         {properties.map((property, i) => {
             var body
@@ -41,7 +47,7 @@ export default function PropertyEditor({ selectedContent, properties, value, set
                     <div key={0}>{data && data[i] && Object.keys(data[i].value).map(id => data[i].value[id]).sort((a, b) => a.position - b.position).map((listItem, j) => <ListItem
                         propertiesIndex={i}
                         key={j} index={j} item={listItem} properties={property.items}
-                        setItem={setItem}
+                        setItem={setItem} deleteItem={deleteItem}
                         defaultValue={value && value[i]?.value?.[listItem.id]}
                     />)}</div>,
                     <div key={1}><button
@@ -57,7 +63,7 @@ export default function PropertyEditor({ selectedContent, properties, value, set
                                 var id = uuidv4().substring(0, 8)
                                 data[i].value[id] = {
                                     id,
-                                    position: Object.keys(data[i]).length,
+                                    position: Object.keys(data[i].value) ? Object.keys(data[i].value).length : 0,
                                     kind: "object",
                                     items: property.items.items.map(item => ({
                                         ...item, value: null
@@ -75,7 +81,7 @@ export default function PropertyEditor({ selectedContent, properties, value, set
                                 var id = uuidv4().substring(0, 8)
                                 data[i].value[id] = {
                                     id,
-                                    position: Object.keys(data[i]).length,
+                                    position: Object.keys(data[i].value) ? Object.keys(data[i].value).length : 0,
                                     kind: property.items.kind,
                                     value: null
                                 }
@@ -115,21 +121,31 @@ export default function PropertyEditor({ selectedContent, properties, value, set
 }
 
 
-const ListItem = ({ propertiesIndex, item, setItem, defaultValue }) => {
+const ListItem = ({ propertiesIndex, item, setItem, deleteItem, defaultValue }) => {
     var setValue = (propertyTitle, value) => {
         setItem(propertiesIndex, item.id, propertyTitle, value)
     }
 
-    return <div>
-        {item.kind === "object" ? item.items.map((property, i) => <SingleProperty
-            key={property.title} property={property} setValue={setValue}
-            defaultValue={defaultValue?.items && defaultValue.items[i]?.value}
-        />) : null}
-        {["string", "text", "integer"].indexOf(item.kind) !== -1 ? <SingleProperty
-            key={item.title} property={item} setValue={setValue}
-            defaultValue={defaultValue?.value}
-        /> : null}
-
+    return <div className='flex'>
+        <div>
+            {item.kind === "object" ? item.items.map((property, i) => <SingleProperty
+                key={property.title} property={property} setValue={setValue}
+                defaultValue={defaultValue?.items && defaultValue.items[i]?.value}
+            />) : null}
+            {["string", "text", "integer"].indexOf(item.kind) !== -1 ? <SingleProperty
+                key={item.title} property={item} setValue={setValue}
+                defaultValue={defaultValue?.value}
+            /> : null}
+        </div>
+        <div className='flex items-center'>
+            <button
+              onClick={e => deleteItem(propertiesIndex, item.id)}
+              type="button"
+              className="inline-flex items-center rounded-full p-1 text-gray-400 hover:text-gray-600 shadow-sm focus:outline-none focus:ring-2 focus:ring-offset-2"
+            >
+                <XMarkIcon className="-ml-0.5 h-6 w-6" aria-hidden="true" />
+            </button>
+        </div>
     </div>
 }
 

@@ -137,7 +137,7 @@ function executeJSFunction(fn){
 
 
 function serializeProperty(key, value, response){
-    if (value.startsWith('=')){
+    if (value?.startsWith('=')){
         var prop, finalValue = value.substring(1)
 
         for (prop in response){
@@ -166,7 +166,7 @@ function serializeProperty(key, value, response){
 
         return `${key}=${encodeURIComponent(finalValue)}`
 
-    } else {
+    } else if (value) {
         return `${key}=${encodeURIComponent(value)}`
     }
 }
