@@ -96,7 +96,7 @@ const WYSIWYGPanels = ({ context, layout, onRemove, onLayoutChange, onDrop, layo
                   droppingItem={{ i: 'new', w: 5, h: 5 }}
                   onDrop={onDrop}
                   autoSize={false}
-                  // compactType={null}
+                  compactType={null}
                   isDroppable={!isContentBeingDragged}
                 >
                     {layout.map(box => {
