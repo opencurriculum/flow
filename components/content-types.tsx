@@ -234,7 +234,7 @@ const Numberline = function(body, formatting, {updateBody}){
     function serializePieces(properties){
         var serializedPieces = [], propertiesAsArray = Object.keys(properties).map(
                 p => properties[p]),
-            pieces = propertiesAsArray.find(property => property?.id === 'pieces')?.value?.sort((a, b) => a.position - b.position),
+            pieces = propertiesAsArray.find(property => property?.id === 'pieces')?.value,
             makepiececopy = propertiesAsArray.find(property => property?.id === 'makepiececopy')?.value
 
         if (pieces){
