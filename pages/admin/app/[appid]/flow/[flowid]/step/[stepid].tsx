@@ -22,6 +22,7 @@ import { StepContentTypes, applyEventsToLayoutContent, useResponse } from '../..
 import PropertyEditor from '../../../../../../../components/property-editor'
 import jsonDiff from 'json-diff'
 import { UserContext } from '../../../../../../_app'
+import { XMarkIcon } from '@heroicons/react/20/solid'
 
 
 const initialLayout = [
@@ -55,14 +56,23 @@ export const EventsHeader = ({ events }) => {
     return events?.current ? <header className="bg-red-600 text-white">
       <div className="mx-auto max-w-7xl px-4 sm:px-6 lg:px-8">
         You are on click
-        <span onClick={() => {
-            const url = new URL(window.location.href)
-            searchParams.delete('event:click')
-            url.search = new URLSearchParams(searchParams)
 
-            router.push(url.toString())
+        <button
+          type="button"
+          className="inline-flex items-center rounded-md border border-transparent bg-red-600 px-2 py-1 text-sm font-medium leading-4 text-white shadow-sm hover:bg-red-700 focus:outline-none focus:ring-2 focus:ring-red-500 focus:ring-offset-2 float-right"
+          onClick={() => {
+             const url = new URL(window.location.href)
+             searchParams.delete('event:click')
+             url.search = new URLSearchParams(searchParams)
 
-        }}>Exit</span>
+             router.push(url.toString())
+
+         }}
+        >
+          <XMarkIcon className="-ml-0.5 mr-2 h-4 w-4" aria-hidden="true" />
+          Exit
+        </button>
+
       </div>
     </header> : null
 }

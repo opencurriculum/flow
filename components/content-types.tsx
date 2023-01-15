@@ -172,10 +172,11 @@ function serializeProperty(key, value, response){
 }
 
 
-const ArrayType = function(body, formatting, {response}){
+const ArrayType = function(body, formatting, {response, updateBody}){
     const [properties, setProperties] = useState(body?.properties)
     const query = useIframeQuery(body, response, (properties) => {
-        var number = properties.find(property => property.id === 'number')?.value
+        var number = Object.keys(properties).map(p => properties[p]).find(
+            property => property.id === 'number')?.value
 
         if (number)
             return `number=${number}`
@@ -186,7 +187,7 @@ const ArrayType = function(body, formatting, {response}){
 
     return <div className='h-full'>
         {/* Bad way to figure out if this is editable or render */}
-        {typeof(arguments[2]) === 'function' ? <IframeSelector /> : null}
+        {updateBody ? <IframeSelector /> : null}
         <iframe src={`${slateHost}/show?template=array&${query || ''}`} style={{ width: '100%', height: '100%' }}/>
     </div>
 }
@@ -224,15 +225,16 @@ function useIframeQuery(body, response, serialize){
 
 
 let numberlineUpdateTimeout
-const Numberline = function(body, formatting){
+const Numberline = function(body, formatting, {updateBody}){
     // piece=race%20track|13&piece=horse|6
     const [properties, setProperties] = useState(body?.properties)
     const [query, setQuery] = useState()
     const queryRef = useRef()
 
     function serializePieces(properties){
-        var serializedPieces = [],
-            pieces = properties.find(property => property.id === 'pieces')?.value
+        var serializedPieces = [], propertiesAsArray = Object.keys(properties).map(p => properties[p]),
+            pieces = propertiesAsArray.find(property => property?.id === 'pieces')?.value,
+            makepiececopy = propertiesAsArray.find(property => property?.id === 'makepiececopy')?.value
 
         if (pieces){
             var piecesIDs = Object.keys(pieces), piece
@@ -242,6 +244,10 @@ const Numberline = function(body, formatting){
                     serializedPieces.push(`piece=${piece.items.find(prop => prop.title === 'Name').value}|${piece.items.find(prop => prop.title === 'Length').value}`)
                 })
             }
+        }
+
+        if (makepiececopy !== undefined){
+            serializedPieces.push(`makepiececopy=${makepiececopy}`)
         }
 
         return serializedPieces.join('&')
@@ -271,7 +277,7 @@ const Numberline = function(body, formatting){
 
     return <div className='h-full'>
         {/* Bad way to figure out if this is editable or render */}
-        {typeof(arguments[2]) === 'function' ? <IframeSelector /> : null}
+        {updateBody ? <IframeSelector /> : null}
         <iframe src={`${slateHost}/show?template=numberline&${query || ''}`} style={{ width: '100%', height: '100%' }}/>
     </div>
 }
@@ -282,8 +288,8 @@ const MultipleChoice = function(body, formatting, {updateBody, toggleSelectedCon
     const [properties, setProperties] = useState(body?.properties)
 
     const query = useIframeQuery(body, response, (properties) => {
-        var serializedChoices = [],
-            choices = properties.find(property => property.id === 'choices')?.value
+        var serializedChoices = [], propertiesAsArray = Object.keys(properties).map(p => properties[p]),
+            choices = propertiesAsArray.find(property => property.id === 'choices')?.value
 
         if (choices){
             var choicesIDs = Object.keys(choices), choice
@@ -495,6 +501,9 @@ const ContentTypes = {
                         { kind: 'integer', title: 'Length' }
                     ]
                 }
+            },
+            {
+                id: 'makepiececopy', kind: 'boolean', title: 'Duplicate pieces that get dropped on numberline'
             }
         ],
         responseProperties: ['scale', 'range', ['pieces', ['title', 'length', 'position']] ]

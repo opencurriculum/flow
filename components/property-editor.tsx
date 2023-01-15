@@ -1,20 +1,21 @@
 import { useState, useEffect, useRef } from 'react'
 import { v4 as uuidv4 } from 'uuid'
 import update from 'immutability-helper'
+import { PlusIcon } from '@heroicons/react/20/solid'
 
 
 export default function PropertyEditor({ selectedContent, properties, value, setValue }){
-    const [data, setData] = useState(value || [])
+    const [data, setData] = useState(value || {})
     const selectedContentRef = useRef(selectedContent)
 
     useEffect(() => {
-        if (data?.length){
+        if (data && Object.keys(data).length){
             setValue(data)
         }
     }, [data])
 
     useEffect(() => {
-        setData(value || [])
+        setData(value || {})
         selectedContentRef.current = selectedContent
     }, [selectedContent])
 
@@ -27,7 +28,7 @@ export default function PropertyEditor({ selectedContent, properties, value, set
             } else if (["string", "text"].indexOf(properties[propertiesIndex].items.kind) !== -1){
                 setData(update(data, { [propertiesIndex]: { value: { [itemID]: { value: { $set: value } } } } }))
             }
-        } else if (["string", "text"].indexOf(properties[propertiesIndex].kind) !== -1){
+        } else if (["string", "text", "boolean"].indexOf(properties[propertiesIndex].kind) !== -1){
             setData(update(data, { [propertiesIndex]: { $set: { id: properties[propertiesIndex].id, value } } }))
         }
     }
@@ -43,7 +44,10 @@ export default function PropertyEditor({ selectedContent, properties, value, set
                         setItem={setItem}
                         defaultValue={value && value[i]?.value?.[listItem.id]}
                     />)}</div>,
-                    <div key={1}><button onClick={() => {
+                    <div key={1}><button
+                        type="button"
+                        className="inline-flex items-center rounded border border-gray-300 bg-white px-2.5 py-1.5 text-xs font-medium text-gray-700 shadow-sm hover:bg-gray-50 focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:ring-offset-2"
+                        onClick={() => {
                         if (property.items.kind === "object"){
                             setData(data => {
                                 if (!data || !data[i]){
@@ -60,7 +64,7 @@ export default function PropertyEditor({ selectedContent, properties, value, set
                                     }))
                                 }
 
-                                return [ ...data ]
+                                return { ...data }
                             })
                         } else if (["string", "text"].indexOf(property.items.kind) !== -1){
                             setData(data => {
@@ -76,11 +80,14 @@ export default function PropertyEditor({ selectedContent, properties, value, set
                                     value: null
                                 }
 
-                                return [ ...data ]
+                                return { ...data }
 
                             })
                         }
-                    }}>+ Add</button></div>
+                    }}>
+                        <PlusIcon className="-ml-0.5 mr-1 h-3 w-3" aria-hidden="true" />
+                        Add
+                    </button></div>
                 ]
             } else if (["string", "text"].indexOf(property.kind) !== -1){
                 body = <SingleProperty
@@ -89,7 +96,15 @@ export default function PropertyEditor({ selectedContent, properties, value, set
                     }}
                     defaultValue={value && value[0]?.value || ''}
                 />
+            } else if (property.kind === 'boolean'){
+                body = <SingleProperty
+                    property={property} setValue={(propertyTitle, value) => {
+                        setItem(i, null, null, value)
+                    }}
+                    defaultValue={value && value[0]?.value || false}
+                />
             }
+
 
             return <div key={property.title}>
                 {['object', 'list'].indexOf(property.kind) !== -1 ? <div>{property.title}</div> : null}
@@ -124,17 +139,36 @@ const SingleProperty = ({ property, setValue, defaultValue }) => {
 
     useEffect(() => {
         if (inputRef.current !== document.activeElement && defaultValue !== inputRef.current.value){
-            inputRef.current.value = defaultValue
+            if (['text', 'string', 'integer'].indexOf(property.kind) !== -1){
+                inputRef.current.value = defaultValue
+            } else if (property.kind === 'boolean'){
+                inputRef.current.checked = defaultValue === true
+            }
         }
     }, [defaultValue])
 
     var onBlur = e => setValue(property.title, e.target.value)
 
-    return <div>
-        <div>{property.title}</div>
-        <div>
-            {property.kind === 'text' ? <textarea ref={inputRef} onBlur={onBlur}
-                />: <input type="text" ref={inputRef} onBlur={onBlur} />}
+    var body
+    if (property.kind === 'text'){
+        body = [
+            <div>{property.title}</div>,
+            <div><textarea ref={inputRef} onBlur={onBlur} /></div>
+        ]
+    } else if (property.kind === 'boolean'){
+        body = <div>
+            <input type="checkbox" ref={inputRef}
+                onChange={e => setValue(property.title, e.target.checked)} />
+            <label className="ml-1">{property.title}</label>
         </div>
+    } else {
+        body = [
+            <div>{property.title}</div>,
+            <div><input type="text" ref={inputRef} onBlur={onBlur} /></div>
+        ]
+    }
+
+    return <div className="mt-2">
+        {body}
     </div>
 }
