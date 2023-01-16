@@ -176,6 +176,8 @@ function serializeProperty(key, value, response){
             }
         }
 
+        finalValue = Function(`'use strict'; return ${finalValue}`)()
+
         return `${key}=${encodeURIComponent(finalValue)}`
 
     } else if (value) {
@@ -311,7 +313,7 @@ const MultipleChoice = function(body, formatting, {updateBody, toggleSelectedCon
                 id => choices[id]).sort((a, b) => a.position - b.position)
             if (choicesAsArray.length){
                 choicesAsArray.forEach(choice => {
-                    var serializedProperty = serializeProperty('option', `${choice.value}�${choice.id}`, response)
+                    var serializedProperty = serializeProperty('option', `${choice.value}`, response) + `�${choice.id}`
 
                     if (serializedProperty)
                         serializedChoices.push(serializedProperty)
