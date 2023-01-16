@@ -7,6 +7,10 @@ import { PlusIcon, XMarkIcon } from '@heroicons/react/20/solid'
 export default function PropertyEditor({ selectedContent, properties, value, setValue }){
     const [data, setData] = useState(value || {})
     const selectedContentRef = useRef(selectedContent)
+    const [focused, setFocused] = useState(false)
+
+    var onFocus = e => setFocused(true),
+        onBlur = e => setFocused(false)
 
     useEffect(() => {
         if (data && Object.keys(data).length){
@@ -100,14 +104,16 @@ export default function PropertyEditor({ selectedContent, properties, value, set
                     property={property} setValue={(propertyTitle, value) => {
                         setItem(i, null, null, value)
                     }}
-                    defaultValue={value && value[0]?.value || ''}
+                    defaultValue={value && value[i]?.value || ''}
+                    focused={focused} onFocus={onFocus} onBlur={onBlur}
                 />
             } else if (property.kind === 'boolean'){
                 body = <SingleProperty
                     property={property} setValue={(propertyTitle, value) => {
                         setItem(i, null, null, value)
                     }}
-                    defaultValue={value && value[0]?.value || false}
+                    defaultValue={value && value[i]?.value || false}
+                    focused={focused} onFocus={onFocus} onBlur={onBlur}
                 />
             }
 
@@ -122,35 +128,45 @@ export default function PropertyEditor({ selectedContent, properties, value, set
 
 
 const ListItem = ({ propertiesIndex, item, setItem, deleteItem, defaultValue }) => {
+    const [focused, setFocused] = useState(false)
+
     var setValue = (propertyTitle, value) => {
         setItem(propertiesIndex, item.id, propertyTitle, value)
     }
 
-    return <div className='flex'>
-        <div>
-            {item.kind === "object" ? item.items.map((property, i) => <SingleProperty
-                key={property.title} property={property} setValue={setValue}
-                defaultValue={defaultValue?.items && defaultValue.items[i]?.value}
-            />) : null}
-            {["string", "text", "integer"].indexOf(item.kind) !== -1 ? <SingleProperty
-                key={item.title} property={item} setValue={setValue}
-                defaultValue={defaultValue?.value}
-            /> : null}
+    var onFocus = e => setFocused(true),
+        onBlur = e => setFocused(false)
+
+    return <div>
+        <div className='flex'>
+            <div>
+                {item.kind === "object" ? item.items.map((property, i) => <SingleProperty
+                    key={property.title} property={property} setValue={setValue}
+                    defaultValue={defaultValue?.items && defaultValue.items[i]?.value}
+                    focused={focused} onFocus={onFocus} onBlur={onBlur}
+                />) : null}
+                {["string", "text", "integer"].indexOf(item.kind) !== -1 ? <SingleProperty
+                    key={item.title} property={item} setValue={setValue}
+                    defaultValue={defaultValue?.value}
+                    focused={focused} onFocus={onFocus} onBlur={onBlur}
+                /> : null}
+            </div>
+            <div className='flex items-center'>
+                <button
+                  onClick={e => deleteItem(propertiesIndex, item.id)}
+                  type="button"
+                  className="inline-flex items-center rounded-full p-1 text-gray-400 hover:text-gray-600 shadow-sm focus:outline-none focus:ring-2 focus:ring-offset-2"
+                >
+                    <XMarkIcon className="-ml-0.5 h-6 w-6" aria-hidden="true" />
+                </button>
+            </div>
         </div>
-        <div className='flex items-center'>
-            <button
-              onClick={e => deleteItem(propertiesIndex, item.id)}
-              type="button"
-              className="inline-flex items-center rounded-full p-1 text-gray-400 hover:text-gray-600 shadow-sm focus:outline-none focus:ring-2 focus:ring-offset-2"
-            >
-                <XMarkIcon className="-ml-0.5 h-6 w-6" aria-hidden="true" />
-            </button>
-        </div>
+        {/*focused ? */<div className='text-xs text-gray-400 my-1'>ID: {item.id}</div>/* : null*/}
     </div>
 }
 
 
-const SingleProperty = ({ property, setValue, defaultValue }) => {
+const SingleProperty = ({ property, setValue, defaultValue, onFocus, onBlur, focused }) => {
     const inputRef = useRef()
 
     useEffect(() => {
@@ -163,13 +179,16 @@ const SingleProperty = ({ property, setValue, defaultValue }) => {
         }
     }, [defaultValue])
 
-    var onBlur = e => setValue(property.title, e.target.value)
+    var onInputBlur = e => {
+        onBlur()
+        setValue(property.title, e.target.value)
+    }
 
     var body
     if (property.kind === 'text'){
         body = [
             <div key='title'>{property.title}</div>,
-            <div key='body'><textarea ref={inputRef} onBlur={onBlur} /></div>
+            <div key='body'><textarea ref={inputRef} onBlur={onInputBlur} /></div>
         ]
     } else if (property.kind === 'boolean'){
         body = <div>
@@ -180,7 +199,7 @@ const SingleProperty = ({ property, setValue, defaultValue }) => {
     } else {
         body = [
             <div key='body'>{property.title}</div>,
-            <div key='title'><input type="text" ref={inputRef} onBlur={onBlur} /></div>
+            <div key='title'><input type="text" onFocus={onFocus} ref={inputRef} onBlur={onInputBlur} /></div>,
         ]
     }
 

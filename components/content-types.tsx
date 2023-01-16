@@ -12,7 +12,19 @@ import * as formulajs from '@formulajs/formulajs'
 
 
 var nonExcelForumlae = {
-        'FINDWHERE': (arr, key, value, propToPick) => arr.find(item => item[key] === value)[propToPick]
+        'FINDWHERE': (arr, ...keyValuesAndPropToPick) => {
+            var propToPick = keyValuesAndPropToPick.splice(keyValuesAndPropToPick.length - 1, 1)[0],
+                keyValues
+
+            var index, found
+            return arr.find(item => {
+                found = true
+                for (index = 0; index < keyValuesAndPropToPick.length - 1; index += 2){
+                    found = found && item[keyValuesAndPropToPick[index]] === keyValuesAndPropToPick[index + 1]
+                }
+                return found
+            })[propToPick]
+        }
     },
     nonExcelForumlaeNames = Object.keys(nonExcelForumlae),
     allFormulaeNames = Object.keys(formulajs).concat(nonExcelForumlaeNames),
@@ -291,19 +303,24 @@ const MultipleChoice = function(body, formatting, {updateBody, toggleSelectedCon
     const query = useIframeQuery(body, response, (properties) => {
         var serializedChoices = [], propertiesAsArray = Object.keys(properties).map(
                 p => properties[p]),
-            choices = propertiesAsArray.find(property => property.id === 'choices')?.value
+            choices = propertiesAsArray.find(property => property.id === 'choices')?.value,
+            shuffle = propertiesAsArray.find(property => property?.id === 'shuffle')?.value
 
         if (choices){
             var choicesAsArray = Object.keys(choices)?.map(
                 id => choices[id]).sort((a, b) => a.position - b.position)
             if (choicesAsArray.length){
                 choicesAsArray.forEach(choice => {
-                    var serializedProperty = serializeProperty('option', choice.value, response)
+                    var serializedProperty = serializeProperty('option', `${choice.value}�${choice.id}`, response)
 
                     if (serializedProperty)
                         serializedChoices.push(serializedProperty)
                 })
             }
+        }
+
+        if (!updateBody && (shuffle !== undefined)){
+            serializedChoices.push(`shuffle=${shuffle}`)
         }
 
         return serializedChoices.join('&')
@@ -505,11 +522,9 @@ const ContentTypes = {
                     ]
                 }
             },
-            {
-                id: 'makepiececopy', kind: 'boolean', title: 'Duplicate pieces that get dropped on numberline'
-            }
+            { id: 'makepiececopy', kind: 'boolean', title: 'Duplicate pieces that get dropped on numberline' }
         ],
-        responseProperties: ['scale', 'range', ['pieces', ['title', 'length', 'position']] ]
+        responseProperties: ['scale', 'range', ['pieces', ['title', 'length', 'line', 'position']] ]
     },
 
     MultipleChoice: {
@@ -520,9 +535,10 @@ const ContentTypes = {
                 id: 'choices', title: 'Choices', kind: 'list', items: {
                     kind: 'string', title: 'Option'
                 }
-            }
+            },
+            { id: 'shuffle', kind: 'boolean', title: 'Shuffle order for students' }
         ],
-        responseProperties: [['selected', { 0: ['content', 'index']} ]]
+        responseProperties: [['selected', { 0: ['id', 'content', 'index']} ]]
     }
 }
 
