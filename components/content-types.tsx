@@ -154,7 +154,7 @@ function serializeProperty(key, value, response){
 
         for (prop in response){
             if (finalValue.indexOf(prop) !== -1){
-                finalValue = finalValue.replace(prop, typeof(response[prop]) === 'object' ? JSON.stringify(response[prop]) : response[prop])
+                finalValue = finalValue.replaceAll(prop, typeof(response[prop]) === 'object' ? JSON.stringify(response[prop]) : response[prop])
             }
         }
 
