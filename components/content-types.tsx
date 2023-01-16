@@ -176,7 +176,11 @@ function serializeProperty(key, value, response){
             }
         }
 
-        finalValue = Function(`'use strict'; return ${finalValue}`)()
+        try {
+            finalValue = Function(`'use strict'; return ${finalValue}`)()
+        } catch (e){
+            console.log(e)
+        }
 
         return `${key}=${encodeURIComponent(finalValue)}`
 
