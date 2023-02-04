@@ -1,35 +1,14 @@
 import { Editor, EditorState, ContentState, convertToRaw, convertFromRaw } from 'draft-js';
 import { ref, uploadBytes, getDownloadURL, deleteObject } from "firebase/storage"
 import { TrashIcon } from '@heroicons/react/20/solid'
-import { blockStyleFn, LoadingSpinner } from '../utils/common'
+import { blockStyleFn, LoadingSpinner, run } from '../utils/common'
 import { useState, useEffect, useRef } from 'react'
 import { ArrowUpIcon, ArrowDownIcon } from '@heroicons/react/24/solid'
 import update from 'immutability-helper'
 import { useStorage } from 'reactfire'
 import { v4 as uuidv4 } from 'uuid'
 import { CursorArrowRaysIcon } from '@heroicons/react/24/outline'
-import * as formulajs from '@formulajs/formulajs'
 
-
-var nonExcelForumlae = {
-        'FINDWHERE': (arr, ...keyValuesAndPropToPick) => {
-            var propToPick = keyValuesAndPropToPick.splice(keyValuesAndPropToPick.length - 1, 1)[0],
-                keyValues
-
-            var index, found
-            return arr.find(item => {
-                found = true
-                for (index = 0; index < keyValuesAndPropToPick.length - 1; index += 2){
-                    found = found && item[keyValuesAndPropToPick[index]] === keyValuesAndPropToPick[index + 1]
-                }
-                return found
-            })[propToPick]
-        }
-    },
-    nonExcelForumlaeNames = Object.keys(nonExcelForumlae),
-    allFormulaeNames = Object.keys(formulajs).concat(nonExcelForumlaeNames),
-
-    formulaJSRegex = new RegExp(`(${allFormulaeNames.join('|')})\\((?!.*(${allFormulaeNames.join('|')})\\().+?\\)`)
 
 
 const slateHost = process.env.NODE_ENV === 'development' ? 'http://localhost:5000' : 'https://slate-eta.vercel.app'
@@ -128,61 +107,9 @@ const IframeSelector = () => {
 }
 
 
-function executeExcelFunction(fn){
-    try {
-        return Function('formulajs', `'use strict'; return formulajs.${fn}`)(formulajs)
-    } catch (e){
-        console.log(e)
-        return
-    }
-}
-
-
-function executeJSFunction(fn){
-    try {
-        return Function('formulae', `'use strict'; return formulae.${fn}`)(nonExcelForumlae)
-    } catch (e){
-        console.log(e)
-        return
-    }
-}
-
-
 function serializeProperty(key, value, response){
     if (value?.startsWith('=')){
-        var prop, finalValue = value.substring(1)
-
-        for (prop in response){
-            if (finalValue.indexOf(prop) !== -1){
-                finalValue = finalValue.replaceAll(prop, typeof(response[prop]) === 'object' ? JSON.stringify(response[prop]) : response[prop])
-            }
-        }
-
-        var excelFunctionMatch = true
-        while (excelFunctionMatch){
-            excelFunctionMatch = formulaJSRegex.exec(finalValue)
-
-            if (excelFunctionMatch){
-                var isExcelFormula = nonExcelForumlaeNames.indexOf(
-                    excelFunctionMatch[0].substring(0, excelFunctionMatch[0].indexOf('('))) === -1,
-
-                    functionResult = (
-                        isExcelFormula ? executeExcelFunction(excelFunctionMatch[0]) : executeJSFunction(excelFunctionMatch[0]))
-
-                if (functionResult === undefined)
-                    return
-
-                finalValue = finalValue.substring(0, excelFunctionMatch.index) + functionResult + finalValue.substring(excelFunctionMatch.index + excelFunctionMatch[0].length)
-            }
-        }
-
-        try {
-            finalValue = Function(`'use strict'; return ${finalValue}`)()
-        } catch (e){
-            console.log(e)
-        }
-
-        return `${key}=${encodeURIComponent(finalValue)}`
+        return `${key}=${encodeURIComponent(run(value.substring(1), response))}`
 
     } else if (value) {
         return `${key}=${encodeURIComponent(value)}`
@@ -448,8 +375,8 @@ const ContentTypes = {
 
     CheckAnswer: {
         editable: CheckAnswerInput,
-        render: (body, formatting, {checkResponse}) => <div style={formatting}><button
-              type="button" onClick={() => checkResponse(body?.properties[0])}
+        render: (body, formatting, {checkResponse, name}) => <div style={formatting}><button
+              type="button" onClick={() => checkResponse(body?.properties[0], name)}
               className="inline-flex items-center px-3 py-2 border border-transparent text-sm leading-4 font-medium rounded-md text-indigo-700 bg-indigo-100 hover:bg-indigo-200 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-indigo-500"
             >
               Check answer
@@ -458,7 +385,8 @@ const ContentTypes = {
             {
                 id: 'formula', title: 'Check answer formula', kind: 'text'
             }
-        ]
+        ],
+        responseProperties: ['answered', 'answeredCorrectly']
     },
 
     Image: {

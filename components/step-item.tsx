@@ -15,7 +15,7 @@ import {
 } from '../utils/experimentation.tsx'
 import styles from '../styles/components/StepAdmin.module.sass'
 import { useFirestore, useAnalytics } from 'reactfire'
-import { applyEventsToLayoutContent, useResponse } from '../utils/common'
+import { applyEventsToLayoutContent, useResponse, run } from '../utils/common'
 import { v4 as uuidv4 } from 'uuid'
 
 
@@ -63,15 +63,16 @@ export const StepItem = ({ userID, step, stepID, progress, experiment, flowSteps
 
                     return <div key={box.i}>
                         <BoxBody content={content}
-                            checkResponse={function(responseCheck){
+                            checkResponse={function(responseCheck, name){
                                 var flowProgressRef = doc(db, "users", userID, 'progress', router.query.flowid)
+                                var answeredCorrectly = false
                                 if (lastUserResponse){
                                     let variableDeclations = [], tempVariableName
                                     var cleanedResponseCheck = responseCheck.value
 
                                     for (var prop in lastUserResponse){
                                         if (prop !== 'timestamp'){
-                                            tempVariableName = 'var' + uuidv4().substring(0, 5)
+                                            tempVariableName = 'var ' + uuidv4().substring(0, 5)
                                             cleanedResponseCheck = cleanedResponseCheck.replace(prop, tempVariableName)
 
                                             if (typeof(lastUserResponse[prop]) === 'object'){
@@ -84,7 +85,13 @@ export const StepItem = ({ userID, step, stepID, progress, experiment, flowSteps
                                         }
                                     }
 
-                                    if (Function(`'use strict'; var ${variableDeclations.join(',')}; return (${cleanedResponseCheck})`)()){
+                                    try {
+                                        answeredCorrectly = Function(`'use strict'; var ${variableDeclations.join(',')}; return (${cleanedResponseCheck})`)()
+                                    } catch (e){
+                                        console.log('Failure to assess answer', e)
+                                    }
+
+                                    if (answeredCorrectly){
                                         updateDoc(flowProgressRef, {
                                             [`steps.${stepID}.attempts`]: arrayUnion({
                                                 timestamp: Timestamp.now(), response: lastUserResponse
@@ -111,6 +118,9 @@ export const StepItem = ({ userID, step, stepID, progress, experiment, flowSteps
                                     }
                                 }
 
+                                setResponse({ ...response, [stepID]: {
+                                    ...(response[stepID] || {}), [`{${name}}`]: { answered: true, answeredCorrectly } }
+                                })
                             }}
                             response={lastUserResponse}
                             setResponse={(id, value) => {
@@ -148,6 +158,12 @@ const BoxBody = ({ content, response, checkResponse, setResponse, contentFormatt
 
     var formatting = {...(contentFormatting && contentFormatting[content.name] ? contentFormatting[content.name] : {})}
 
+    if (content.body?.properties?.showCondition){
+        if (!run(content.body.properties.showCondition, response)){
+            return null
+        }
+    }
+
     return <div onClick={contentEvents && contentEvents.click ? () => {
             var searchParams = new URLSearchParams(window.location.search)
 
@@ -158,6 +174,6 @@ const BoxBody = ({ content, response, checkResponse, setResponse, contentFormatt
             router.replace(url.toString())
 
         } : null} className={'h-full' + (contentEvents && contentEvents.click ? ' cursor-pointer' : '')} data-contentname={content.name}>
-        {render(content.body, formatting, {contentFormatting, stepID, checkResponse, response, setResponse})}
+        {render(content.body, formatting, {contentFormatting, stepID, checkResponse, response, setResponse, name: content.name })}
     </div>
 }

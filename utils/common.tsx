@@ -1,6 +1,7 @@
 import ContentTypes from '../components/content-types'
 import extend from "deep-extend"
 import {useState, useEffect, useRef} from 'react'
+import * as formulajs from '@formulajs/formulajs'
 
 
 export const blockStyleFn = (formatting, block) => {
@@ -150,4 +151,80 @@ export function useResponse(stepID){
     }, [stepID])
 
     return [response, setResponse]
+}
+
+
+var nonExcelForumlae = {
+        'FINDWHERE': (arr, ...keyValuesAndPropToPick) => {
+            var propToPick = keyValuesAndPropToPick.splice(keyValuesAndPropToPick.length - 1, 1)[0],
+                keyValues
+
+            var index, found
+            return arr.find(item => {
+                found = true
+                for (index = 0; index < keyValuesAndPropToPick.length - 1; index += 2){
+                    found = found && item[keyValuesAndPropToPick[index]] === keyValuesAndPropToPick[index + 1]
+                }
+                return found
+            })[propToPick]
+        }
+    },
+    nonExcelForumlaeNames = Object.keys(nonExcelForumlae),
+    allFormulaeNames = Object.keys(formulajs).concat(nonExcelForumlaeNames),
+
+    formulaJSRegex = new RegExp(`(${allFormulaeNames.join('|')})\\((?!.*(${allFormulaeNames.join('|')})\\().+?\\)`)
+
+
+function executeExcelFunction(fn){
+    try {
+        return Function('formulajs', `'use strict'; return formulajs.${fn}`)(formulajs)
+    } catch (e){
+        console.log(e)
+        return
+    }
+}
+
+
+function executeJSFunction(fn){
+    try {
+        return Function('formulae', `'use strict'; return formulae.${fn}`)(nonExcelForumlae)
+    } catch (e){
+        console.log(e)
+        return
+    }
+}
+
+
+export function run(value, response){
+    var prop, finalValue = value
+
+    for (prop in response){
+        if (finalValue.indexOf(prop) !== -1){
+            finalValue = finalValue.replaceAll(prop, typeof(response[prop]) === 'object' ? JSON.stringify(response[prop]) : response[prop])
+        }
+    }
+
+    var excelFunctionMatch = true
+    while (excelFunctionMatch){
+        excelFunctionMatch = formulaJSRegex.exec(finalValue)
+
+        if (excelFunctionMatch){
+            var isExcelFormula = nonExcelForumlaeNames.indexOf(
+                excelFunctionMatch[0].substring(0, excelFunctionMatch[0].indexOf('('))) === -1,
+
+                functionResult = (
+                    isExcelFormula ? executeExcelFunction(excelFunctionMatch[0]) : executeJSFunction(excelFunctionMatch[0]))
+
+            if (functionResult === undefined)
+                return
+
+            finalValue = finalValue.substring(0, excelFunctionMatch.index) + functionResult + finalValue.substring(excelFunctionMatch.index + excelFunctionMatch[0].length)
+        }
+    }
+
+    try {
+        return Function(`'use strict'; return ${finalValue}`)()
+    } catch (e){
+        console.log(e)
+    }
 }

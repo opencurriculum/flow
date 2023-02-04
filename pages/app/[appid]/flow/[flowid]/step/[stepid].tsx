@@ -127,7 +127,7 @@ const Step = ({}) => {
         })
     }
 
-    return <div className='funky'>
+    return <div>
         <Head>
             <title>{(step && step.name) || 'Untitled step'}</title>
             <meta property="og:title" content={(step && step.name) || 'Untitled step'} key="title" />

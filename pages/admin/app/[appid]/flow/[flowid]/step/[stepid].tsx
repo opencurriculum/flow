@@ -835,7 +835,14 @@ const Step: NextPageWithLayout = ({}) => {
                             updateLayoutContent(id, { body: { ...(selectedContentContent.body ? selectedContentContent.body : {}), properties: value } })
                         }}
                     /> : null}
-                </div> : null
+                </div> : null,
+
+                selectedContent ? <ShowConditionEditor key={5}
+                    showCondition={selectedContentContent.body?.properties?.showCondition}
+                    setShowCondition={value => updateLayoutContent(id, { body: { ...(selectedContentContent.body ? selectedContentContent.body : {}), properties: {
+                        ...(selectedContentContent.body ? selectedContentContent.body : {}).properties, showCondition: value
+                    } } })}
+                /> : null
             ]}}
 
             lockedContent={experimentLocked}
@@ -877,6 +884,7 @@ const ResponseTemplateMaker = ({ id, body, updateBody, closeChangeResponseFormat
 }
 
 
+/*
 const ExpectedResponse = ({ responseTemplateItems, setResponseCheck, responseCheck }) => {
     return <div>
         <h3 className="text-lg font-medium leading-10">Check response</h3>
@@ -884,6 +892,59 @@ const ExpectedResponse = ({ responseTemplateItems, setResponseCheck, responseChe
             {item.id}: {item.kind}
         </div>)}
         <textarea onBlur={event => setResponseCheck(event.target.value)} defaultValue={responseCheck} />
+    </div>
+}
+*/
+
+let throttleTimeouts = {}
+
+function throttleCall(ref, fn, seconds){
+    clearTimeout(throttleTimeouts[ref])
+    throttleTimeouts[ref] = setTimeout(() => {
+        fn.apply(null, Array.prototype.slice.call(arguments, 3))
+        clearTimeout(throttleTimeouts[ref])
+    }, seconds * 1000);
+}
+
+const ShowConditionEditor = ({ showCondition, setShowCondition }) => {
+    const inputRef = useRef()
+    const throttleRef = useRef()
+
+    return <div>
+        <h3 className="text-md font-medium leading-10">Show / hide</h3>
+
+        <div className="relative flex items-start">
+          <div className="flex h-5 items-center">
+            <input
+              ref={inputRef}
+              id="comments"
+              aria-describedby="comments-description"
+              name="comments"
+              type="checkbox"
+              disabled={true}
+              className="h-4 w-4 rounded border-gray-300 text-indigo-600 focus:ring-indigo-500"
+            />
+            </div>
+
+            <div className="ml-3 text-sm">
+              <label htmlFor="comments" className="text-gray-700">
+                Show only when...
+              </label>
+              <p>
+                  <textarea
+                    onChange={e => {
+                        if (e.target.value.length && !inputRef.current.checked){
+                            inputRef.current.checked = true
+                        } else if (!e.target.value.length && inputRef.current.checked){
+                            inputRef.current.checked = false
+                        }
+
+                        throttleCall(throttleRef, setShowCondition, 3, e.target.value || null)
+                    }}
+                  />
+              </p>
+            </div>
+        </div>
     </div>
 }
 
