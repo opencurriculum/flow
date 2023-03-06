@@ -55,7 +55,7 @@ export const EventsHeader = ({ events }) => {
 
     return events?.current ? <header className="bg-red-700 text-white">
       <div className="mx-auto max-w-7xl px-4 sm:px-6 lg:px-8">
-        '{events?.current}' is clicked. <span className="opacity-60 italic">Any changes you make will show once a user clicks on '{events?.current}'</span>
+        &#39;{events?.current}&#39; is clicked. <span className="opacity-60 italic">Any changes you make will show once a user clicks on &#39;{events?.current}&#39;</span>
 
         <button
           type="button"

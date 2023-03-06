@@ -104,7 +104,7 @@ const EditableImage = (body, formatting, {updateBody, toggleSelectedContent, app
                 onClick={e => setOpenLibrary(true)}
                 className="inline-flex items-center rounded border border-gray-300 bg-white px-2.5 py-1.5 text-xs font-medium text-gray-700 shadow-sm hover:bg-gray-50 focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:ring-offset-2"
               >
-                Pick from your app's images
+                Pick from your app&#39;s images
             </button>
         </div>}
         <ImageLibrary open={openLibrary} setOpen={setOpenLibrary} appID={appID} insert={image => updateBody(image)} />
