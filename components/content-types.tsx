@@ -173,7 +173,7 @@ const ImageLibrary = function({ open, setOpen, appID, insert }){
                 <div className="bg-white">
                   <div>
                     <Dialog.Title as="h3" className="text-lg font-medium leading-6 text-gray-900 px-4 sm:p-6">
-                      App's image gallery
+                      App&#39;s image gallery
                     </Dialog.Title>
                     <div className="max-h-72 overflow-y-auto">
                         <ul role="list" className="grid grid-cols-2 gap-x-4 gap-y-8 sm:grid-cols-3 sm:gap-x-6 lg:grid-cols-6 xl:gap-x-8 px-4 sm:p-6">
