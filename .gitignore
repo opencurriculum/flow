@@ -39,3 +39,5 @@ ui-debug.log
 
 .firebaserc
 /data
+
+secret.json

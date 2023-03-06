@@ -9,6 +9,7 @@ import { useFirestore } from 'reactfire'
 import { collection, getDocs, getDoc, doc, updateDoc, setDoc, writeBatch, deleteField, deleteDoc } from "firebase/firestore"
 import { diff } from 'json-diff'
 import { UserContext } from '../../../../../_app'
+import ContentTypes from '../../../../../../components/content-types'
 
 
 
@@ -141,6 +142,8 @@ const Header: NextPage = ({}: AppProps) => {
 
                 setContentFormatting(newFormatting)
             }}
+
+            contentTypes={[{ kind: 'Text', ...ContentTypes.Text }]}
         />
 
     </div>

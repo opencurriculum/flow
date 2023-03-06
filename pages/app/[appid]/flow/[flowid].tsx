@@ -6,7 +6,7 @@ import { useRouter } from 'next/router'
 import Head from 'next/head'
 import {UserAppHeader} from '../../[appid].tsx'
 import Link from 'next/link'
-import {t, updateFlowProgressStateUponStepCompletion} from '../../../../utils/common.tsx'
+import {t, updateFlowProgressStateUponStepCompletion, StepContentTypes} from '../../../../utils/common.tsx'
 import { useFirestore } from 'reactfire'
 import { StepItem } from '../../../../components/step-item.tsx'
 import { getOrInitializeFlowExperiment } from '../../../../utils/experimentation.tsx'
@@ -150,7 +150,7 @@ const FlowStepItem = ({ step, userID, progress, setProgress, steps, experiment, 
                         setResponseStatus({ status: 0, title: 'That\'s not quite right', message: 'Try again!' })
                     }
                 }}
-
+                contentTypes={StepContentTypes}
             />
         </div>
         <div className='w-20'>{responseStatus ? (responseStatus.status === 1 ? <div className="mx-auto flex h-12 w-12 items-center justify-center rounded-full bg-green-100">

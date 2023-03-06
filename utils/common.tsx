@@ -64,14 +64,20 @@ export function updateFlowProgressStateUponStepCompletion(stepID, progress, setP
     })
 }
 
-const {Text, Response, CheckAnswer, Image, ArrayType, Numberline, MultipleChoice} = ContentTypes
+const {Text, /*Response, CheckAnswer,*/DynamicText, ShortResponseBox, Button, Image, ArrayType, Numberline, MultipleChoice} = ContentTypes
 export const StepContentTypes = [
-    { kind: 'Prompt', editable: Text.editable, render: Text.render },
-    { kind: 'Question', editable: Text.editable, render: Text.render },
-    { kind: 'Response', ...Response },
-    { kind: 'Multiple choice answer', ...MultipleChoice },
-    { kind: 'Check answer', ...CheckAnswer },
+    { kind: 'Text', ...Text },
+    { kind: 'Dynamic Text', ...DynamicText },
     { kind: 'Image', ...Image },
+    // { kind: 'Prompt', editable: Text.editable, render: Text.render },
+    // { kind: 'Question', editable: Text.editable, render: Text.render },
+
+    { kind: 'Short response box', ...ShortResponseBox },
+    { kind: 'Multiple choice answer', ...MultipleChoice },
+    { kind: 'Button', ...Button },
+    // { kind: 'Check answer', ...CheckAnswer },
+    // { kind: 'Response', ...Response },
+
     { kind: 'Array', ...ArrayType },
     { kind: 'Numberline', ...Numberline },
 ]
@@ -225,6 +231,21 @@ export function run(value, response){
     try {
         return Function(`'use strict'; return ${finalValue}`)()
     } catch (e){
-        console.log(e)
+        try {
+            return Function(`'use strict'; return "${finalValue}"`)()
+        } catch (e){
+            console.log(e)
+        }
     }
+}
+
+
+let throttleTimeouts = {}
+
+export function throttleCall(ref, fn, seconds){
+    clearTimeout(throttleTimeouts[ref])
+    throttleTimeouts[ref] = setTimeout(() => {
+        fn.apply(null, Array.prototype.slice.call(arguments, 3))
+        clearTimeout(throttleTimeouts[ref])
+    }, seconds * 1000);
 }

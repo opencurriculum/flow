@@ -11,6 +11,7 @@ import { useFirestore } from 'reactfire'
 import { EllipsisVerticalIcon } from '@heroicons/react/24/solid'
 import { UserContext } from '../pages/_app'
 import login, {logout} from '../components/login.tsx'
+import { PencilIcon } from '@heroicons/react/20/solid'
 
 
 export default function Layout({ children }) {
@@ -48,7 +49,7 @@ export const AdminAppHeader = () => {
         db = useFirestore()
 
     const breadcrumb = (router.query.appid === 'none' || !router.query.appid) ? [] : [
-      { name: app && app.name || 'Untitled app', href: `/admin/app/${router.query.appid}`, current: false },
+      { name: app && app.name || 'Untitled app', href: `/admin/app/${router.query.appid}`, current: router.route === '/admin/app/[appid]', kind: 'app' },
     ]
 
     var previewURL
@@ -57,12 +58,12 @@ export const AdminAppHeader = () => {
     }
 
     if (router.query.flowid){
-        breadcrumb.push({ name: flow && flow.name || 'Untitled flow', href: `/admin/app/${router.query.appid}/flow/${router.query.flowid}`, current: false })
+        breadcrumb.push({ name: flow && flow.name || 'Untitled flow', href: `/admin/app/${router.query.appid}/flow/${router.query.flowid}`, current: router.route === '/admin/app/[appid]/flow/[flowid]', kind: 'flow' })
         previewURL = `/app/${router.query.appid}/flow/${router.query.flowid}`
     }
 
     if (router.query.stepid){
-        breadcrumb.push({ name: step && step.name || 'Untitled step', href: `/admin/app/${router.query.appid}/flow/${router.query.flowid}/step/${router.query.stepid}`, current: true })
+        breadcrumb.push({ name: step && step.name || 'Untitled step', href: `/admin/app/${router.query.appid}/flow/${router.query.flowid}/step/${router.query.stepid}`, current: router.route === '/admin/app/[appid]/flow/[flowid]/step/[stepid]', kind: 'step' })
         previewURL = `/app/${router.query.appid}/flow/${router.query.flowid}/step/${router.query.stepid}`
     }
 
@@ -137,12 +138,23 @@ export const AdminAppHeader = () => {
                                 <li key={page.name}>
                                   <div className="flex items-center">
                                     <ChevronRightIcon className="flex-shrink-0 h-5 w-5 text-gray-500" aria-hidden="true" />
-                                    <Link href={page.href}><a
-                                      className="ml-4 text-sm font-medium text-gray-300 hover:text-gray-100"
-                                      aria-current={page.current ? 'page' : undefined}
-                                    >
-                                      {page.name}
-                                    </a></Link>
+
+                                    <div className="flex items-center text-sm">
+                                        <Link href={page.href}><a
+                                          className="ml-4 text-sm font-medium text-gray-300 hover:text-gray-100"
+                                          aria-current={page.current ? 'page' : undefined}
+                                        >
+                                          {page.name}
+                                        </a></Link>
+                                        {page.current && (page.kind !== 'app') ? <button
+                                          type="button"
+                                          onClick={e => setEditNameOpen(true)}
+                                          className="rounded-full ml-2 flex-shrink-0 p-2 text-gray-400 hover:bg-gray-700 hover:text-gray-100 focus:outline-none focus:ring-2 focus:ring-purple-500 focus:ring-offset-2"
+                                        >
+                                          <PencilIcon className="h-4 w-4" aria-hidden="true" />
+                                          <span className="sr-only">Edit name</span>
+                                        </button> : null}
+                                    </div>
                                   </div>
                                 </li>
                               ))}
@@ -305,11 +317,11 @@ export const AdminAppHeader = () => {
             kind={currentKind}
             open={editNameOpen}
             setOpen={setEditNameOpen}
-            update={(event) => {
+            update={(name) => {
                 if (router.query.stepid){
-                    updateDoc(doc(db, "flows", router.query.flowid, "steps", router.query.stepid), { name: event.target.value })
+                    updateDoc(doc(db, "flows", router.query.flowid, "steps", router.query.stepid), { name })
                 } else if (router.query.flowid){
-                    updateDoc(doc(db, "flows", router.query.flowid), { name: event.target.value })
+                    updateDoc(doc(db, "flows", router.query.flowid), { name })
                 }
             }}
         />
@@ -353,9 +365,9 @@ export const EditNameModal = ({ name, kind, open, setOpen, update }) => {
             >
               <Dialog.Panel className="relative transform overflow-hidden rounded-lg bg-white text-left shadow-xl transition-all sm:my-8 sm:w-full sm:max-w-lg">
                 <div className="bg-white px-4 pt-5 pb-4 sm:p-6 sm:pb-4">
-                  <div className="sm:flex sm:items-start">
+                  <div>
                       <Dialog.Title as="h3" className="text-lg font-medium leading-6 text-gray-900">
-                        Deactivate account
+                        Edit name
                       </Dialog.Title>
 
                       <div className='mt-2'>
@@ -370,7 +382,6 @@ export const EditNameModal = ({ name, kind, open, setOpen, update }) => {
                             name="name"
                             className="shadow-sm focus:ring-indigo-500 focus:border-indigo-500 block w-full sm:text-sm border-gray-300 rounded-md"
                             placeholder={kind ? `${kind.substring(0, 1).toUpperCase()}${kind.substring(1)} name` : null}
-                            onBlur={update}
                           />
                         </div>
                       </div>
@@ -380,10 +391,13 @@ export const EditNameModal = ({ name, kind, open, setOpen, update }) => {
                 <div className="bg-gray-50 px-4 py-3 sm:flex sm:flex-row-reverse sm:px-6">
                   <button
                     type="button"
-                    className="inline-flex w-full justify-center rounded-md border border-transparent bg-red-600 px-4 py-2 text-base font-medium text-white shadow-sm hover:bg-red-700 focus:outline-none focus:ring-2 focus:ring-red-500 focus:ring-offset-2 sm:ml-3 sm:w-auto sm:text-sm"
-                    onClick={() => setOpen(false)}
+                    className="inline-flex w-full justify-center rounded-md border border-transparent bg-indigo-600 px-4 py-2 text-base font-medium text-white shadow-sm hover:bg-indigo-700 focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:ring-offset-2 sm:ml-3 sm:w-auto sm:text-sm"
+                    onClick={() => {
+                        update(nameRef.current.value)
+                        setOpen(false)
+                    }}
                   >
-                    Deactivate
+                    Done
                   </button>
                   <button
                     type="button"
@@ -420,7 +434,6 @@ function Tab({ tab }){
       >{tab.name}</a>
     </Link>
 }
-
 
 
 export const TabbedPageHeader = ({ children, page, tabs, compress }) => {

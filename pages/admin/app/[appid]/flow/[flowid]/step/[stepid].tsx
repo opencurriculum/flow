@@ -18,7 +18,7 @@ import Head from 'next/head'
 import { ExperimentHeader } from '../../../../../../../components/experimentation'
 import WYSIWYGPanels, {ContentInput} from '../../../../../../../components/wysiwyg'
 import { ResponseTemplate } from '../../../../../../../components/content-types'
-import { StepContentTypes, applyEventsToLayoutContent, useResponse } from '../../../../../../../utils/common'
+import { StepContentTypes, applyEventsToLayoutContent, useResponse, throttleCall } from '../../../../../../../utils/common'
 import PropertyEditor from '../../../../../../../components/property-editor'
 import jsonDiff from 'json-diff'
 import { UserContext } from '../../../../../../_app'
@@ -53,24 +53,23 @@ export const EventsHeader = ({ events }) => {
     const router = useRouter()
     var searchParams = typeof window !== 'undefined' ? new URLSearchParams(window.location.search) : new URLSearchParams()
 
-    return events?.current ? <header className="bg-red-600 text-white">
+    return events?.current ? <header className="bg-red-700 text-white">
       <div className="mx-auto max-w-7xl px-4 sm:px-6 lg:px-8">
-        You are on click
+        '{events?.current}' is clicked. <span className="opacity-60 italic">Any changes you make will show once a user clicks on '{events?.current}'</span>
 
         <button
           type="button"
-          className="inline-flex items-center rounded-md border border-transparent bg-red-600 px-2 py-1 text-sm font-medium leading-4 text-white shadow-sm hover:bg-red-700 focus:outline-none focus:ring-2 focus:ring-red-500 focus:ring-offset-2 float-right"
+          className="inline-flex items-center rounded-md border border-transparent bg-red-700 px-2 py-1 text-sm font-medium leading-4 text-white shadow-sm hover:bg-red-800 focus:outline-none focus:ring-2 focus:ring-red-500 focus:ring-offset-2 float-right"
           onClick={() => {
              const url = new URL(window.location.href)
              searchParams.delete('event:click')
              url.search = new URLSearchParams(searchParams)
 
              router.push(url.toString())
-
          }}
         >
           <XMarkIcon className="-ml-0.5 mr-2 h-4 w-4" aria-hidden="true" />
-          Exit
+          Unclick
         </button>
 
       </div>
@@ -723,7 +722,6 @@ const Step: NextPageWithLayout = ({}) => {
         })
     }
 
-
     return <div className='flex flex-col flex-auto'>
         {/*<a href={`/app/${router.query.appid}/flow/${router.query.flowid}/step/${router.query.stepid}`} target="_blank" rel="noreferrer">Preview</a>*/}
 
@@ -781,7 +779,7 @@ const Step: NextPageWithLayout = ({}) => {
                     selectedContentContent = id && experimentAppliedLayoutContent[id]
 
                 return  [
-                (experiment && experiment.groups) || events?.current ? null : <div><button key={0} onClick={() => {
+                selectedContent || (experiment && experiment.groups) || events?.current ? null : <div><button key={0} onClick={() => {
                     // setExperiment(initialExperiment(router))
 
                     const url = new URL(window.location.href)
@@ -794,7 +792,7 @@ const Step: NextPageWithLayout = ({}) => {
 
                 >Differentiate</button></div>,
 
-                selectedContent ? <div><button key={1} onClick={() => {
+                selectedContent && events?.current !== selectedContent.name ? <div><button key={1} onClick={() => {
                     const url = new URL(window.location.href)
                     if (searchParams.get('event:click') === selectedContent.name){
                         searchParams.delete('event:click')
@@ -807,7 +805,7 @@ const Step: NextPageWithLayout = ({}) => {
                 }}
                     className="inline-flex items-center rounded border border-transparent bg-red-600 px-2.5 py-1.5 text-xs font-medium text-white shadow-sm hover:bg-indigo-700 focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:ring-offset-2"
 
-                >On Click</button></div> : null,
+                >Click</button></div> : null,
 
                 contentSettings.Response?.changeFormat ? <ResponseTemplateMaker key={2} id={contentSettings.Response.changeFormat}
                     body={experimentAppliedLayoutContent[contentSettings.Response.changeFormat].body}
@@ -826,7 +824,7 @@ const Step: NextPageWithLayout = ({}) => {
                 // /> : null,
 
 
-                selectedContent ? <div key={4}>
+                selectedContent && selectedContentContent ? <div key={4}>
                     {contentType.properties ? <PropertyEditor selectedContent={selectedContent}
                         properties={contentType.properties}
 
@@ -837,7 +835,7 @@ const Step: NextPageWithLayout = ({}) => {
                     /> : null}
                 </div> : null,
 
-                selectedContent ? <ShowConditionEditor key={5}
+                selectedContent && selectedContentContent ? <ShowConditionEditor key={5}
                     showCondition={selectedContentContent.body?.properties?.showCondition}
                     setShowCondition={value => updateLayoutContent(id, { body: { ...(selectedContentContent.body ? selectedContentContent.body : {}), properties: {
                         ...(selectedContentContent.body ? selectedContentContent.body : {}).properties, showCondition: value
@@ -846,6 +844,7 @@ const Step: NextPageWithLayout = ({}) => {
             ]}}
 
             lockedContent={experimentLocked}
+            currentEvents={events?.current}
         />
     </div>
 }
@@ -895,16 +894,6 @@ const ExpectedResponse = ({ responseTemplateItems, setResponseCheck, responseChe
     </div>
 }
 */
-
-let throttleTimeouts = {}
-
-function throttleCall(ref, fn, seconds){
-    clearTimeout(throttleTimeouts[ref])
-    throttleTimeouts[ref] = setTimeout(() => {
-        fn.apply(null, Array.prototype.slice.call(arguments, 3))
-        clearTimeout(throttleTimeouts[ref])
-    }, seconds * 1000);
-}
 
 const ShowConditionEditor = ({ showCondition, setShowCondition }) => {
     const inputRef = useRef()

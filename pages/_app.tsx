@@ -31,8 +31,6 @@ function MyApp({ Component, pageProps }: AppPropsWithLayout) {
         measurementId: process.env.NEXT_PUBLIC_MEASUREMENT_ID
     };
 
-    var db;
-
     // Use the layout defined at the page level, if available
     const getLayout = Component.getLayout ?? ((page) => page)
 

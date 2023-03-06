@@ -15,7 +15,7 @@ import {
 } from '../utils/experimentation.tsx'
 import styles from '../styles/components/StepAdmin.module.sass'
 import { useFirestore, useAnalytics } from 'reactfire'
-import { applyEventsToLayoutContent, useResponse, run } from '../utils/common'
+import { applyEventsToLayoutContent, useResponse, run, classNames } from '../utils/common'
 import { v4 as uuidv4 } from 'uuid'
 
 
@@ -63,7 +63,7 @@ export const StepItem = ({ userID, step, stepID, progress, experiment, flowSteps
 
                     return <div key={box.i}>
                         <BoxBody content={content}
-                            checkResponse={function(responseCheck, name){
+                            checkResponse={function(responseCheck, name, isStepCheck){
                                 var flowProgressRef = doc(db, "users", userID, 'progress', router.query.flowid)
                                 var answeredCorrectly = false
                                 if (lastUserResponse){
@@ -92,29 +92,33 @@ export const StepItem = ({ userID, step, stepID, progress, experiment, flowSteps
                                     }
 
                                     if (answeredCorrectly){
-                                        updateDoc(flowProgressRef, {
-                                            [`steps.${stepID}.attempts`]: arrayUnion({
-                                                timestamp: Timestamp.now(), response: lastUserResponse
-                                            }),
-                                            [`steps.${stepID}.completed`]: 100,
-                                            completed: increment(
-                                                (progress.steps && progress.steps[stepID] && progress.steps[stepID].completed) === 100 ? 0 : (100 / flowSteps.length)
-                                            )
-                                        })
+                                        if (isStepCheck){
+                                            updateDoc(flowProgressRef, {
+                                                [`steps.${stepID}.attempts`]: arrayUnion({
+                                                    timestamp: Timestamp.now(), response: lastUserResponse
+                                                }),
+                                                [`steps.${stepID}.completed`]: 100,
+                                                completed: increment(
+                                                    (progress.steps && progress.steps[stepID] && progress.steps[stepID].completed) === 100 ? 0 : (100 / flowSteps.length)
+                                                )
+                                            })
 
-                                        updateDoc(doc(db, "flows", router.query.flowid), {
-                                            [`progress.${userID}.steps.${stepID}.completed`]: 100
-                                        })
+                                            updateDoc(doc(db, "flows", router.query.flowid), {
+                                                [`progress.${userID}.steps.${stepID}.completed`]: 100
+                                            })
 
-                                        onResponseAssess(true)
+                                            onResponseAssess(true)
+                                        }
                                     } else {
-                                        onResponseAssess(false)
+                                        if (isStepCheck){
+                                            onResponseAssess(false)
 
-                                        updateDoc(flowProgressRef, {
-                                            [`steps.${stepID}.attempts`]: arrayUnion({
-                                                timestamp: Timestamp.now(), response: lastUserResponse
-                                            }),
-                                        })
+                                            updateDoc(flowProgressRef, {
+                                                [`steps.${stepID}.attempts`]: arrayUnion({
+                                                    timestamp: Timestamp.now(), response: lastUserResponse
+                                                }),
+                                            })
+                                        }
                                     }
                                 }
 
@@ -173,7 +177,8 @@ const BoxBody = ({ content, response, checkResponse, setResponse, contentFormatt
 
             router.replace(url.toString())
 
-        } : null} className={'h-full' + (contentEvents && contentEvents.click ? ' cursor-pointer' : '')} data-contentname={content.name}>
+        } : null} className={classNames('h-full', contentEvents && contentEvents.click ? 'cursor-pointer' : '',
+            contentEvents && contentEvents.click && content.name === router.query['event:click'] ? 'border-2' : '')} data-contentname={content.name}>
         {render(content.body, formatting, {contentFormatting, stepID, checkResponse, response, setResponse, name: content.name })}
     </div>
 }

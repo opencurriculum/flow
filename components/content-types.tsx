@@ -1,13 +1,14 @@
 import { Editor, EditorState, ContentState, convertToRaw, convertFromRaw } from 'draft-js';
-import { ref, uploadBytes, getDownloadURL, deleteObject } from "firebase/storage"
+import { ref, uploadBytes, getDownloadURL, deleteObject, listAll } from "firebase/storage"
 import { TrashIcon } from '@heroicons/react/20/solid'
-import { blockStyleFn, LoadingSpinner, run } from '../utils/common'
-import { useState, useEffect, useRef } from 'react'
+import { blockStyleFn, LoadingSpinner, run, classNames } from '../utils/common'
+import { useState, useEffect, useRef, Fragment } from 'react'
 import { ArrowUpIcon, ArrowDownIcon } from '@heroicons/react/24/solid'
 import update from 'immutability-helper'
 import { useStorage } from 'reactfire'
 import { v4 as uuidv4 } from 'uuid'
 import { CursorArrowRaysIcon } from '@heroicons/react/24/outline'
+import { Dialog, Transition } from '@headlessui/react'
 
 
 
@@ -62,6 +63,7 @@ export var ContentInput = (body, formatting, { updateBody, toggleSelectedContent
 
 const EditableImage = (body, formatting, {updateBody, toggleSelectedContent, appID, flowID, stepID}) => {
     const storage = useStorage()
+    const [openLibrary, setOpenLibrary] = useState(false)
 
     return <div>
         {body ? <div className="relative">
@@ -84,19 +86,146 @@ const EditableImage = (body, formatting, {updateBody, toggleSelectedContent, app
             }}
         ><TrashIcon /></div>
             <img src={body} />
-        </div> : <input type="file" accept="image/*" id="input" onChange={event => {
-            var fileFullname = event.target.files[0].name
-            var [filename, extension] = fileFullname.split('.')
+        </div> : <div>
+            <input type="file" accept="image/*" id="input" onChange={event => {
+                var fileFullname = event.target.files[0].name
+                var [filename, extension] = fileFullname.split('.')
 
-            const storageRef = ref(storage, `app/${appID}/flow/${flowID}/step/${stepID}/${filename}-${uuidv4().substring(0, 3)}.${extension}`)
+                const storageRef = ref(storage, `app/${appID}/flow/${flowID}/step/${stepID}/${filename}-${uuidv4().substring(0, 3)}.${extension}`)
 
-            uploadBytes(storageRef, event.target.files[0]).then((snapshot) => {
-                getDownloadURL(storageRef).then((url) => {
-                    updateBody(url)
+                uploadBytes(storageRef, event.target.files[0]).then((snapshot) => {
+                    getDownloadURL(storageRef).then((url) => {
+                        updateBody(url)
+                    })
                 })
-            })
-        }} />}
+            }} />
+            <button
+                type="button"
+                onClick={e => setOpenLibrary(true)}
+                className="inline-flex items-center rounded border border-gray-300 bg-white px-2.5 py-1.5 text-xs font-medium text-gray-700 shadow-sm hover:bg-gray-50 focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:ring-offset-2"
+              >
+                Pick from your app's images
+            </button>
+        </div>}
+        <ImageLibrary open={openLibrary} setOpen={setOpenLibrary} appID={appID} insert={image => updateBody(image)} />
+
     </div>
+}
+
+
+const ImageLibrary = function({ open, setOpen, appID, insert }){
+    const [images, setImages] = useState([])
+    const [selectedImage, setSelectedImage] = useState()
+    const storage = useStorage()
+    const cancelButtonRef = useRef(null)
+
+    useEffect(() => {
+        if (open){
+            const listRef = ref(storage, `app/${appID}/flow`)
+
+            listAll(listRef)
+              .then((res) => {
+                res.prefixes.forEach((flowFolderRef) => {
+                    listAll(ref(flowFolderRef, '/step')).then((res) => {
+                        res.prefixes.forEach((stepFolderRef) => {
+                            listAll(stepFolderRef).then((res) => {
+                                res.items.forEach((itemRef) => {
+                                    getDownloadURL(itemRef).then((url) => {
+                                        setImages(images => images.concat([url]))
+                                    })
+                                })
+                            })
+                        })
+                    })
+                });
+            }).catch((error) => {
+              // Uh-oh, an error occurred!
+            });
+        }
+    }, [open])
+
+    return <Transition.Root show={open} as={Fragment}>
+      <Dialog as="div" className="relative z-10" initialFocus={cancelButtonRef} onClose={setOpen}>
+        <Transition.Child
+          as={Fragment}
+          enter="ease-out duration-300"
+          enterFrom="opacity-0"
+          enterTo="opacity-100"
+          leave="ease-in duration-200"
+          leaveFrom="opacity-100"
+          leaveTo="opacity-0"
+        >
+          <div className="fixed inset-0 bg-gray-500 bg-opacity-75 transition-opacity" />
+        </Transition.Child>
+
+        <div className="fixed inset-0 z-10 overflow-y-auto">
+          <div className="flex min-h-full items-end justify-center p-4 text-center sm:items-center sm:p-0">
+            <Transition.Child
+              as={Fragment}
+              enter="ease-out duration-300"
+              enterFrom="opacity-0 translate-y-4 sm:translate-y-0 sm:scale-95"
+              enterTo="opacity-100 translate-y-0 sm:scale-100"
+              leave="ease-in duration-200"
+              leaveFrom="opacity-100 translate-y-0 sm:scale-100"
+              leaveTo="opacity-0 translate-y-4 sm:translate-y-0 sm:scale-95"
+            >
+              <Dialog.Panel className="relative transform overflow-hidden rounded-lg bg-white text-left shadow-xl transition-all sm:my-8 sm:w-full sm:max-w-2xl">
+                <div className="bg-white">
+                  <div>
+                    <Dialog.Title as="h3" className="text-lg font-medium leading-6 text-gray-900 px-4 sm:p-6">
+                      App's image gallery
+                    </Dialog.Title>
+                    <div className="max-h-72 overflow-y-auto">
+                        <ul role="list" className="grid grid-cols-2 gap-x-4 gap-y-8 sm:grid-cols-3 sm:gap-x-6 lg:grid-cols-6 xl:gap-x-8 px-4 sm:p-6">
+                          {images.map((image) => (
+                            <li key={image} className="relative" onClick={() => {
+                                if (selectedImage !== image){
+                                    setSelectedImage(image)
+                                } else {
+                                    setSelectedImage()
+                                }
+                            }}>
+                              <div className={classNames("group aspect-w-10 aspect-h-7 block w-full overflow-hidden rounded-lg bg-gray-100", selectedImage === image ? 'ring-2 ring-indigo-500 ring-offset-2 ring-offset-gray-100' : '')}>
+                                <img src={image} alt="" className="pointer-events-none object-cover group-hover:opacity-75" />
+                                <button type="button" className="absolute inset-0 focus:outline-none">
+                                  <span className="sr-only">View details for {image}</span>
+                                </button>
+                              </div>
+                              <p className="pointer-events-none mt-2 block truncate text-sm font-medium text-gray-900">{new URL(decodeURIComponent(image)).pathname.split('/').slice(-1)}</p>
+                              {/*<p className="pointer-events-none block text-sm font-medium text-gray-500">{file.size}</p>*/}
+                            </li>
+                          ))}
+                        </ul>
+
+                    </div>
+                  </div>
+                </div>
+                <div className="bg-gray-50 px-4 py-3 sm:flex sm:flex-row-reverse sm:px-6">
+                  <button
+                    type="button"
+                    className={classNames("inline-flex w-full justify-center rounded-md border border-transparent px-4 py-2 text-base font-medium text-white shadow-sm focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:ring-offset-2 sm:ml-3 sm:w-auto sm:text-sm", selectedImage ? 'bg-indigo-600 hover:bg-indigo-700' : 'bg-indigo-300 cursor-not-allowed')}
+                    onClick={() => {
+                        insert(selectedImage)
+                        setOpen(false)
+                    }}
+                  >
+                    Insert
+                  </button>
+                  <button
+                    type="button"
+                    className="mt-3 inline-flex w-full justify-center rounded-md border border-gray-300 bg-white px-4 py-2 text-base font-medium text-gray-700 shadow-sm hover:bg-gray-50 focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:ring-offset-2 sm:mt-0 sm:ml-3 sm:w-auto sm:text-sm"
+                    onClick={() => setOpen(false)}
+                    ref={cancelButtonRef}
+                  >
+                    Cancel
+                  </button>
+                </div>
+              </Dialog.Panel>
+            </Transition.Child>
+          </div>
+        </div>
+      </Dialog>
+    </Transition.Root>
 }
 
 
@@ -120,8 +249,9 @@ function serializeProperty(key, value, response){
 const ArrayType = function(body, formatting, {response, updateBody}){
     const [properties, setProperties] = useState(body?.properties)
     const query = useIframeQuery(body, response, (properties) => {
-        var number = Object.keys(properties).map(p => properties[p]).find(
-            property => property.id === 'number')?.value
+        // var number = Object.keys(properties).map(p => properties[p]).find(
+        //     property => property.id === 'number')?.value
+        var number = properties.number
 
         if (number)
             return `number=${number}`
@@ -177,10 +307,14 @@ const Numberline = function(body, formatting, {updateBody}){
     const queryRef = useRef()
 
     function serializePieces(properties){
-        var serializedPieces = [], propertiesAsArray = Object.keys(properties).map(
-                p => properties[p]),
-            pieces = propertiesAsArray.find(property => property?.id === 'pieces')?.value,
-            makepiececopy = propertiesAsArray.find(property => property?.id === 'makepiececopy')?.value
+        var serializedPieces = [], {pieces, makepiececopy, scales, initialScale, range, partsOfIntegers} = properties
+            // propertiesAsArray = Object.keys(properties).map(
+            //     p => properties[p]),
+            // pieces = propertiesAsArray.find(property => property?.id === 'pieces')?.value,
+            // makepiececopy = propertiesAsArray.find(property => property?.id === 'makepiececopy')?.value
+
+
+
 
         if (pieces){
             var piecesAsArray = Object.keys(pieces)?.map(
@@ -194,6 +328,24 @@ const Numberline = function(body, formatting, {updateBody}){
 
         if (makepiececopy !== undefined){
             serializedPieces.push(`makepiececopy=${makepiececopy}`)
+        }
+
+        if (scales){
+            var scalesAsArray = Object.keys(scales)?.map(
+                id => scales[id]).sort((a, b) => a.position - b.position)
+            serializedPieces.push(`scales=${scalesAsArray.map(scale => scale.value).join(',')}`)
+        }
+
+        if (initialScale !== undefined){
+            serializedPieces.push(`initialScale=${initialScale}`)
+        }
+
+        if (range && range.Start !== undefined && range.End !== undefined){
+            serializedPieces.push(`range=${range.Start.value},${range.End.value}`)
+        }
+
+        if (partsOfIntegers){
+            serializedPieces.push(`partsOfIntegers=fractions`)
         }
 
         return serializedPieces.join('&')
@@ -234,10 +386,11 @@ const MultipleChoice = function(body, formatting, {updateBody, toggleSelectedCon
     const [properties, setProperties] = useState(body?.properties)
 
     const query = useIframeQuery(body, response, (properties) => {
-        var serializedChoices = [], propertiesAsArray = Object.keys(properties).map(
-                p => properties[p]),
-            choices = propertiesAsArray.find(property => property.id === 'choices')?.value,
-            shuffle = propertiesAsArray.find(property => property?.id === 'shuffle')?.value
+        var serializedChoices = [], {choices, shuffle} = properties
+            // propertiesAsArray = Object.keys(properties).map(
+            //     p => properties[p]),
+            // choices = propertiesAsArray.find(property => property.id === 'choices')?.value,
+            // shuffle = propertiesAsArray.find(property => property?.id === 'shuffle')?.value
 
         if (choices){
             var choicesAsArray = Object.keys(choices)?.map(
@@ -337,7 +490,7 @@ const ResponseSpace = ({ setResponse, responseItem, response, formatting, stepID
 }
 
 
-const CheckAnswerInput = (body, formatting, { updateBody, toggleSelectedContent, isSelected, contentSettings, setContentSettings }) => {
+const ButtonInput = (body, formatting, { updateBody, toggleSelectedContent, isSelected, contentSettings, setContentSettings }) => {
     const isSelectedRef = useRef()
 
     useEffect(() => {
@@ -354,13 +507,14 @@ const CheckAnswerInput = (body, formatting, { updateBody, toggleSelectedContent,
           type="button"
           className="inline-flex items-center px-3 py-2 border border-transparent text-sm leading-4 font-medium rounded-md text-indigo-700 bg-indigo-100 hover:bg-indigo-200 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-indigo-500"
         >
-          Check answer
+          {body?.properties?.text || 'Button'}
     </button>
 }
 
 
 const ContentTypes = {
     Text: {
+        name: 'Text',
         editable: ContentInput,
         render: function(body, formatting){
             return <div style={formatting}>
@@ -373,28 +527,54 @@ const ContentTypes = {
         }
     },
 
-    CheckAnswer: {
-        editable: CheckAnswerInput,
+    DynamicText: {
+        name: 'Dynamic Text',
+        editable: (body, formatting, {response}) => <div>
+            <textarea disabled={true} value={`${body?.properties?.formula && run(body?.properties?.formula, response)}`} />
+        </div>,
+        render: function(body, formatting, {response}){
+            return <div style={formatting}>
+                {body?.properties?.formula && run(body?.properties?.formula, response)}
+            </div>
+        },
+        properties: [
+            {
+                id: 'formula', title: 'Dynamic text formula', kind: 'text'
+            }
+        ]
+    },
+
+    Button: {
+        name: 'Button',
+        editable: ButtonInput,
         render: (body, formatting, {checkResponse, name}) => <div style={formatting}><button
-              type="button" onClick={() => checkResponse(body?.properties[0], name)}
+              type="button" onClick={() => checkResponse(body?.properties?.formula, name, body?.properties?.isStepCheck)}
               className="inline-flex items-center px-3 py-2 border border-transparent text-sm leading-4 font-medium rounded-md text-indigo-700 bg-indigo-100 hover:bg-indigo-200 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-indigo-500"
             >
-              Check answer
+              {(body?.properties?.length && body?.properties?.text) || 'Button'}
         </button></div>,
         properties: [
             {
-                id: 'formula', title: 'Check answer formula', kind: 'text'
+                id: 'text', title: 'Button text', kind: 'string'
+            },
+            {
+                id: 'formula', title: 'Formula to run on click', kind: 'text'
+            },
+            {
+                id: 'isStepCheck', title: 'Formula success marks successful completion of step', kind: 'boolean'
             }
         ],
-        responseProperties: ['answered', 'answeredCorrectly']
+        responseProperties: ['clicked', 'clickFormulaSucceeded']
     },
 
     Image: {
+        name: 'Image',
         editable: EditableImage,
         render: (body, fomatting) => <img src={body} />
     },
 
-    Response: {
+    ShortResponseBox: {
+        name: 'Short response box',
         editable: (body, formatting, {updateBody, toggleSelectedContent, settings, setSettings}) => <ResponseTemplate
             body={body}
             formatting={formatting}
@@ -434,6 +614,7 @@ const ContentTypes = {
     },
 
     ArrayType: {
+        name: 'Array',
         editable: ArrayType,
         render: ArrayType,
         properties: [
@@ -441,10 +622,12 @@ const ContentTypes = {
                 id: 'number', title: 'Number of boxes', kind: 'string'
             }
         ],
-        responseProperties: ['columns', 'rows', 'remainder']
+        responseProperties: ['columns', 'rows', 'remainder'],
+        disableFormatting: true
     },
 
     Numberline: {
+        name: 'Numberline',
         editable: Numberline,
         render: Numberline,
         properties: [
@@ -452,16 +635,36 @@ const ContentTypes = {
                 id: 'pieces', title: 'Pieces available', kind: 'list', items: {
                     kind: 'object', items: [
                         { kind: 'string', title: 'Name' },
-                        { kind: 'integer', title: 'Length' }
+                        { kind: 'number', title: 'Length' }
                     ]
                 }
             },
-            { id: 'makepiececopy', kind: 'boolean', title: 'Duplicate pieces that get dropped on numberline' }
+            { id: 'makepiececopy', kind: 'boolean', title: 'Duplicate pieces that get dropped on numberline' },
+            {
+                id: 'scales', title: 'Scale (zoom) levels', kind: 'list', items: {
+                    kind: 'number'
+                }
+            },
+            {
+                id: 'initialScale', title: 'Scale at the start', kind: 'number'
+            },
+            {
+                id: 'range', kind: 'object', title: 'Range', items: [
+                    { kind: 'number', title: 'Start' },
+                    { kind: 'number', title: 'End' }
+                ]
+            },
+            {
+                id: 'partsOfIntegers', title: 'Show fractions instead of decimals under 1', kind: 'boolean'
+            }
+
         ],
-        responseProperties: ['scale', 'range', ['pieces', ['title', 'length', 'line', 'position']] ]
+        responseProperties: ['scale', 'range', ['pieces', ['title', 'length', 'line', 'position']] ],
+        disableFormatting: true
     },
 
     MultipleChoice: {
+        name: 'Multiple choice answer',
         editable: MultipleChoice,
         render: MultipleChoice,
         properties: [
@@ -472,7 +675,8 @@ const ContentTypes = {
             },
             { id: 'shuffle', kind: 'boolean', title: 'Shuffle order for students' }
         ],
-        responseProperties: [['selected', { 0: ['id', 'content', 'index']} ]]
+        responseProperties: [['selected', { 0: ['id', 'content', 'index']} ]],
+        disableFormatting: true
     }
 }
 

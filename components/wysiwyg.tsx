@@ -7,7 +7,7 @@ import { HTML5Backend } from 'react-dnd-html5-backend'
 import styles from '../styles/components/StepAdmin.module.sass'
 import {Editor, EditorState, ContentState, convertToRaw, convertFromRaw } from 'draft-js';
 import 'draft-js/dist/Draft.css';
-import {blockStyleFn} from '../utils/common.tsx'
+import {blockStyleFn, classNames} from '../utils/common'
 import { Switch } from '@headlessui/react'
 
 
@@ -17,12 +17,27 @@ const WYSIWYGPanelsDraggable: NextPageWithLayout = (props) => {
     </DndProvider>;
 }
 
+function getContentType(content, contentTypes){
+    return content && contentTypes.find(contentType => {
+        return content.kind === contentType.kind || content.name.startsWith(contentType.kind)
+    })
+}
+
 
 const WYSIWYGPanels = ({ context, layout, onRemove, onLayoutChange, onDrop, layoutContent,
     updateLayoutContent, formatting, updateFormatting, contentTypes, editableProps,
-    formattingPanelAdditions, lockedContent }) => {
+    formattingPanelAdditions, lockedContent, currentEvents }) => {
     const [isContentBeingDragged, setIsContentBeingDragged] = useState(false)
     const [selectedContent, setSelectedContent] = useState()
+    const currentEventsRef = useRef()
+
+    useEffect(() => {
+        if (currentEventsRef.current && !currentEvents && selectedContent){
+            setSelectedContent()
+        }
+
+        currentEventsRef.current = currentEvents
+    }, [currentEvents])
 
     var onDragContentBegin = () => {
         setIsContentBeingDragged(true)
@@ -100,9 +115,7 @@ const WYSIWYGPanels = ({ context, layout, onRemove, onLayoutChange, onDrop, layo
                   isDroppable={!isContentBeingDragged}
                 >
                     {layout.map(box => {
-                        var contentType = layoutContent[box.i] && contentTypes.find(contentType => {
-                            return layoutContent[box.i].kind === contentType.kind || layoutContent[box.i].name.startsWith(contentType.kind)
-                        })
+                        var contentType = layoutContent[box.i] && getContentType(layoutContent[box.i], contentTypes)
 
                         return <div key={box.i}>
                             <DroppableContentContainer id={box.i}
@@ -119,6 +132,8 @@ const WYSIWYGPanels = ({ context, layout, onRemove, onLayoutChange, onDrop, layo
                                 // selectContent={setSelectedContent}
 
                                 experimentLock={lockedContent ? lockedContent.layoutContent.indexOf(box.i) !== -1 : false}
+
+                                currentEvents={currentEvents}
                             />
                         </div>
                     })}
@@ -137,9 +152,11 @@ const WYSIWYGPanels = ({ context, layout, onRemove, onLayoutChange, onDrop, layo
         <div className='flex-none w-64 bg-gray-100 p-4'>
             <div className="flex flex-col h-full">
                 <div className="flex-grow">
+                    <div className="text-lg mb-3 font-bold">{selectedContent?.name}</div>
+
                     {formattingPanelAdditions ? formattingPanelAdditions(selectedContent, toggleSelectedContent) : null}
 
-                    {selectedContent ? <Formatting
+                    {selectedContent && !getContentType(selectedContent, contentTypes).disableFormatting ? <Formatting
                         selectedContent={selectedContent}
                         contentFormatting={formatting}
                         update={(property, value) => updateFormatting(selectedContent.name, property, value)}
@@ -303,7 +320,7 @@ const DraggableContent = ({ name, onDragBegin, onDragEnd }) => {
 }
 
 
-const DroppableContentContainer = ({ id, onRemove, updateLayoutContent, layoutContent, selectedContent, toggleSelectedContent, selectContent, contentFormatting, experimentLock, contentType, editableProps}) => {
+const DroppableContentContainer = ({ id, onRemove, updateLayoutContent, layoutContent, selectedContent, toggleSelectedContent, selectContent, contentFormatting, experimentLock, contentType, editableProps, currentEvents}) => {
     var layoutContentRef = useRef()
 
     useEffect(() => {
@@ -337,7 +354,8 @@ const DroppableContentContainer = ({ id, onRemove, updateLayoutContent, layoutCo
         settings = content && editableProps?.contentSettings[content.name] || {},
         setSettings = value => editableProps.setContentSettings({ ...editableProps.contentSettings, [content.name]: { ...settings, ...value } })
 
-    var isSelected = selectedContent && content && selectedContent.name === content.name
+    var isSelected = selectedContent && content && selectedContent.name === content.name,
+        isClicked = content && currentEvents === content.name
 
     var responsePropertiesEl = []
     if (layoutContent.hasOwnProperty(id) && contentType?.responseProperties){
@@ -356,8 +374,10 @@ const DroppableContentContainer = ({ id, onRemove, updateLayoutContent, layoutCo
     }
 
     return <div
-        className={"h-full relative border" + (isOver ? " bg-slate-200" : '') + (
-            content ? (' hover:border-blue-500' + (isSelected ? ' border-blue-300' : '')) : ' border-dashed border-2 border-gray-200 hover:border-gray-400')}
+        className={classNames("h-full relative border", isOver ? "bg-slate-200" : '',
+            content ? ('hover:border-blue-500' + (isSelected ? ' border-blue-300' : '')) : 'border-dashed border-2 border-gray-200 hover:border-gray-400',
+            isClicked ? 'border-red-300' : ''
+        )}
         ref={dropRef}
     >
         {layoutContent.hasOwnProperty(id) ? <>
@@ -383,11 +403,15 @@ const DroppableContentContainer = ({ id, onRemove, updateLayoutContent, layoutCo
                 setSettings={setSettings}
                 editableProps={editableProps}
             />
+
+            {isClicked ? <div className='absolute bg-red-300 pointer-events-none' style={{ height: '100%', width: '100%', top: 0, opacity: 0.4 }} /> : null}
+
             <div className='absolute' style={{ bottom: '-2rem'}}>
                 <button onClick={() => updateLayoutContent(id)}
                     className="inline-flex items-center rounded border border-transparent bg-sky-300 px-1.5 py-1 text-xs font-medium text-white shadow-sm hover:bg-sky-700 focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:ring-offset-2"
                 >Remove &quot;{content.name}&quot;</button>
             </div>
+
 
             {contentType && contentType.option ? contentType.option(id, {settings, setSettings}) : null}
         </> : null}
