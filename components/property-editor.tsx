@@ -203,7 +203,7 @@ const SingleProperty = ({ property, setValue, defaultValue, onFocus, onBlur, foc
 
     var onInputBlur = e => {
         onBlur()
-        setValue(property.title, e.target.value)
+        // setValue(property.title, e.target.value)
     }
 
     var onInputChange = e => {
