@@ -399,7 +399,7 @@ const MultipleChoice = function(body, formatting, {updateBody, toggleSelectedCon
                 choicesAsArray.forEach(choice => {
                     var serializedProperty = serializeProperty('option', `${choice.value}`, response) + `�${choice.id}`
 
-                    if (serializedProperty)
+                    if (choice.value)
                         serializedChoices.push(serializedProperty)
                 })
             }
