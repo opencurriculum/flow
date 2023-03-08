@@ -68,11 +68,11 @@ export const StepItem = ({ userID, step, stepID, progress, experiment, flowSteps
                                 var answeredCorrectly = false
                                 if (lastUserResponse){
                                     let variableDeclations = [], tempVariableName
-                                    var cleanedResponseCheck = responseCheck.value
+                                    var cleanedResponseCheck = responseCheck
 
                                     for (var prop in lastUserResponse){
                                         if (prop !== 'timestamp'){
-                                            tempVariableName = 'var ' + uuidv4().substring(0, 5)
+                                            tempVariableName = 'v' + uuidv4().substring(0, 5)
                                             cleanedResponseCheck = cleanedResponseCheck.replace(prop, tempVariableName)
 
                                             if (typeof(lastUserResponse[prop]) === 'object'){
@@ -86,7 +86,7 @@ export const StepItem = ({ userID, step, stepID, progress, experiment, flowSteps
                                     }
 
                                     try {
-                                        answeredCorrectly = Function(`'use strict'; var ${variableDeclations.join(',')}; return (${cleanedResponseCheck})`)()
+                                        answeredCorrectly = Function(`'use strict'; ${variableDeclations ? 'var ' + variableDeclations.join(',') : ''}; return (${cleanedResponseCheck})`)()
                                     } catch (e){
                                         console.log('Failure to assess answer', e)
                                     }
@@ -123,7 +123,7 @@ export const StepItem = ({ userID, step, stepID, progress, experiment, flowSteps
                                 }
 
                                 setResponse({ ...response, [stepID]: {
-                                    ...(response[stepID] || {}), [`{${name}}`]: { answered: true, answeredCorrectly } }
+                                    ...(response[stepID] || {}), [`{${name}}`]: { clicked: true, clickFormulaSucceeded: answeredCorrectly } }
                                 })
                             }}
                             response={lastUserResponse}

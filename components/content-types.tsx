@@ -313,9 +313,6 @@ const Numberline = function(body, formatting, {updateBody}){
             // pieces = propertiesAsArray.find(property => property?.id === 'pieces')?.value,
             // makepiececopy = propertiesAsArray.find(property => property?.id === 'makepiececopy')?.value
 
-
-
-
         if (pieces){
             var piecesAsArray = Object.keys(pieces)?.map(
                 id => pieces[id]).sort((a, b) => a.position - b.position)
@@ -397,9 +394,10 @@ const MultipleChoice = function(body, formatting, {updateBody, toggleSelectedCon
                 id => choices[id]).sort((a, b) => a.position - b.position)
             if (choicesAsArray.length){
                 choicesAsArray.forEach(choice => {
-                    var serializedProperty = serializeProperty('option', `${choice.value}`, response) + `�${choice.id}`
+                    var serializeOption = serializeProperty('option', `${choice.value}`, response),
+                        serializedProperty = serializeOption + `�${choice.id}`
 
-                    if (choice.value)
+                    if (serializeOption !== 'option=undefined' && serializeOption !== 'option=null')
                         serializedChoices.push(serializedProperty)
                 })
             }
@@ -423,7 +421,7 @@ const MultipleChoice = function(body, formatting, {updateBody, toggleSelectedCon
 }
 
 
-export const ResponseTemplate = ({ body, formatting, updateBody, toggleSelectedResponseTemplateItems, toggleSelectedContent }) => {
+export const ResponseTemplate = ({ body, formatting, updateBody, toggleSelectedResponseTemplateItems, name, toggleSelectedContent }) => {
     // This is a temp hack variable.
     var isInsideContentLayout = toggleSelectedResponseTemplateItems
 
@@ -472,7 +470,7 @@ export const ResponseTemplate = ({ body, formatting, updateBody, toggleSelectedR
 }
 
 
-const ResponseSpace = ({ setResponse, responseItem, response, formatting, stepID }) => {
+const ResponseSpace = ({ setResponse, response, formatting, stepID }) => {
     const inputRef = useRef()
 
     useEffect(() => {
@@ -485,7 +483,7 @@ const ResponseSpace = ({ setResponse, responseItem, response, formatting, stepID
 
     return <input type='text' ref={inputRef}
         className={"shadow-sm focus:ring-indigo-500 focus:border-indigo-500 border-gray-300 rounded-md" + (formatting.display === 'inline-block' ? '' : ' block w-full')}
-        onChange={(event) => setResponse(responseItem.id, event.target.value) }
+        onChange={(event) => setResponse && setResponse(event.target.value) }
     />
 }
 
@@ -493,6 +491,7 @@ const ResponseSpace = ({ setResponse, responseItem, response, formatting, stepID
 const ButtonInput = (body, formatting, { updateBody, toggleSelectedContent, isSelected, contentSettings, setContentSettings }) => {
     const isSelectedRef = useRef()
 
+    /*
     useEffect(() => {
         if (isSelected && isSelectedRef.current !== isSelected){
             setContentSettings({ ...contentSettings, all: { ...(contentSettings.all || {}), showContentLabels: true } })
@@ -502,6 +501,7 @@ const ButtonInput = (body, formatting, { updateBody, toggleSelectedContent, isSe
             setContentSettings({ ...contentSettings, all: { ...(contentSettings.all || {}), showContentLabels: false } })
         }
     }, [isSelected])
+    */
 
     return <button
           type="button"
@@ -530,7 +530,7 @@ const ContentTypes = {
     DynamicText: {
         name: 'Dynamic Text',
         editable: (body, formatting, {response}) => <div>
-            <textarea disabled={true} value={`${body?.properties?.formula && run(body?.properties?.formula, response)}`} />
+            <div>{body?.properties?.formula && run(body?.properties?.formula, response)}</div>
         </div>,
         render: function(body, formatting, {response}){
             return <div style={formatting}>
@@ -551,7 +551,7 @@ const ContentTypes = {
               type="button" onClick={() => checkResponse(body?.properties?.formula, name, body?.properties?.isStepCheck)}
               className="inline-flex items-center px-3 py-2 border border-transparent text-sm leading-4 font-medium rounded-md text-indigo-700 bg-indigo-100 hover:bg-indigo-200 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-indigo-500"
             >
-              {(body?.properties?.length && body?.properties?.text) || 'Button'}
+              {(body?.properties?.text) || 'Button'}
         </button></div>,
         properties: [
             {
@@ -575,6 +575,22 @@ const ContentTypes = {
 
     ShortResponseBox: {
         name: 'Short response box',
+        editable: (body, formatting, {updateBody, toggleSelectedContent, settings, setSettings}) => <div>
+            <ResponseSpace formatting={formatting} />
+        </div>,
+        render: (body, formatting, {contentFormatting, stepID, response, setResponse, name}) => <div>
+            <ResponseSpace setResponse={(value) => {
+                    setResponse(`{${name}}`, value)
+                }}
+                response={response && response[`{${name}}`]}
+                formatting={formatting}
+                stepID={stepID}
+            />
+        </div>,
+    },
+
+    MultiResponseBoxes: {
+        name: 'Multi response boxes',
         editable: (body, formatting, {updateBody, toggleSelectedContent, settings, setSettings}) => <ResponseTemplate
             body={body}
             formatting={formatting}
@@ -592,15 +608,19 @@ const ContentTypes = {
             }}
             toggleSelectedContent={toggleSelectedContent}
         />,
-        render: (body, formatting, {contentFormatting, stepID, response, setResponse}) => {
+        render: (body, formatting, {contentFormatting, stepID, response, name, setResponse}) => {
             return <div>{body && body.map((responseItem, i) => {
                 var responseItemFormatting = {...(contentFormatting && contentFormatting[responseItem.id] ? contentFormatting[responseItem.id] : {})}
                 if (responseItem.kind === 'responsespace')
-                    return <ResponseSpace key={i}
-                        responseItem={responseItem} setResponse={setResponse}
-                        response={response && response[responseItem.id]}
+                    return <ResponseSpace key={i} stepID={stepID}
                         formatting={responseItemFormatting}
-                        stepID={stepID}
+
+                        setResponse={(value) => {
+                            setResponse(`{${name}}`, {
+                                ...(response[`{${name}}`] || {}), [responseItem.id]: value,
+                            })
+                        }}
+                        response={response && response[`{${name}}`] && response[`{${name}}`][responseItem.id]}
                     />
                 else
                     return <span key={i} style={responseItemFormatting}>
@@ -611,6 +631,7 @@ const ContentTypes = {
         option: (id, {settings, setSettings}) => <button onClick={() => setSettings({ ...settings, changeFormat: id })}
             // setResponseChangeFormatOpen(id)
         >Change format</button>
+
     },
 
     ArrayType: {

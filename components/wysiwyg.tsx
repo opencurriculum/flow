@@ -443,6 +443,7 @@ const EditableContent = ({ content, id, updateLayoutContent, toggleSelectedConte
             selectContent: () => selectContent({ name: content.name, kind: content.kind }),
             isSelected,
 
+            name: content.name,
             contentFormatting, settings, setSettings, ...editableProps
         }
     )

@@ -897,7 +897,15 @@ const ExpectedResponse = ({ responseTemplateItems, setResponseCheck, responseChe
 
 const ShowConditionEditor = ({ showCondition, setShowCondition }) => {
     const inputRef = useRef()
+    const textareaRef = useRef()
     const throttleRef = useRef()
+
+    useEffect(() => {
+        if (textareaRef.current !== document.activeElement && showCondition !== textareaRef.current.value){
+            textareaRef.current.value = showCondition || ''
+            inputRef.current.checked = showCondition || false
+        }
+    }, [showCondition])
 
     return <div>
         <h3 className="text-md font-medium leading-10">Show / hide</h3>
@@ -920,7 +928,7 @@ const ShowConditionEditor = ({ showCondition, setShowCondition }) => {
                 Show only when...
               </label>
               <p>
-                  <textarea
+                  <textarea ref={textareaRef}
                     onChange={e => {
                         if (e.target.value.length && !inputRef.current.checked){
                             inputRef.current.checked = true

@@ -161,24 +161,37 @@ export function useResponse(stepID){
 
 
 var nonExcelForumlae = {
-        'FINDWHERE': (arr, ...keyValuesAndPropToPick) => {
+        FINDWHERE: (arr, ...keyValuesAndPropToPick) => {
             var propToPick = keyValuesAndPropToPick.splice(keyValuesAndPropToPick.length - 1, 1)[0],
                 keyValues
 
             var index, found
-            return arr.find(item => {
+
+            var match = arr.find(item => {
                 found = true
                 for (index = 0; index < keyValuesAndPropToPick.length - 1; index += 2){
                     found = found && item[keyValuesAndPropToPick[index]] === keyValuesAndPropToPick[index + 1]
                 }
                 return found
-            })[propToPick]
-        }
+            })
+
+            if (match)
+                return match[propToPick]
+        },
+
+        TAKE: (arr, startIndex, endIndex) => arr.splice(startIndex, endIndex),
+        GROUP: (...futureArrayItems) => futureArrayItems,
+        GROUPLEN: arr => arr.length,
+        FILTER: arr => arr.filter(i => i),
+        JOIN: (arr, delimiter) => arr.join(delimiter),
+        UNDEFINEDIF: (statement, truth) => statement ? truth : undefined,
+        TOSTRING: thing => thing.toString(),
+        DONTSOLVE: thing => ({ DONTSOLVE: thing })
     },
     nonExcelForumlaeNames = Object.keys(nonExcelForumlae),
     allFormulaeNames = Object.keys(formulajs).concat(nonExcelForumlaeNames),
 
-    formulaJSRegex = new RegExp(`(${allFormulaeNames.join('|')})\\((?!.*(${allFormulaeNames.join('|')})\\().+?\\)`)
+    formulaJSRegex = new RegExp(`(${allFormulaeNames.join('|')})\\((?!.*(${allFormulaeNames.join('|')})\\().*?\\)`)
 
 
 function executeExcelFunction(fn){
@@ -192,6 +205,10 @@ function executeExcelFunction(fn){
 
 
 function executeJSFunction(fn){
+    if (fn.startsWith('DONTSOLVE')){
+        return nonExcelForumlae.DONTSOLVE(fn.substring(10, fn.length - 1).trim())
+    }
+
     try {
         return Function('formulae', `'use strict'; return formulae.${fn}`)(nonExcelForumlae)
     } catch (e){
@@ -200,6 +217,7 @@ function executeJSFunction(fn){
     }
 }
 
+var variablesRegex = new RegExp('\{[\\s\\w]+\}(\.?\\w+)')
 
 export function run(value, response){
     var prop, finalValue = value
@@ -210,31 +228,49 @@ export function run(value, response){
         }
     }
 
+    // Filter out any variables with undefined.
+    var variableMatch = true
+    while (variableMatch){
+        variableMatch = variablesRegex.exec(finalValue)
+
+        if (variableMatch){
+            finalValue = finalValue.substring(0, variableMatch.index) + ' undefined ' + finalValue.substring(
+                variableMatch.index + variableMatch[0].length)
+        }
+    }
+
     var excelFunctionMatch = true
     while (excelFunctionMatch){
         excelFunctionMatch = formulaJSRegex.exec(finalValue)
 
         if (excelFunctionMatch){
             var isExcelFormula = nonExcelForumlaeNames.indexOf(
-                excelFunctionMatch[0].substring(0, excelFunctionMatch[0].indexOf('('))) === -1,
+                excelFunctionMatch[0].substring(0, excelFunctionMatch[0].indexOf('('))) === -1
 
-                functionResult = (
-                    isExcelFormula ? executeExcelFunction(excelFunctionMatch[0]) : executeJSFunction(excelFunctionMatch[0]))
+            var functionResult = (
+                isExcelFormula ? executeExcelFunction(excelFunctionMatch[0]) : executeJSFunction(excelFunctionMatch[0]))
 
-            if (functionResult === undefined)
-                return
+            // if (functionResult === undefined)
+            //     return
 
-            finalValue = finalValue.substring(0, excelFunctionMatch.index) + functionResult + finalValue.substring(excelFunctionMatch.index + excelFunctionMatch[0].length)
+            finalValue = finalValue.substring(0, excelFunctionMatch.index) + (
+                typeof(functionResult) === 'object' ? JSON.stringify(functionResult) : functionResult) + (
+                    finalValue.substring(excelFunctionMatch.index + excelFunctionMatch[0].length))
         }
     }
 
-    try {
-        return Function(`'use strict'; return ${finalValue}`)()
-    } catch (e){
+
+    if (finalValue.indexOf('DONTSOLVE') !== -1){
+        return JSON.parse(finalValue).DONTSOLVE
+    } else {
         try {
-            return Function(`'use strict'; return "${finalValue}"`)()
+            return Function(`'use strict'; return ${finalValue}`)()
         } catch (e){
-            console.log(e)
+            try {
+                return Function(`'use strict'; return "${finalValue}"`)()
+            } catch (e){
+                console.log(e)
+            }
         }
     }
 }
