@@ -307,7 +307,7 @@ const Numberline = function(body, formatting, {updateBody}){
     const queryRef = useRef()
 
     function serializePieces(properties){
-        var serializedPieces = [], {pieces, makepiececopy, scales, initialScale, range, partsOfIntegers} = properties
+        var serializedPieces = [], {pieces, makepiececopy, scales, initialScale, range, partsOfIntegers, slideBy} = properties
             // propertiesAsArray = Object.keys(properties).map(
             //     p => properties[p]),
             // pieces = propertiesAsArray.find(property => property?.id === 'pieces')?.value,
@@ -343,6 +343,10 @@ const Numberline = function(body, formatting, {updateBody}){
 
         if (partsOfIntegers){
             serializedPieces.push(`partsOfIntegers=fractions`)
+        }
+
+        if (slideBy !== undefined){
+            serializedPieces.push(`slideBy=${slideBy}`)
         }
 
         return serializedPieces.join('&')
@@ -677,6 +681,9 @@ const ContentTypes = {
             },
             {
                 id: 'partsOfIntegers', title: 'Show fractions instead of decimals under 1', kind: 'boolean'
+            },
+            {
+                id: 'slideBy', title: 'Slide numberline forward and backward by (at scale=1)', kind: 'number'
             }
 
         ],
