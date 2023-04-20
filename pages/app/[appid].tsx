@@ -74,7 +74,7 @@ export const UserAppHeader = ({ hideBack }) => {
                         {app?.headerLinks?.map((link, i, links) => {
                             var isLast = i === links.length - 1
 
-                            return <li className={classNames('inline-block', isLast ? '' : 'mr-2')}>
+                            return <li key={i} className={classNames('inline-block', isLast ? '' : 'mr-2')}>
                                 <Link
                                     href={link.url}><a
                                         type="button"
