@@ -13,7 +13,8 @@ import { UserContext } from '../../../../../_app'
 
 const Settings: NextPageWithLayout = ({}: AppProps) => {
     var singlePageFlowRef = useRef(),
-        assignStepsIndividuallyRef = useRef()
+        assignStepsIndividuallyRef = useRef(),
+        dontLoadPriorResponsesRef = useRef()
 
     const router = useRouter(),
         db = useFirestore()
@@ -27,6 +28,7 @@ const Settings: NextPageWithLayout = ({}: AppProps) => {
                 // setApp(appData)
                 singlePageFlowRef.current.checked = flowData.singlePageFlow || false
                 assignStepsIndividuallyRef.current.checked = flowData.assignStepsIndividually || false
+                dontLoadPriorResponsesRef.current.checked = flowData.dontLoadPriorResponses || false
             })
         }
     }, [router.query.flowid, db])
@@ -74,7 +76,7 @@ const Settings: NextPageWithLayout = ({}: AppProps) => {
           </div>
 
 
-            <div className="relative flex items-start">
+            <div className="relative flex items-start mt-4">
               <div className="flex h-5 items-center">
                 <input
                   ref={assignStepsIndividuallyRef}
@@ -94,6 +96,30 @@ const Settings: NextPageWithLayout = ({}: AppProps) => {
                 </p>
             </div>
         </div>
+
+
+
+        <div className="relative flex items-start mt-4">
+          <div className="flex h-5 items-center">
+            <input
+              ref={dontLoadPriorResponsesRef}
+              aria-describedby="dontLoadPriorResponses-description"
+              name="dontLoadPriorResponses"
+              type="checkbox"
+              className="h-4 w-4 rounded border-gray-300 text-indigo-600 focus:ring-indigo-500"
+              onChange={(event) => updateDoc(doc(db, "flows", router.query.flowid), { dontLoadPriorResponses: event.target.checked })}
+            />
+          </div>
+          <div className="ml-3 text-sm">
+            <label htmlFor="comments" className="font-medium text-gray-700">
+              Don't load prior responses/work
+            </label>
+            <p id="comments-description" className="text-gray-500">
+              Keeping this unchecked would mean that if the student opens a step they have done work on in the past, their past responses and work will be filled in and shown. Check this box if you are using dynamic answers based on other blocks.
+            </p>
+        </div>
+    </div>
+
     </>
 }
 

@@ -1,6 +1,6 @@
 import type { NextPage } from 'next'
 import type { AppProps } from 'next/app'
-import {useState, useEffect, useRef, useContext} from 'react'
+import {useState, useEffect, useRef, useContext, forwardRef} from 'react'
 import { collection, getDocs, setDoc, getDoc, doc, updateDoc,
     getCollection, arrayUnion, writeBatch, deleteDoc, serverTimestamp } from "firebase/firestore"
 import { useRouter, router } from 'next/router'
@@ -332,18 +332,19 @@ const DraggableStep = ({ step, moveStep, setDuplicateStepToOpen, deleteStep }) =
                       }, name: 'Delete...'}
                   ].map((item) => (
                     <Menu.Item key={item.name}>
-                      {({ active }) => (
-                        <a
-                          href={item.href}
-                          onClick={item.onClick}
-                          className={classNames(
+                      {({ active }) => {
+                          // console.log(item.name, active)
+                          var props = {className: classNames('cursor-pointer',
                             active ? 'bg-gray-100 text-gray-900' : 'text-gray-700',
                             'block px-4 py-2 text-sm'
                           )}
-                        >
-                          {item.name}
-                        </a>
-                      )}
+                          if (item.href){
+                              return <MyLink {...props} href={item.href}>{item.name}</MyLink>
+                          } else {
+                              props.onClick = item.onClick
+                              return <a {...props}>{item.name}</a>
+                          }
+                    }}
                     </Menu.Item>
                   ))}
                 </div>
@@ -363,6 +364,20 @@ const DraggableStep = ({ step, moveStep, setDuplicateStepToOpen, deleteStep }) =
         </div>
     </li>
 }
+
+
+// Copied from https://headlessui.com/react/menu.
+const MyLink = forwardRef((props, ref) => {
+  let { href, children, ...rest } = props
+  return (
+    <Link href={href}>
+      <a ref={ref} {...rest}>
+        {children}
+      </a>
+    </Link>
+  )
+})
+
 
 const DuplicateStepTo = ({ db, stepID }) => {
     var [flows, setFlows] = useState()

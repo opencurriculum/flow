@@ -1,7 +1,7 @@
 import Link from 'next/link'
 
 
-export const ExperimentHeader = ({ experiment }) => {
+export const ExperimentHeader = ({ experiment, setExperiment }) => {
     var groups = experiment && experiment.groups ? [{ name: 'All' }].concat(experiment.groups).map((group, i) => {
         const url = new URL(window.location.href)
         var searchParams = new URLSearchParams(window.location.search)

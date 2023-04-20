@@ -1,13 +1,13 @@
 import { Editor, EditorState, ContentState, convertToRaw, convertFromRaw } from 'draft-js';
 import { ref, uploadBytes, getDownloadURL, deleteObject, listAll } from "firebase/storage"
-import { TrashIcon } from '@heroicons/react/20/solid'
+import { TrashIcon, XMarkIcon } from '@heroicons/react/20/solid'
 import { blockStyleFn, LoadingSpinner, run, classNames } from '../utils/common'
 import { useState, useEffect, useRef, Fragment } from 'react'
-import { ArrowUpIcon, ArrowDownIcon } from '@heroicons/react/24/solid'
+import { ArrowUpIcon, ArrowDownIcon, PaintBrushIcon, PlusIcon } from '@heroicons/react/24/solid'
 import update from 'immutability-helper'
 import { useStorage } from 'reactfire'
 import { v4 as uuidv4 } from 'uuid'
-import { CursorArrowRaysIcon } from '@heroicons/react/24/outline'
+import { CursorArrowRaysIcon, CheckCircleIcon } from '@heroicons/react/24/outline'
 import { Dialog, Transition } from '@headlessui/react'
 
 
@@ -61,6 +61,19 @@ export var ContentInput = (body, formatting, { updateBody, toggleSelectedContent
 }
 
 
+var uploadImage = function(storage, event, callback, { appID, flowID, stepID }){
+    var fileFullname = event.target.files[0].name
+    var [filename, extension] = fileFullname.split('.')
+
+    const storageRef = ref(storage, `app/${appID}/flow/${flowID}/step/${stepID}/${filename}-${uuidv4().substring(0, 3)}.${extension}`)
+
+    uploadBytes(storageRef, event.target.files[0]).then((snapshot) => {
+        getDownloadURL(storageRef).then(callback)
+    })
+
+}
+
+
 const EditableImage = (body, formatting, {updateBody, toggleSelectedContent, appID, flowID, stepID}) => {
     const storage = useStorage()
     const [openLibrary, setOpenLibrary] = useState(false)
@@ -70,7 +83,7 @@ const EditableImage = (body, formatting, {updateBody, toggleSelectedContent, app
             <div className="m-2 right-0 absolute bg-slate-900 hover:bg-slate-600 h-6 w-6 text-white"
             onClick={() => {
                 // Delete the file.
-                var pathname = new URL(body).pathname,
+                var pathname = new URL(body.url).pathname,
                     indexOfStart = pathname.indexOf('/o/') + 3
 
                 const storageRef = ref(storage, decodeURIComponent(pathname.substring(indexOfStart)))
@@ -78,26 +91,19 @@ const EditableImage = (body, formatting, {updateBody, toggleSelectedContent, app
                 deleteObject(storageRef).then(() => {
                     // File deleted successfully
                    // Update layout content to clear it.
-                   updateBody(null)
+                   updateBody({ ...body, url: null })
                 }).catch((error) => {
                     alert('Failed to delete the image.')
                 });
 
             }}
         ><TrashIcon /></div>
-            <img src={body} />
+            <img src={body.url} />
         </div> : <div>
             <input type="file" accept="image/*" id="input" onChange={event => {
-                var fileFullname = event.target.files[0].name
-                var [filename, extension] = fileFullname.split('.')
-
-                const storageRef = ref(storage, `app/${appID}/flow/${flowID}/step/${stepID}/${filename}-${uuidv4().substring(0, 3)}.${extension}`)
-
-                uploadBytes(storageRef, event.target.files[0]).then((snapshot) => {
-                    getDownloadURL(storageRef).then((url) => {
-                        updateBody(url)
-                    })
-                })
+                uploadImage(storage, event, (url) => {
+                    updateBody({ ...body, url })
+                }, { appID, flowID, stepID })
             }} />
             <button
                 type="button"
@@ -113,11 +119,15 @@ const EditableImage = (body, formatting, {updateBody, toggleSelectedContent, app
 }
 
 
-const ImageLibrary = function({ open, setOpen, appID, insert }){
+const ImageLibrary = function({ open, setOpen, insert, appID, flowID, stepID }){
     const [images, setImages] = useState([])
     const [selectedImage, setSelectedImage] = useState()
+    // const [showURLCopied, setShowURLCopied] = useState(true)
+
     const storage = useStorage()
     const cancelButtonRef = useRef(null)
+
+    const uploadInputRef = useRef()
 
     useEffect(() => {
         if (open){
@@ -144,94 +154,137 @@ const ImageLibrary = function({ open, setOpen, appID, insert }){
         }
     }, [open])
 
-    return <Transition.Root show={open} as={Fragment}>
-      <Dialog as="div" className="relative z-10" initialFocus={cancelButtonRef} onClose={setOpen}>
-        <Transition.Child
-          as={Fragment}
-          enter="ease-out duration-300"
-          enterFrom="opacity-0"
-          enterTo="opacity-100"
-          leave="ease-in duration-200"
-          leaveFrom="opacity-100"
-          leaveTo="opacity-0"
-        >
-          <div className="fixed inset-0 bg-gray-500 bg-opacity-75 transition-opacity" />
-        </Transition.Child>
-
-        <div className="fixed inset-0 z-10 overflow-y-auto">
-          <div className="flex min-h-full items-end justify-center p-4 text-center sm:items-center sm:p-0">
+    return <div>
+        <Transition.Root show={open} as={Fragment}>
+          <Dialog as="div" className="relative z-10" initialFocus={cancelButtonRef} onClose={setOpen}>
             <Transition.Child
               as={Fragment}
               enter="ease-out duration-300"
-              enterFrom="opacity-0 translate-y-4 sm:translate-y-0 sm:scale-95"
-              enterTo="opacity-100 translate-y-0 sm:scale-100"
+              enterFrom="opacity-0"
+              enterTo="opacity-100"
               leave="ease-in duration-200"
-              leaveFrom="opacity-100 translate-y-0 sm:scale-100"
-              leaveTo="opacity-0 translate-y-4 sm:translate-y-0 sm:scale-95"
+              leaveFrom="opacity-100"
+              leaveTo="opacity-0"
             >
-              <Dialog.Panel className="relative transform overflow-hidden rounded-lg bg-white text-left shadow-xl transition-all sm:my-8 sm:w-full sm:max-w-2xl">
-                <div className="bg-white">
-                  <div>
-                    <Dialog.Title as="h3" className="text-lg font-medium leading-6 text-gray-900 px-4 sm:p-6">
-                      App&#39;s image gallery
-                    </Dialog.Title>
-                    <div className="max-h-72 overflow-y-auto">
-                        <ul role="list" className="grid grid-cols-2 gap-x-4 gap-y-8 sm:grid-cols-3 sm:gap-x-6 lg:grid-cols-6 xl:gap-x-8 px-4 sm:p-6">
-                          {images.map((image) => (
-                            <li key={image} className="relative" onClick={() => {
-                                if (selectedImage !== image){
-                                    setSelectedImage(image)
-                                } else {
-                                    setSelectedImage()
-                                }
-                            }}>
-                              <div className={classNames("group aspect-w-10 aspect-h-7 block w-full overflow-hidden rounded-lg bg-gray-100", selectedImage === image ? 'ring-2 ring-indigo-500 ring-offset-2 ring-offset-gray-100' : '')}>
-                                <img src={image} alt="" className="pointer-events-none object-cover group-hover:opacity-75" />
-                                <button type="button" className="absolute inset-0 focus:outline-none">
-                                  <span className="sr-only">View details for {image}</span>
-                                </button>
-                              </div>
-                              <p className="pointer-events-none mt-2 block truncate text-sm font-medium text-gray-900">{new URL(decodeURIComponent(image)).pathname.split('/').slice(-1)}</p>
-                              {/*<p className="pointer-events-none block text-sm font-medium text-gray-500">{file.size}</p>*/}
-                            </li>
-                          ))}
-                        </ul>
-
-                    </div>
-                  </div>
-                </div>
-                <div className="bg-gray-50 px-4 py-3 sm:flex sm:flex-row-reverse sm:px-6">
-                  <button
-                    type="button"
-                    className={classNames("inline-flex w-full justify-center rounded-md border border-transparent px-4 py-2 text-base font-medium text-white shadow-sm focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:ring-offset-2 sm:ml-3 sm:w-auto sm:text-sm", selectedImage ? 'bg-indigo-600 hover:bg-indigo-700' : 'bg-indigo-300 cursor-not-allowed')}
-                    onClick={() => {
-                        insert(selectedImage)
-                        setOpen(false)
-                    }}
-                  >
-                    Insert
-                  </button>
-                  <button
-                    type="button"
-                    className="mt-3 inline-flex w-full justify-center rounded-md border border-gray-300 bg-white px-4 py-2 text-base font-medium text-gray-700 shadow-sm hover:bg-gray-50 focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:ring-offset-2 sm:mt-0 sm:ml-3 sm:w-auto sm:text-sm"
-                    onClick={() => setOpen(false)}
-                    ref={cancelButtonRef}
-                  >
-                    Cancel
-                  </button>
-                </div>
-              </Dialog.Panel>
+              <div className="fixed inset-0 bg-gray-500 bg-opacity-75 transition-opacity" />
             </Transition.Child>
-          </div>
-        </div>
-      </Dialog>
-    </Transition.Root>
+
+            <div className="fixed inset-0 z-10 overflow-y-auto">
+              <div className="flex min-h-full items-end justify-center p-4 text-center sm:items-center sm:p-0">
+                <Transition.Child
+                  as={Fragment}
+                  enter="ease-out duration-300"
+                  enterFrom="opacity-0 translate-y-4 sm:translate-y-0 sm:scale-95"
+                  enterTo="opacity-100 translate-y-0 sm:scale-100"
+                  leave="ease-in duration-200"
+                  leaveFrom="opacity-100 translate-y-0 sm:scale-100"
+                  leaveTo="opacity-0 translate-y-4 sm:translate-y-0 sm:scale-95"
+                >
+                  <Dialog.Panel className="relative transform overflow-hidden rounded-lg bg-white text-left shadow-xl transition-all sm:my-8 sm:w-full sm:max-w-2xl">
+                    <div className="bg-white">
+                      <div>
+                        <Dialog.Title as="h3" className="text-lg font-medium leading-6 text-gray-900 px-4 sm:p-6">
+                          App&#39;s image gallery
+                        </Dialog.Title>
+                        <div className="max-h-72 overflow-y-auto">
+                            <ul role="list" className="grid grid-cols-2 gap-x-4 gap-y-8 sm:grid-cols-3 sm:gap-x-6 lg:grid-cols-6 xl:gap-x-8 px-4 sm:p-6">
+                              {images.map((image) => (
+                                <li key={image} className="relative" onClick={() => {
+                                    if (selectedImage !== image){
+                                        setSelectedImage(image)
+                                    } else {
+                                        setSelectedImage()
+                                    }
+                                }}>
+                                  <div className={classNames("group aspect-w-10 aspect-h-7 block w-full overflow-hidden rounded-lg bg-gray-100", selectedImage === image ? 'ring-2 ring-indigo-500 ring-offset-2 ring-offset-gray-100' : '')}>
+                                    <img src={image} alt="" className="pointer-events-none object-cover group-hover:opacity-75" />
+                                    <button type="button" className="absolute inset-0 focus:outline-none">
+                                      <span className="sr-only">View details for {image}</span>
+                                    </button>
+                                  </div>
+                                  <p className="pointer-events-none mt-2 block truncate text-sm font-medium text-gray-900">{new URL(decodeURIComponent(image)).pathname.split('/').slice(-1)}</p>
+                                  {/*<p className="pointer-events-none block text-sm font-medium text-gray-500">{file.size}</p>*/}
+                                </li>
+                              ))}
+                              {!insert ? <li key='upload' className="relative" onClick={() => {
+                                  uploadInputRef.current.click()
+                              }}>
+                                  <input ref={uploadInputRef} className="hidden" type="file" accept="image/*" onChange={event => {
+                                      uploadImage(storage, event, url => {
+                                          setImages(images => images.concat([url]))
+                                      }, { appID, flowID, stepID })
+                                  }} />
+                                  <div className={classNames("group aspect-w-10 aspect-h-7 block w-full overflow-hidden rounded-lg bg-gray-100")}>
+                                    <PlusIcon alt="" className="pointer-events-none object-cover group-hover:opacity-75" />
+                                    <button type="button" className="absolute inset-0 focus:outline-none">
+                                      <span className="sr-only">Upload new...</span>
+                                    </button>
+                                  </div>
+                                  <p className="pointer-events-none mt-2 block truncate text-sm font-medium text-gray-900">Upload new...</p>
+                              </li> : null}
+                            </ul>
+
+                        </div>
+                      </div>
+                    </div>
+                    <div className="bg-gray-50 px-4 py-3 sm:flex sm:px-6">
+                      <div className="flex flex-1">
+                        <div>
+                          <button
+                            type="button"
+                            className="mr-3 inline-flex w-full justify-center rounded-md border border-transparent px-4 py-2 text-base font-medium text-white shadow-sm focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:ring-offset-2 sm:w-auto sm:text-sm bg-indigo-600 hover:bg-indigo-700"
+                            onClick={() => {
+                                navigator.clipboard.writeText(selectedImage)
+                                alert('URL copied successfully')
+                            }}
+                          >
+                            Copy URL
+                          </button>
+                        </div>
+                        <div className="w-3/6 overflow-hidden text-ellipsis whitespace-nowrap leading-8 text-xs max-w-xs">
+                          {selectedImage}
+                        </div>
+                      </div>
+                      <div className="sm:flex-row-reverse">
+                          {insert ? <button
+                            type="button"
+                            className={classNames("inline-flex w-full justify-center rounded-md border border-transparent px-4 py-2 text-base font-medium text-white shadow-sm focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:ring-offset-2 sm:ml-3 sm:w-auto sm:text-sm", selectedImage ? 'bg-indigo-600 hover:bg-indigo-700' : 'bg-indigo-300 cursor-not-allowed')}
+                            onClick={() => {
+                                insert(selectedImage)
+                                setOpen(false)
+                            }}
+                          >
+                            Insert
+                          </button> : null}
+                          <button
+                            type="button"
+                            className="mt-3 inline-flex w-full justify-center rounded-md border border-gray-300 bg-white px-4 py-2 text-base font-medium text-gray-700 shadow-sm hover:bg-gray-50 focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:ring-offset-2 sm:mt-0 sm:ml-3 sm:w-auto sm:text-sm"
+                            onClick={() => setOpen(false)}
+                            ref={cancelButtonRef}
+                          >
+                            {insert ? 'Cancel' : 'Close'}
+                          </button>
+                        </div>
+                    </div>
+                  </Dialog.Panel>
+                </Transition.Child>
+              </div>
+            </div>
+          </Dialog>
+        </Transition.Root>
+    </div>
 }
 
 
 const IframeSelector = () => {
     return <div className='absolute cursor-pointer rounded bottom-2 right-2 w-8 h-8 bg-blue-500 p-1'>
         <span className="text-white"><CursorArrowRaysIcon /></span>
+    </div>
+}
+
+const DesignSelector = ({ onClick }) => {
+    return <div className='absolute cursor-pointer rounded bottom-2 right-12 w-8 h-8 bg-blue-500 p-1' onClick={onClick}>
+        <span className="text-white"><PaintBrushIcon /></span>
     </div>
 }
 
@@ -492,6 +545,24 @@ const ResponseSpace = ({ setResponse, response, formatting, stepID }) => {
 }
 
 
+const Textarea = ({ setResponse, response, formatting, stepID }) => {
+    const textareaRef = useRef()
+
+    useEffect(() => {
+        if (response){
+            textareaRef.current.value = response;
+        } else {
+            textareaRef.current.value = '';
+        }
+    }, [stepID])
+
+    return <textarea ref={textareaRef}
+        className="h-full block w-full rounded-md border-0 text-gray-900 shadow-sm ring-1 ring-inset ring-gray-300 placeholder:text-gray-400 focus:ring-2 focus:ring-inset focus:ring-indigo-600 sm:py-1.5 sm:text-sm sm:leading-6"
+        onChange={(event) => setResponse && setResponse(event.target.value) }
+    />
+}
+
+
 const ButtonInput = (body, formatting, { updateBody, toggleSelectedContent, isSelected, contentSettings, setContentSettings }) => {
     const isSelectedRef = useRef()
 
@@ -513,6 +584,188 @@ const ButtonInput = (body, formatting, { updateBody, toggleSelectedContent, isSe
         >
           {body?.properties?.text || 'Button'}
     </button>
+}
+
+
+const BasicDesignableContentType = function(body, formatting, {response, updateBody, appID, flowID, stepID}, templateName, progressMergingFn){
+    const [designOpen, setDesignOpen] = useState()
+    const [query, setQuery] = useState(progressMergingFn ? progressMergingFn(body?.query) : body?.query)
+    const bodyRef = useRef(body)
+
+    useEffect(() => {
+        if (bodyRef !== body){
+            bodyRef.current = body
+        }
+    }, [body])
+
+    useEffect(() => {
+        if (updateBody && !designOpen){
+            setTimeout(() => {
+                setQuery(body?.query)
+            }, 1000)
+        }
+    }, [designOpen])
+
+    var iframeSrc = `${slateHost}/show?template=${templateName}${query ? `&${query}` : ''}`
+
+    return <div className='h-full'>
+        {/* Bad way to figure out if this is editable or render */}
+        {updateBody ? <DesignSelector onClick={e => {
+            setDesignOpen(iframeSrc + '&mode=design')
+            e.stopPropagation()
+        }} /> : null}
+        {updateBody ? <IframeSelector /> : null}
+        <iframe src={iframeSrc} style={{ width: '100%', height: '100%' }}/>
+        <DesignSlatePopup open={designOpen} setOpen={setDesignOpen} onSave={query => {
+            updateBody({ ...body, query })
+        }} template={templateName} appID={appID} flowID={flowID} stepID={stepID} />
+    </div>
+}
+
+
+const DragIntoSlots = function(body, formatting, {response, updateBody, appID, flowID, stepID, name}){
+    return BasicDesignableContentType(...[...arguments].slice(0, 3), 'drag-into-slots', (query) => {
+        if (query && !updateBody && response){
+            var updatedQuery = new URLSearchParams(query)
+
+            var slots = updatedQuery.getAll('slot').map(slot => JSON.parse(slot)),
+                pieces = updatedQuery.getAll('piece').map(piece => JSON.parse(piece))
+
+            if (response[`{${name}}.filledSlots`] && response[`{${name}}.filledSlots`].length){
+                response[`{${name}}.filledSlots`].forEach(filledSlot => {
+                    // Find the piece.
+                    var pieceToSet = pieces.find(piece => filledSlot.piece === piece.name)
+
+                    // Set it on the particular slot.
+                    slots.find(slot => filledSlot.slot === slot.name).piece = pieceToSet
+                })
+
+                updatedQuery.delete('slot')
+
+                var updatedQueryString = updatedQuery.toString()
+                slots.forEach(slot => {
+                    updatedQueryString += `&slot=${encodeURIComponent(JSON.stringify(slot))}`
+                })
+
+                updatedQuery = new URLSearchParams(updatedQueryString)
+            }
+
+            return updatedQuery.toString()
+        }
+
+        return query
+    })
+}
+
+
+const InteractiveVideo = function(body, formatting, {response, updateBody, appID, flowID, stepID}){
+    return BasicDesignableContentType(...[...arguments].slice(0, 3), 'interactive-video')
+}
+
+
+const Hotspots = function(body, formatting, {response, updateBody, appID, flowID, stepID}){
+    return BasicDesignableContentType(...[...arguments].slice(0, 3), 'hotspots')
+}
+
+
+const DesignSlatePopup = function({ open, setOpen, onSave, template, appID, flowID, stepID }){
+    const iframeRef = useRef()
+    const cancelButtonRef = useRef(null)
+    const [url, setUrl] = useState(open)
+
+    const [openLibrary, setOpenLibrary] = useState(false)
+
+    const onDesignSlateMessageRef = useRef(function(setUrl, event){
+        if (event?.data?.data?.hasOwnProperty('kind') && event.data?.data?.kind === 'urlQueryChange'){
+            setUrl(event.data.data.value)
+        }
+    }.bind(null, setUrl))
+
+    useEffect(() => {
+        if (open){
+            window.addEventListener('message', onDesignSlateMessageRef.current)
+        } else {
+            window.removeEventListener('message', onDesignSlateMessageRef.current)
+        }
+
+        return () => {
+            window.removeEventListener('message', onDesignSlateMessageRef.current)
+        }
+    }, [open])
+
+    return <div>
+        <Transition.Root show={!!open} as={Fragment}>
+          <Dialog as="div" className="relative z-10" initialFocus={cancelButtonRef} onClose={setOpen}>
+            <Transition.Child
+              as={Fragment}
+              enter="ease-out duration-300"
+              enterFrom="opacity-0"
+              enterTo="opacity-100"
+              leave="ease-in duration-200"
+              leaveFrom="opacity-100"
+              leaveTo="opacity-0"
+            >
+              <div className="fixed inset-0 bg-gray-500 bg-opacity-75 transition-opacity" />
+            </Transition.Child>
+
+            <div className="fixed inset-0 z-10 overflow-y-auto">
+              <div className="flex min-h-full items-end justify-center p-4 text-center sm:items-center sm:p-0">
+                <Transition.Child
+                  as={Fragment}
+                  enter="ease-out duration-300"
+                  enterFrom="opacity-0 translate-y-4 sm:translate-y-0 sm:scale-95"
+                  enterTo="opacity-100 translate-y-0 sm:scale-100"
+                  leave="ease-in duration-200"
+                  leaveFrom="opacity-100 translate-y-0 sm:scale-100"
+                  leaveTo="opacity-0 translate-y-4 sm:translate-y-0 sm:scale-95"
+                >
+                  <Dialog.Panel className="relative transform overflow-hidden rounded-lg bg-white text-left shadow-xl transition-all sm:my-8 sm:w-full sm:max-w-5xl">
+                    <div className="bg-white">
+                      <div>
+                        {open ? <iframe ref={iframeRef} src={open} className='w-full' style={{ height: '30rem' }} /> : null}
+                      </div>
+                    </div>
+                    <div className="bg-gray-50 px-4 py-3 sm:flex sm:px-6">
+                        <div className="flex-auto">
+                            <button
+                              type="button"
+                              className="mt-3 inline-flex w-full justify-center rounded-md border border-gray-300 bg-white px-4 py-2 text-base font-medium text-gray-700 shadow-sm hover:bg-gray-50 focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:ring-offset-2 sm:mt-0 sm:w-auto sm:text-sm"
+                              onClick={() => setOpenLibrary(true)}
+                            >
+                              Open image library
+                            </button>
+                        </div>
+                        <div className="sm:flex sm:flex-row-reverse">
+                          <button
+                            type="button"
+                            className={classNames("inline-flex w-full justify-center rounded-md border border-transparent px-4 py-2 text-base font-medium text-white shadow-sm focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:ring-offset-2 sm:ml-3 sm:w-auto sm:text-sm bg-indigo-600 hover:bg-indigo-700")}
+                            onClick={() => {
+                                onSave(url.replace('/show?', '').replace(`template=${template}&`, '').replace(`&mode=design`, ''))
+                                setOpen(false)
+                            }}
+                          >
+                            Save
+                          </button>
+                          <button
+                            type="button"
+                            className="mt-3 inline-flex w-full justify-center rounded-md border border-gray-300 bg-white px-4 py-2 text-base font-medium text-gray-700 shadow-sm hover:bg-gray-50 focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:ring-offset-2 sm:mt-0 sm:ml-3 sm:w-auto sm:text-sm"
+                            onClick={() => setOpen(false)}
+                            ref={cancelButtonRef}
+                          >
+                            Cancel
+                          </button>
+                      </div>
+                    </div>
+                  </Dialog.Panel>
+                </Transition.Child>
+              </div>
+            </div>
+          </Dialog>
+        </Transition.Root>
+
+        <ImageLibrary open={openLibrary} setOpen={setOpenLibrary}
+            appID={appID} flowID={flowID} stepID={stepID} />
+    </div>
 }
 
 
@@ -552,7 +805,7 @@ const ContentTypes = {
         name: 'Button',
         editable: ButtonInput,
         render: (body, formatting, {checkResponse, name}) => <div style={formatting}><button
-              type="button" onClick={() => checkResponse(body?.properties?.formula, name, body?.properties?.isStepCheck)}
+              type="button" /*onClick={() => checkResponse(body?.properties?.formula, name, body?.properties?.isStepCheck)}*/
               className="inline-flex items-center px-3 py-2 border border-transparent text-sm leading-4 font-medium rounded-md text-indigo-700 bg-indigo-100 hover:bg-indigo-200 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-indigo-500"
             >
               {(body?.properties?.text) || 'Button'}
@@ -561,12 +814,12 @@ const ContentTypes = {
             {
                 id: 'text', title: 'Button text', kind: 'string'
             },
-            {
-                id: 'formula', title: 'Formula to run on click', kind: 'text'
-            },
-            {
-                id: 'isStepCheck', title: 'Formula success marks successful completion of step', kind: 'boolean'
-            }
+            // {
+            //     id: 'formula', title: 'Formula to run on click', kind: 'text'
+            // },
+            // {
+            //     id: 'isStepCheck', title: 'Formula success marks successful completion of step', kind: 'boolean'
+            // }
         ],
         responseProperties: ['clicked', 'clickFormulaSucceeded']
     },
@@ -574,7 +827,7 @@ const ContentTypes = {
     Image: {
         name: 'Image',
         editable: EditableImage,
-        render: (body, fomatting) => <img src={body} />
+        render: (body, fomatting) => <img src={body.url} />
     },
 
     ShortResponseBox: {
@@ -591,6 +844,18 @@ const ContentTypes = {
                 stepID={stepID}
             />
         </div>,
+    },
+
+    LongResponseBox: {
+        name: 'Long response box',
+        editable: (body, formatting, {updateBody, toggleSelectedContent, settings, setSettings}) => <Textarea formatting={formatting} />,
+        render: (body, formatting, {contentFormatting, stepID, response, setResponse, name}) => <Textarea setResponse={(value) => {
+                setResponse(`{${name}}`, value)
+            }}
+            response={response && response[`{${name}}`]}
+            formatting={formatting}
+            stepID={stepID}
+        />
     },
 
     MultiResponseBoxes: {
@@ -704,6 +969,33 @@ const ContentTypes = {
             { id: 'shuffle', kind: 'boolean', title: 'Shuffle order for students' }
         ],
         responseProperties: [['selected', { 0: ['id', 'content', 'index']} ]],
+        disableFormatting: true
+    },
+
+    DragIntoSlots: {
+        name: 'Drag into slots',
+        editable: DragIntoSlots,
+        designable: true,
+        render: DragIntoSlots,
+        responseProperties: [['filledSlots', ['slot', 'piece']]],
+        disableFormatting: true
+    },
+
+    InteractiveVideo: {
+        name: 'Interactive video',
+        editable: InteractiveVideo,
+        designable: true,
+        render: InteractiveVideo,
+        // responseProperties: [['filledSlots', ['slot', 'piece']]],
+        disableFormatting: true
+    },
+
+    Hotspots: {
+        name: 'Hotspots',
+        editable: Hotspots,
+        designable: true,
+        render: Hotspots,
+        // responseProperties: [['filledSlots', ['slot', 'piece']]],
         disableFormatting: true
     }
 }

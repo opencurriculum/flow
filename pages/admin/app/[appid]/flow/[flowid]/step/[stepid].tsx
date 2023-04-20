@@ -118,19 +118,25 @@ const Step: NextPageWithLayout = ({}) => {
                 if (flow.experiment){
                     // Get the experiment and initialize it.
                     getDoc(flow.experiment).then(docSnapshot => {
-                        const data = docSnapshot.data()
-                        experimentRef.current = { ...data, id: docSnapshot.id }
+                        if (docSnapshot.exists()){
+                            const data = docSnapshot.data()
+                            experimentRef.current = { ...data, id: docSnapshot.id }
 
-                        if (router.query.group)
-                            experimentRef.current.current = router.query.group
+                            if (router.query.group)
+                                experimentRef.current.current = router.query.group
 
-                        setExperiment(experimentRef.current)
+                            setExperiment(experimentRef.current)
 
-                        const url = new URL(window.location.href)
-                        searchParams.set('group', data.groups[0].name)
-                        url.search = new URLSearchParams(searchParams)
+                            const url = new URL(window.location.href)
+                            searchParams.set('group', data.groups[0].name)
+                            url.search = new URLSearchParams(searchParams)
 
-                        router.replace(url.toString())
+                            router.replace(url.toString())
+                        } else {
+                            var newFlow = { ...flow }
+                            delete newFlow.experiment
+                            setFlow(newFlow)
+                        }
                     })
 
                 } else if (router.query.group){
@@ -185,8 +191,9 @@ const Step: NextPageWithLayout = ({}) => {
                     newExperimentDoc = doc(db, "experiments", id),
                     flowRef = doc(db, "flows", router.query.flowid)
 
-                setDoc(newExperimentDoc, { ...update(experiment, { $unset: ['current', 'id'] }), flow: flowRef })
-                updateDoc(flowRef, { experiment: newExperimentDoc })
+                updateDoc(flowRef, { experiment: newExperimentDoc }).then(() => {
+                    setDoc(newExperimentDoc, { ...update(experiment, { $unset: ['current', 'id'] }), flow: flowRef })
+                })
 
                 experimentRef.current = { ...experiment, id }
                 setExperiment(experimentRef.current)
@@ -401,15 +408,12 @@ const Step: NextPageWithLayout = ({}) => {
         return null
 
 
-
     var experimentAppliedContentFormatting = applyExperimentToContentFormatting(contentFormatting, experiment, router.query.stepid),
         experimentAppliedLayout = applyExperimentToLayout(layout && layout.body, experiment, router.query.stepid),
         experimentAppliedLayoutContent = applyEventsToLayoutContent(
             applyExperimentToLayoutContent(layoutContent, experiment, router.query.stepid), events
         ),
         experimentAppliedResponseCheck = applyExperimentToResponseCheck(responseCheck, experiment, router.query.stepid)
-
-
 
     var updateLayoutContent = (id, value) => {
         // Determine which wrapper the edits should go in.
@@ -686,6 +690,7 @@ const Step: NextPageWithLayout = ({}) => {
         }
     }
 
+    /*
     var updateResponseCheck = (newResponseCheck) => {
         if (experimentRef.current && experimentRef.current.current !== 'All'){
             const groupIndex = experimentRef.current.groups.findIndex(group => group.name === experimentRef.current.current)
@@ -707,6 +712,7 @@ const Step: NextPageWithLayout = ({}) => {
             setResponseCheck(newResponseCheck)
         }
     }
+    */
 
 
     var searchParams = new URLSearchParams(window.location.search)
@@ -730,7 +736,7 @@ const Step: NextPageWithLayout = ({}) => {
             <meta property="og:title" content={step && step.name || 'Untitled step'} key="title" />
         </Head>
 
-        <ExperimentHeader experiment={experiment} />
+        <ExperimentHeader experiment={experiment} setExperiment={setExperiment} />
 
         <EventsHeader events={events} />
 
@@ -779,7 +785,7 @@ const Step: NextPageWithLayout = ({}) => {
                     selectedContentContent = id && experimentAppliedLayoutContent[id]
 
                 return  [
-                selectedContent || (experiment && experiment.groups) || events?.current ? null : <div><button key={0} onClick={() => {
+                selectedContent || (experiment && experiment.groups) || events?.current ? null : <div key={0}><button onClick={() => {
                     // setExperiment(initialExperiment(router))
 
                     const url = new URL(window.location.href)
@@ -792,22 +798,22 @@ const Step: NextPageWithLayout = ({}) => {
 
                 >Differentiate</button></div>,
 
-                selectedContent && events?.current !== selectedContent.name ? <div><button key={1} onClick={() => {
-                    const url = new URL(window.location.href)
-                    if (searchParams.get('event:click') === selectedContent.name){
-                        searchParams.delete('event:click')
-                    } else {
-                        searchParams.set('event:click', selectedContent.name)
-                    }
+                // selectedContent && events?.current !== selectedContent.name ? <div><button key={1} onClick={() => {
+                //     const url = new URL(window.location.href)
+                //     if (searchParams.get('event:click') === selectedContent.name){
+                //         searchParams.delete('event:click')
+                //     } else {
+                //         searchParams.set('event:click', selectedContent.name)
+                //     }
+                //
+                //     url.search = new URLSearchParams(searchParams)
+                //     router.replace(url.toString())
+                // }}
+                //     className="inline-flex items-center rounded border border-transparent bg-red-600 px-2.5 py-1.5 text-xs font-medium text-white shadow-sm hover:bg-indigo-700 focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:ring-offset-2"
+                //
+                // >Click</button></div> : null,
 
-                    url.search = new URLSearchParams(searchParams)
-                    router.replace(url.toString())
-                }}
-                    className="inline-flex items-center rounded border border-transparent bg-red-600 px-2.5 py-1.5 text-xs font-medium text-white shadow-sm hover:bg-indigo-700 focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:ring-offset-2"
-
-                >Click</button></div> : null,
-
-                contentSettings.Response?.changeFormat ? <ResponseTemplateMaker key={2} id={contentSettings.Response.changeFormat}
+                contentSettings.Response?.changeFormat ? <ResponseTemplateMaker key={1} id={contentSettings.Response.changeFormat}
                     body={experimentAppliedLayoutContent[contentSettings.Response.changeFormat].body}
                     updateBody={body => updateLayoutContent(contentSettings.Response.changeFormat, { body })}
 
@@ -823,6 +829,12 @@ const Step: NextPageWithLayout = ({}) => {
                 //     responseCheck={experimentAppliedResponseCheck}
                 // /> : null,
 
+                selectedContent && selectedContentContent ? <OnClickEditor key={2}
+                    onClick={selectedContentContent.properties?.onClick}
+                    setOnClick={value => updateLayoutContent(id, { properties: {
+                        ...(selectedContentContent.properties || {}), onClick: value
+                    }})}
+                /> : null,
 
                 selectedContent && selectedContentContent ? <div key={4}>
                     {contentType.properties ? <PropertyEditor selectedContent={selectedContent}
@@ -836,15 +848,27 @@ const Step: NextPageWithLayout = ({}) => {
                 </div> : null,
 
                 selectedContent && selectedContentContent ? <ShowConditionEditor key={5}
-                    showCondition={selectedContentContent.body?.properties?.showCondition}
-                    setShowCondition={value => updateLayoutContent(id, { body: { ...(selectedContentContent.body ? selectedContentContent.body : {}), properties: {
-                        ...(selectedContentContent.body ? selectedContentContent.body : {}).properties, showCondition: value
-                    } } })}
+                    showCondition={selectedContentContent.properties?.showCondition}
+                    setShowCondition={value => updateLayoutContent(id, { ...selectedContentContent, properties: {
+                        ...(selectedContentContent.properties || {}), showCondition: value
+                    }})}
                 /> : null
             ]}}
 
             lockedContent={experimentLocked}
+
             currentEvents={events?.current}
+            toggleEvent={(contentName) => {
+                const url = new URL(window.location.href)
+                if (searchParams.get('event:click') === contentName){
+                    searchParams.delete('event:click')
+                } else {
+                    searchParams.set('event:click', contentName)
+                }
+
+                url.search = new URLSearchParams(searchParams)
+                router.replace(url.toString())
+            }}
         />
     </div>
 }
@@ -942,6 +966,126 @@ const ShowConditionEditor = ({ showCondition, setShowCondition }) => {
               </p>
             </div>
         </div>
+    </div>
+}
+
+
+const OnClickEditor = ({ onClick, setOnClick }) => {
+    var [action, setAction] = useState()
+    var selectRef = useRef()
+    var bodyRef = useRef()
+    const inputRef = useRef()
+
+    var throttleRef = useRef()
+    var throttleCallbackRef = useRef()
+
+    useEffect(() => {
+        if (!onClick && selectRef.current.value !== 'do-nothing'){
+            selectRef.current.value = 'do-nothing'
+            setAction('do-nothing')
+
+            // if (bodyRef.current && bodyRef.current !== document.activeElement){
+            //     bodyRef.current.value = ''
+            // }
+        }
+
+        if (onClick && onClick?.action !== selectRef.current.value){
+            selectRef.current.value = onClick.action
+        }
+
+        if (onClick && action !== onClick?.action) {
+            setAction(onClick.action || 'do-nothing')
+
+            setTimeout(() => {
+                if (['run-formula', 'open-link'].indexOf(onClick?.action) !== -1 && (
+                    bodyRef.current) && (bodyRef.current !== document.activeElement) && (
+                    bodyRef.current.value !== onClick.body)){
+                    bodyRef.current.value = onClick.body || ''
+                }
+            })
+        }
+    }, [onClick])
+
+    // useEffect(() => {
+    //     return () => {
+    //         if (throttleCallbackRef.current){
+    //             clearTimeout(throttleCallbackRef.current)
+    //         }
+    //     }
+    // }, [])
+
+    var setChangeBody = value => {
+        setOnClick({ ...onClick, body: value })
+    }
+
+    var onBodyChange = e => {
+        throttleCallbackRef.current = throttleCall(throttleRef, setChangeBody, 2, e.target.value || null)
+    }
+
+    var onRunFormulaChange = e => {
+        throttleCall(throttleRef, setChangeBody, 2, {
+            ...body, [e.target.name]: e.target.value || null })
+    }
+
+    return <div className="mb-2">
+        <h3 className="text-md font-medium leading-10">When clicked:</h3>
+        <select
+          ref={selectRef}
+          id="when-clicked"
+          name="when-clicked"
+          className="block w-full rounded-md border-0 py-1.5 pl-3 pr-10 text-gray-900 ring-1 ring-inset ring-gray-300 focus:ring-2 focus:ring-indigo-600 sm:text-sm sm:leading-6"
+          defaultValue="change-ui"
+          onChange={e => {
+              if (e.target){
+                  setAction(e.target.value)
+                  setOnClick({ action: e.target.value })
+              }
+          }}
+        >
+          <option value="do-nothing">Do nothing</option>
+          <option value="change-ui">Change the UI</option>
+          <option value="run-formula">Run formula</option>
+          <option value="open-link">Open a link</option>
+          <option value="advance-to-next-step">Advance to next step</option>
+          <option value="go-to-previous-step">Go to previous step</option>
+          <option value="return-to-flow">Return to flow</option>
+        </select>
+
+        {action === 'run-formula' ? <div>
+            <div className="mt-2">
+              <label htmlFor="comment" className="block text-sm font-medium leading-6 text-gray-900">
+                Formula to run
+              </label>
+              <div className="mt-2">
+                <textarea
+                  rows={4}
+                  name="formula"
+                  id="comment"
+                  className="block w-full rounded-md border-0 text-gray-900 shadow-sm ring-1 ring-inset ring-gray-300 placeholder:text-gray-400 focus:ring-2 focus:ring-inset focus:ring-indigo-600 sm:py-1.5 sm:text-sm sm:leading-6"
+                  defaultValue={''}
+                  ref={bodyRef}
+                  onChange={onRunFormulaChange}
+                />
+              </div>
+            </div>
+            <div className="mt-2">
+                <input key='body' name='isStepCheck' type="checkbox" ref={inputRef} onChange={onRunFormulaChange} />
+                <label key='title' className="ml-1 sm:text-sm">If succeeds, advance to next step</label>
+            </div>
+        </div> : null}
+
+        {action === 'open-link' ? <div className="mt-2">
+            <label htmlFor="comment" className="block text-sm font-medium leading-6 text-gray-900">
+              Link to open
+            </label>
+            <input type='text'  className="py-0.5 px-1 border-slate-200 hover:border-slate-400"
+              ref={bodyRef}
+              onChange={onBodyChange}
+               // defaultValue={valueType === 'number' ? value && parseFloat(value) : value}
+               // onChange={applyFormatting}
+            />
+        </div> : null}
+
     </div>
 }
 

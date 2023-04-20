@@ -64,7 +64,10 @@ export function updateFlowProgressStateUponStepCompletion(stepID, progress, setP
     })
 }
 
-const {Text, /*Response, CheckAnswer,*/DynamicText, ShortResponseBox, Button, Image, ArrayType, Numberline, MultipleChoice} = ContentTypes
+const {Text, DynamicText, ShortResponseBox, LongResponseBox, Button,
+    Image, ArrayType, Numberline, MultipleChoice, DragIntoSlots,
+    InteractiveVideo, Hotspots
+} = ContentTypes
 export const StepContentTypes = [
     { kind: 'Text', ...Text },
     { kind: 'Dynamic Text', ...DynamicText },
@@ -73,6 +76,7 @@ export const StepContentTypes = [
     // { kind: 'Question', editable: Text.editable, render: Text.render },
 
     { kind: 'Short response box', ...ShortResponseBox },
+    { kind: 'Long response box', ...LongResponseBox },
     { kind: 'Multiple choice answer', ...MultipleChoice },
     { kind: 'Button', ...Button },
     // { kind: 'Check answer', ...CheckAnswer },
@@ -80,6 +84,9 @@ export const StepContentTypes = [
 
     { kind: 'Array', ...ArrayType },
     { kind: 'Numberline', ...Numberline },
+    { kind: 'Drag into slots', ...DragIntoSlots },
+    { kind: 'Interactive Video', ...InteractiveVideo },
+    { kind: 'Hotspots', ...Hotspots },
 ]
 
 
@@ -119,7 +126,7 @@ export function useResponse(stepID){
     const responseRef = useRef(response)
 
     var processIframeData = function(event){
-        if (event.origin === slateHost){
+        if (event.origin === slateHost && event.data?.data?.kind !== 'urlQueryChange'){
             var eventResponses = {}
 
             // Determine which content it is coming from.
@@ -279,9 +286,10 @@ export function run(value, response){
 let throttleTimeouts = {}
 
 export function throttleCall(ref, fn, seconds){
-    clearTimeout(throttleTimeouts[ref])
-    throttleTimeouts[ref] = setTimeout(() => {
+    clearTimeout(throttleTimeouts[ref.current])
+    throttleTimeouts[ref.current] = setTimeout(() => {
         fn.apply(null, Array.prototype.slice.call(arguments, 3))
-        clearTimeout(throttleTimeouts[ref])
+        clearTimeout(throttleTimeouts[ref.current])
     }, seconds * 1000);
+    return throttleTimeouts[ref.current]
 }

@@ -5,7 +5,7 @@ import {
     collection, getDocs, getDoc, doc, updateDoc, setDoc, arrayUnion,
     increment, Timestamp, documentId, query, where
 } from "firebase/firestore"
-import { logEvent } from "firebase/analytics"
+import { logEvent, setUserId } from "firebase/analytics"
 import { useRouter } from 'next/router'
 import {UserAppHeader} from '../../../../[appid].tsx'
 import { Dialog, Transition } from '@headlessui/react'
@@ -34,11 +34,11 @@ const Step = ({}) => {
     var analytics
 
     const [user, userID] = useContext(UserContext)
-    // try {
-    //     analytics = useAnalytics()
-    // } catch (e){
-    //     console.log(e)
-    // }
+    try {
+        analytics = useAnalytics()
+    } catch (e){
+        console.log(e)
+    }
 
     useEffect(() => {
         if (router.query.flowid && userID){
@@ -59,13 +59,13 @@ const Step = ({}) => {
                 setFlowSteps(flowSteps.sort((a, b) => a.position - b.position))
             })
 
-            // if (analytics && process.env.NODE_ENV === 'production'){
-            //     logEvent(app.analytics, 'screen_view', {
-            //       firebase_screen: 'step',
-            //     })
-            //
-            //     logEvent(app.analytics, 'step_shown', { stepID: router.query.stepid });
-            // }
+            if (analytics && process.env.NODE_ENV === 'production'){
+                logEvent(analytics, 'screen_view', {
+                  firebase_screen: 'step',
+                })
+
+                logEvent(analytics, 'step_shown', { stepID: router.query.stepid });
+            }
         }
     }, [router.query.flowid, userID])
 
@@ -135,10 +135,11 @@ const Step = ({}) => {
 
         <UserAppHeader db={db} hideBack={flow && flow.assignStepsIndividually ? true : (progress && !progress.completed)} />
 
-        {step ? <div>
+        {step && flow ? <div>
             <StepItem
                 userID={userID} step={step} stepID={router.query.stepid}
                 progress={progress} flowSteps={flowSteps} experiment={experiment}
+                loadPriorResponses={!flow?.dontLoadPriorResponses}
                 onResponseAssess={(success) => {
                     if (success){
                         updateFlowProgressStateUponStepCompletion(router.query.stepid, progress, setProgress, flowSteps.length)

@@ -101,10 +101,20 @@ export function getTabs(page){
         baseURL = `/admin/app/${appid}/`
 
     return [
-      [{ name: 'Flows', href: baseURL, current: !page }],
-      [{ name: 'Settings', href: {
-          pathname: subpagePathname, query: { ...urlProps, subpage: 'settings' }
-      }, current: page === 'settings' }]
+      [
+          { name: 'Flows', href: baseURL, current: !page },
+          { name: 'Pages', href: {
+              pathname: subpagePathname, query: { ...urlProps, subpage: 'pages' }
+          }, current: page === 'pages' },
+          { name: 'Files', href: {
+              pathname: subpagePathname, query: { ...urlProps, subpage: 'files' }
+          }, current: page === 'files' }
+      ],
+      [
+          { name: 'Settings', href: {
+              pathname: subpagePathname, query: { ...urlProps, subpage: 'settings' }
+          }, current: page === 'settings' }
+      ]
     ]
 }
 

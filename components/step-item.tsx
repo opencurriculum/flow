@@ -19,10 +19,65 @@ import { applyEventsToLayoutContent, useResponse, run, classNames } from '../uti
 import { v4 as uuidv4 } from 'uuid'
 
 
-export const StepItem = ({ userID, step, stepID, progress, experiment, flowSteps, onResponseAssess, contentTypes, contentSettings, setContentSettings }) => {
+export const StepItem = ({ userID, step, stepID, progress, experiment, flowSteps,
+    onResponseAssess, contentTypes, contentSettings, setContentSettings,
+    loadPriorResponses
+}) => {
     const router = useRouter(),
         db = useFirestore(),
         [response, setResponse] = useResponse(stepID)
+
+    var flowProgressRef = doc(db, "users", userID, 'progress', router.query.flowid)
+
+    // Maintain the state of the last persisted attempt.
+    var stepProgress = progress && progress.steps && progress.steps[stepID]
+    const [attempts, setAttempts] = useState(stepProgress?.attempts)
+
+    useEffect(() => {
+        if (response.hasOwnProperty(stepID)){
+            // Only persist the changed props.
+            var responseProps = Object.keys(response[stepID]),
+                responsePropsToPersist = []
+
+            if (attempts){
+                ([...attempts]).reverse().forEach(attempt => {
+                    var prop;
+                    for (prop in attempt.response){
+                        if (responseProps.indexOf(prop) !== -1){
+                            if (JSON.stringify(attempt.response[prop]) === JSON.stringify(response[stepID][prop])){
+                                responseProps.splice(responseProps.indexOf(prop), 1)
+                            } else {
+                                responsePropsToPersist.push(prop)
+                            }
+                        }
+                    }
+                })
+            } else {
+                responsePropsToPersist = responseProps;
+            }
+
+            var responseWithChangedPropsOnly = {}
+            responsePropsToPersist.forEach(prop => {
+                responseWithChangedPropsOnly[prop] = response[stepID][prop]
+            })
+
+            if (Object.keys(responseWithChangedPropsOnly).length){
+                var latestAttempt = {
+                    timestamp: Timestamp.now(), response: responseWithChangedPropsOnly
+                }
+
+                setAttempts(attempts => {
+                    var newAttempts = [...(attempts || [])]
+                    newAttempts.push(latestAttempt)
+                    return newAttempts
+                })
+
+                updateDoc(flowProgressRef, {
+                    [`steps.${stepID}.attempts`]: arrayUnion(latestAttempt)
+                })
+            }
+        }
+    }, [response])
 
     var layout = step ? applyExperimentToLayout(step.layout && JSON.parse(step.layout), experiment, stepID) : null,
         layoutContent = step ? applyEventsToLayoutContent(applyExperimentToLayoutContent(step.layoutContent && JSON.parse(step.layoutContent), experiment, stepID), {
@@ -32,13 +87,19 @@ export const StepItem = ({ userID, step, stepID, progress, experiment, flowSteps
 
     // Merge the response and progress.
     var lastUserResponse
-    var stepProgress = progress && progress.steps && progress.steps[stepID]
-    if (stepProgress && stepProgress.attempts){
-        var lastAttempt = stepProgress.attempts[stepProgress.attempts.length - 1]
-
-        if (lastAttempt && lastAttempt.response){
-            lastUserResponse = lastAttempt.response
-        }
+    if (attempts && loadPriorResponses){
+        // var lastAttempt = attempts[attempts.length - 1]
+        //
+        // if (lastAttempt && lastAttempt.response){
+        //     lastUserResponse = lastAttempt.response
+        // }
+        var prop
+        lastUserResponse = {}
+        attempts.forEach(attempt => {
+            for (prop in attempt.response){
+                lastUserResponse[prop] = attempt.response[prop]
+            }
+        })
     }
 
     // If, however, we have a response in our current state, that's the one.
@@ -47,7 +108,7 @@ export const StepItem = ({ userID, step, stepID, progress, experiment, flowSteps
     }
 
     return <div>
-        {step ? <div className={styles.GridLayoutWrapper + ' mx-auto'} style={{ width: '1200px' }}><GridLayout
+        {step && progress ? <div className={styles.GridLayoutWrapper + ' mx-auto'} style={{ width: '1200px' }}><GridLayout
               className="layout"
               layout={layout}
               cols={36}
@@ -56,6 +117,7 @@ export const StepItem = ({ userID, step, stepID, progress, experiment, flowSteps
               isResizable={false}
               isDraggable={false}
               isDroppable={false}
+              compactType={null}
             >
                 {layout.map(box => {
                     var contentType = contentTypes.find(ct => layoutContent && layoutContent[box.i] && (layoutContent[box.i].kind === ct.kind || layoutContent[box.i].name.startsWith(ct.kind))),
@@ -64,7 +126,6 @@ export const StepItem = ({ userID, step, stepID, progress, experiment, flowSteps
                     return <div key={box.i}>
                         <BoxBody content={content}
                             checkResponse={function(responseCheck, name, isStepCheck){
-                                var flowProgressRef = doc(db, "users", userID, 'progress', router.query.flowid)
                                 var answeredCorrectly = false
                                 if (lastUserResponse){
                                     let variableDeclations = [], tempVariableName
@@ -94,9 +155,6 @@ export const StepItem = ({ userID, step, stepID, progress, experiment, flowSteps
                                     if (answeredCorrectly){
                                         if (isStepCheck){
                                             updateDoc(flowProgressRef, {
-                                                [`steps.${stepID}.attempts`]: arrayUnion({
-                                                    timestamp: Timestamp.now(), response: lastUserResponse
-                                                }),
                                                 [`steps.${stepID}.completed`]: 100,
                                                 completed: increment(
                                                     (progress.steps && progress.steps[stepID] && progress.steps[stepID].completed) === 100 ? 0 : (100 / flowSteps.length)
@@ -112,12 +170,6 @@ export const StepItem = ({ userID, step, stepID, progress, experiment, flowSteps
                                     } else {
                                         if (isStepCheck){
                                             onResponseAssess(false)
-
-                                            updateDoc(flowProgressRef, {
-                                                [`steps.${stepID}.attempts`]: arrayUnion({
-                                                    timestamp: Timestamp.now(), response: lastUserResponse
-                                                }),
-                                            })
                                         }
                                     }
                                 }
@@ -132,6 +184,7 @@ export const StepItem = ({ userID, step, stepID, progress, experiment, flowSteps
                                     ...(response[stepID] || {}), [id]: value }
                                 })
                             }}
+
                             contentFormatting={applyExperimentToContentFormatting(step.contentFormatting, experiment, stepID)}
                             stepID={stepID}
 
@@ -140,6 +193,7 @@ export const StepItem = ({ userID, step, stepID, progress, experiment, flowSteps
                             setContentSettings={setContentSettings}
 
                             contentEvents={content ? (step.events && step.events[content.name]) : null}
+                            flowSteps={flowSteps}
                         />
                     </div>
                 })}
@@ -154,7 +208,7 @@ export const StepItem = ({ userID, step, stepID, progress, experiment, flowSteps
 }
 
 
-const BoxBody = ({ content, response, checkResponse, setResponse, contentFormatting, stepID, render, contentSettings, setContentSettings, contentEvents }) => {
+const BoxBody = ({ content, response, checkResponse, setResponse, contentFormatting, stepID, render, contentSettings, setContentSettings, contentEvents, flowSteps }) => {
     const router = useRouter()
 
     if (!content || !render)
@@ -162,23 +216,64 @@ const BoxBody = ({ content, response, checkResponse, setResponse, contentFormatt
 
     var formatting = {...(contentFormatting && contentFormatting[content.name] ? contentFormatting[content.name] : {})}
 
-    if (content.body?.properties?.showCondition){
-        if (!run(content.body.properties.showCondition, response)){
+    if (content.properties?.showCondition){
+        if (!run(content.properties.showCondition, response)){
             return null
         }
     }
 
-    return <div onClick={contentEvents && contentEvents.click ? () => {
-            var searchParams = new URLSearchParams(window.location.search)
+    var isClickable = (content.properties?.onClick || contentEvents && contentEvents.click),
+        isClicked = isClickable && ((content.name === router.query['event:click']) || (window.location.href === content.properties?.onClick?.body))
 
-            const url = new URL(window.location.href)
-            searchParams.set('event:click', content.name)
-            url.search = new URLSearchParams(searchParams)
+    return <div data-contentname={content.name}
+            className={classNames('h-full', isClickable ? 'cursor-pointer' : '',
+            isClicked ? 'border-2' : '')}
+            onClick={() => {
+                var action = content.properties?.onClick && content.properties?.onClick?.action
 
-            router.replace(url.toString())
+                if (action === 'open-link'){
+                    if (content.properties.onClick.body.startsWith(window.location.origin)){
+                        router.push(content.properties.onClick.body)
+                    } else {
+                        window.location.href = content.body.properties.onClick.body
+                    }
 
-        } : null} className={classNames('h-full', contentEvents && contentEvents.click ? 'cursor-pointer' : '',
-            contentEvents && contentEvents.click && content.name === router.query['event:click'] ? 'border-2' : '')} data-contentname={content.name}>
-        {render(content.body, formatting, {contentFormatting, stepID, checkResponse, response, setResponse, name: content.name })}
+                } else if (action === 'run-formula'){
+                    checkResponse(
+                        content.properties.onClick.body?.formula, content.name,
+                        content.properties.onClick.body?.isStepCheck
+                    )
+
+                } else if (action === 'advance-to-next-step'){
+                    var indexOfCurrentStep = flowSteps.findIndex(step => step.id === stepID)
+
+                    if (indexOfCurrentStep === flowSteps.length - 1){
+                        router.push(`/app/${router.query.appid}/flow/${router.query.flowid}`)
+                    } else {
+                        router.push(`/app/${router.query.appid}/flow/${router.query.flowid}/step/${flowSteps[indexOfCurrentStep + 1].id}${window.location.search}`)
+                    }
+
+                } else if (action === 'go-to-previous-step'){
+                    var indexOfCurrentStep = flowSteps.findIndex(step => step.id === stepID)
+
+                    if (indexOfCurrentStep !== 0){
+                        router.push(`/app/${router.query.appid}/flow/${router.query.flowid}/step/${flowSteps[indexOfCurrentStep - 1].id}${window.location.search}`)
+                    }
+
+                } else if (action === 'return-to-flow'){
+                    router.push(`/app/${router.query.appid}/flow/${router.query.flowid}${window.location.search}`)
+
+                } else if (action === 'change-ui' && contentEvents && contentEvents.click){
+                    var searchParams = new URLSearchParams(window.location.search)
+
+                    const url = new URL(window.location.href)
+                    searchParams.set('event:click', content.name)
+                    url.search = new URLSearchParams(searchParams)
+
+                    router.push(url.toString())
+                }
+
+            }}>
+            {render(content.body, formatting, {contentFormatting, stepID, checkResponse, response, setResponse, name: content.name })}
     </div>
 }

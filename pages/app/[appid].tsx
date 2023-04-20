@@ -11,9 +11,10 @@ import { Popover } from '@headlessui/react'
 import { ChevronLeftIcon } from '@heroicons/react/24/solid'
 import Head from 'next/head'
 import { getAppFlows, getFlowsProgress } from '../../utils/store'
-import {t} from '../../utils/common.tsx'
-import { useFirestore } from 'reactfire'
+import {t, classNames} from '../../utils/common.tsx'
+import { useFirestore, useAnalytics } from 'reactfire'
 import { UserContext } from '../_app'
+import login from '../../components/login.tsx'
 
 
 export const UserAppHeader = ({ hideBack }) => {
@@ -21,6 +22,9 @@ export const UserAppHeader = ({ hideBack }) => {
     var [appOwner, setAppOwner] = useState()
     const router = useRouter(),
         db = useFirestore()
+
+    const [user, userID] = useContext(UserContext)
+    // const analytics = useAnalytics()
 
     useEffect(() => {
         if (router.query.appid && router.query.appid !== 'none'){
@@ -38,6 +42,12 @@ export const UserAppHeader = ({ hideBack }) => {
         }
     }, [router.query.appid])
 
+    useEffect(() => {
+        if (app?.requireLogin && user?.isAnonymous && !router.query.pageid){
+            login()
+        }
+    }, [app, user, router.query])
+
     return <div>
       {router.query.appid !== 'none' ? <Disclosure as="nav" className="bg-white shadow-sm">
         {({ open }) => (
@@ -46,20 +56,36 @@ export const UserAppHeader = ({ hideBack }) => {
               <div className="flex justify-between h-16">
                 <div className="flex">
                   <div className="flex-shrink-0 flex items-center">
-                    <Link href={`/app/${router.query.appid}`}><a className="text-2xl font-bold">{app && app.name}</a></Link>
+                    <Link href={app?.homepage || `/app/${router.query.appid}`}><a className="text-2xl font-bold">
+                        {app?.logo ? <img src={app.logo} className="max-h-14"/> : app && app.name}
+                    </a></Link>
                   </div>
                 </div>
-                {/*
+
                 <div className="hidden sm:ml-6 sm:flex sm:items-center">
-                  <a
+                  {/*<a
                     href={appOwner && appOwner.website || null}
                     type="button"
                     className="bg-white p-1 rounded-full text-gray-400 hover:text-gray-500 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-indigo-500"
                   >
-                    {appOwner ? <span>By {appOwner.name}</span> : null}
-                  </a>
+                    {/*appOwner ? <span>By {appOwner.name}</span> : null
+                  </a>*/}
+                    <ul>
+                        {app?.headerLinks?.map((link, i, links) => {
+                            var isLast = i === links.length - 1
+
+                            return <li className={classNames('inline-block', isLast ? '' : 'mr-2')}>
+                                <Link
+                                    href={link.url}><a
+                                        type="button"
+                                        className={classNames("bg-white p-1 rounded-full text-gray-400 hover:text-gray-500 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-indigo-500", isLast ? '' : 'mr-2')}>{link.title}</a>
+                                 </Link>
+                                 {isLast ? '' : '·'}
+                            </li>
+                        })}
+                    </ul>
                 </div>
-                */}
+
               </div>
             </div>
           </>
@@ -99,7 +125,7 @@ const UserApp: NextPage = ({}: AppProps) => {
     const [user, userID] = useContext(UserContext)
 
     useEffect(() => {
-        if (router.query.appid){
+        if (router.query.appid && userID){
             getDoc(doc(db, "apps", router.query.appid)).then(docSnapshot => {
                 var appData = docSnapshot.data()
                 setApp(appData)
@@ -125,7 +151,7 @@ const UserApp: NextPage = ({}: AppProps) => {
                 }
             })
         }
-    }, [router.query.appid])
+    }, [router.query.appid, userID])
 
     return <div>
         <Head>

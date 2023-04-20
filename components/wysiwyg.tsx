@@ -1,4 +1,4 @@
-import { useState, useEffect, useRef } from 'react'
+import { useState, useEffect, useRef, Fragment } from 'react'
 import GridLayout from "react-grid-layout"
 import 'react-grid-layout/css/styles.css'
 import 'react-resizable/css/styles.css'
@@ -9,6 +9,8 @@ import {Editor, EditorState, ContentState, convertToRaw, convertFromRaw } from '
 import 'draft-js/dist/Draft.css';
 import {blockStyleFn, classNames} from '../utils/common'
 import { Switch } from '@headlessui/react'
+import { Popover, Menu, Transition } from '@headlessui/react'
+import { usePopper } from 'react-popper'
 
 
 const WYSIWYGPanelsDraggable: NextPageWithLayout = (props) => {
@@ -26,7 +28,7 @@ function getContentType(content, contentTypes){
 
 const WYSIWYGPanels = ({ context, layout, onRemove, onLayoutChange, onDrop, layoutContent,
     updateLayoutContent, formatting, updateFormatting, contentTypes, editableProps,
-    formattingPanelAdditions, lockedContent, currentEvents }) => {
+    formattingPanelAdditions, lockedContent, currentEvents, toggleEvent }) => {
     const [isContentBeingDragged, setIsContentBeingDragged] = useState(false)
     const [selectedContent, setSelectedContent] = useState()
     const currentEventsRef = useRef()
@@ -134,6 +136,7 @@ const WYSIWYGPanels = ({ context, layout, onRemove, onLayoutChange, onDrop, layo
                                 experimentLock={lockedContent ? lockedContent.layoutContent.indexOf(box.i) !== -1 : false}
 
                                 currentEvents={currentEvents}
+                                toggleEvent={toggleEvent}
                             />
                         </div>
                     })}
@@ -320,12 +323,41 @@ const DraggableContent = ({ name, onDragBegin, onDragEnd }) => {
 }
 
 
-const DroppableContentContainer = ({ id, onRemove, updateLayoutContent, layoutContent, selectedContent, toggleSelectedContent, selectContent, contentFormatting, experimentLock, contentType, editableProps, currentEvents}) => {
+const DroppableContentContainer = ({ id, onRemove, updateLayoutContent, layoutContent, selectedContent, toggleSelectedContent, selectContent, contentFormatting, experimentLock, contentType, editableProps, currentEvents, toggleEvent}) => {
     var layoutContentRef = useRef()
+
+    var menuItemsRef = useRef()
+    var wrapperRef = useRef()
+
+    const [openMenu, setOpenMenu] = useState()
+
+    let [referenceElement, setReferenceElement] = useState()
+    let [popperElement, setPopperElement] = useState()
+    let { styles, attributes } = usePopper(referenceElement, popperElement)
 
     useEffect(() => {
         layoutContentRef.current = layoutContent
     }, [layoutContent])
+
+    var suppressMenu = () => {
+        setOpenMenu([false, openMenu[1], openMenu[2]])
+    }
+
+    var onClickAnywhere = e => {
+        if (openMenu && !menuItemsRef.current.contains(e.target)){
+            suppressMenu()
+        }
+    }
+
+    useEffect(() => {
+        if (openMenu){
+            document.addEventListener("mousedown", onClickAnywhere);
+
+            return () => {
+                document.removeEventListener("mousedown", onClickAnywhere);
+            };
+        }
+    }, [openMenu]);
 
     const [{ canDrop, isOver }, dropRef] = useDrop(() => ({
         accept: 'content',
@@ -334,7 +366,7 @@ const DroppableContentContainer = ({ id, onRemove, updateLayoutContent, layoutCo
             for (var layoutID in layoutContentRef.current){
                 var nameMatch = layoutContentRef.current[layoutID].name.match(new RegExp(`${item.id} (?<number>\\d)`))
                 if (nameMatch){
-                    numberOfSuchContentAlreadyCreated = nameMatch.groups.number
+                    numberOfSuchContentAlreadyCreated = parseInt(nameMatch.groups.number, 10)
                 } else if (layoutContentRef.current[layoutID].name === item.id){
                     numberOfSuchContentAlreadyCreated = 1
                 }
@@ -355,10 +387,11 @@ const DroppableContentContainer = ({ id, onRemove, updateLayoutContent, layoutCo
         setSettings = value => editableProps.setContentSettings({ ...editableProps.contentSettings, [content.name]: { ...settings, ...value } })
 
     var isSelected = selectedContent && content && selectedContent.name === content.name,
-        isClicked = content && currentEvents === content.name
+        isClicked = content && currentEvents === content.name,
+        boxHasBlock = layoutContent.hasOwnProperty(id)
 
     var responsePropertiesEl = []
-    if (layoutContent.hasOwnProperty(id) && contentType?.responseProperties){
+    if (boxHasBlock && contentType?.responseProperties){
         contentType.responseProperties.forEach(rp => {
             var body = `.${rp}`
 
@@ -373,54 +406,130 @@ const DroppableContentContainer = ({ id, onRemove, updateLayoutContent, layoutCo
         })
     }
 
-    return <div
-        className={classNames("h-full relative border", isOver ? "bg-slate-200" : '',
-            content ? ('hover:border-blue-500' + (isSelected ? ' border-blue-300' : '')) : 'border-dashed border-2 border-gray-200 hover:border-gray-400',
-            isClicked ? 'border-red-300' : ''
-        )}
-        ref={dropRef}
-    >
-        {layoutContent.hasOwnProperty(id) ? <>
-            {experimentLock ? <div>DONT TOUCH ME I AM LOCKED BY A GROUP CHANGE</div> : null}
+    var popperStyles = styles.popper
+    if (openMenu){
+        popperStyles = { ...popperStyles, top: openMenu[2] + 'px', left: openMenu[1] + 'px', zIndex: 1 }
+    }
 
-            {editableProps?.contentSettings?.all?.showContentLabels ? <div title='Click to copy' onClick={e => {
-                navigator.clipboard.writeText(`{${content.name}}`);
-                e.stopPropagation()
-            }} className='absolute right-0 bg-yellow-600 text-white text-sm leading-4 p-1 rounded-r-md' style={{ left: '100%', width: (Math.log10(content.name.length) * 125) + 'px' }}>
-                <div>{`{${content.name}}`}</div>
-                {responsePropertiesEl}
-            </div> : null}
+    return <Popover as="div" className="h-full relative">
+            <div
+                className={classNames("h-full relative border", isOver ? "bg-slate-200" : '',
+                    content ? ('hover:border-blue-500' + (isSelected ? ' border-blue-300' : '')) : 'border-dashed border-2 border-gray-200 hover:border-gray-400',
+                    isClicked ? 'border-red-300' : ''
+                )}
+                onContextMenu={e => {
+                    var wrapperBoundingRect = wrapperRef.current.getBoundingClientRect()
+                    setOpenMenu([true, e.clientX - wrapperBoundingRect.x, e.clientY - wrapperBoundingRect.y])
+                    e.preventDefault()
+                }}
+                ref={el => {
+                    wrapperRef.current = el
+                    return dropRef(el)
+                }}
+            >
+                {boxHasBlock ? <>
+                    {experimentLock ? <div>DONT TOUCH ME I AM LOCKED BY A GROUP CHANGE</div> : null}
 
-            <EditableContent content={layoutContent[id]} id={id}
-                updateLayoutContent={updateLayoutContent}
-                toggleSelectedContent={toggleSelectedContent}
-                selectContent={selectContent}
-                isSelected={isSelected}
-                contentFormatting={contentFormatting}
+                    {editableProps?.contentSettings?.all?.showContentLabels ? <div title='Click to copy' onClick={e => {
+                        navigator.clipboard.writeText(`{${content.name}}`);
+                        e.stopPropagation()
+                    }} className='absolute right-0 bg-yellow-600 text-white text-sm leading-4 p-1 rounded-r-md' style={{ left: '100%', width: (Math.log10(content.name.length) * 125) + 'px' }}>
+                        <div>{`{${content.name}}`}</div>
+                        {responsePropertiesEl}
+                    </div> : null}
 
-                contentType={contentType}
-                settings={settings}
-                setSettings={setSettings}
-                editableProps={editableProps}
-            />
+                    <EditableContent content={layoutContent[id]} id={id}
+                        updateLayoutContent={updateLayoutContent}
+                        toggleSelectedContent={toggleSelectedContent}
+                        selectContent={selectContent}
+                        isSelected={isSelected}
+                        contentFormatting={contentFormatting}
 
-            {isClicked ? <div className='absolute bg-red-300 pointer-events-none' style={{ height: '100%', width: '100%', top: 0, opacity: 0.4 }} /> : null}
+                        contentType={contentType}
+                        settings={settings}
+                        setSettings={setSettings}
+                        editableProps={editableProps}
+                    />
 
-            <div className='absolute' style={{ bottom: '-2rem'}}>
-                <button onClick={() => updateLayoutContent(id)}
-                    className="inline-flex items-center rounded border border-transparent bg-sky-300 px-1.5 py-1 text-xs font-medium text-white shadow-sm hover:bg-sky-700 focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:ring-offset-2"
-                >Remove &quot;{content.name}&quot;</button>
+                    {isClicked ? <div className='absolute bg-red-300 pointer-events-none' style={{ height: '100%', width: '100%', top: 0, opacity: 0.4 }} /> : null}
+
+                    {/*<div className='absolute' style={{ bottom: '-2rem'}}>
+                        <button onClick={() => updateLayoutContent(id)}
+                            className="inline-flex items-center rounded border border-transparent bg-sky-300 px-1.5 py-1 text-xs font-medium text-white shadow-sm hover:bg-sky-700 focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:ring-offset-2"
+                        >Remove &quot;{content.name}&quot;</button>
+                    </div>*/}
+
+
+                    {contentType && contentType.option ? contentType.option(id, {settings, setSettings}) : null}
+                </> : null}
+                {/*<div className='absolute right-0' style={{ bottom: '-2rem'}}>
+                    <button onClick={() => onRemove(id)}
+                        className="inline-flex items-center rounded border border-transparent bg-gray-300 px-1.5 py-1 text-xs font-medium text-white shadow-sm hover:bg-gray-700 focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:ring-offset-2"
+                    >Remove</button>
+                </div>*/}
             </div>
 
+        <div ref={menuItemsRef}>
+            <Transition
+              as={Fragment}
+              show={openMenu && openMenu[0]}
+              enter="transition ease-out duration-100"
+              enterFrom="transform opacity-0 scale-95"
+              enterTo="transform opacity-100 scale-100"
+              leave="transition ease-in duration-75"
+              leaveFrom="transform opacity-100 scale-100"
+              leaveTo="transform opacity-0 scale-95"
+            >
+              <Popover.Panel static
+                //className="absolute right-0 z-50"
+                style={popperStyles}
+                {...attributes.popper}
+            >
+                <div className={"z-10 w-56 origin-top-right rounded-md bg-white shadow-lg ring-1 ring-black ring-opacity-5 focus:outline-none"} onClick={suppressMenu}>
+                    <div className="divide-y divide-gray-100">
+                        {boxHasBlock ? <div className="py-1">
+                          <a
+                            onClick={e => {
+                                toggleEvent(content.name)
+                            }}
+                            className={classNames(
+                              'hover:bg-gray-100 hover:text-gray-900 text-gray-700 block px-4 py-2 text-sm cursor-pointer'
+                            )}
+                          >
+                            Click
+                          </a>
+                        </div> : null}
+                    <div>
+                        {boxHasBlock ? <div className="py-1">
+                          <a
+                            onClick={() => updateLayoutContent(id)}
+                            className={classNames(
+                              'hover:bg-gray-100 hover:text-gray-900 text-gray-700 block px-4 py-2 text-sm cursor-pointer'
+                            )}
+                          >
+                            Remove &quot;{content.name}&quot;
+                          </a>
+                        </div> : null}
+                        <div className="py-1">
+                          <a
+                            onClick={() => onRemove(id)}
+                            className={classNames(
+                              'hover:bg-gray-100 hover:text-gray-900 text-gray-700 block px-4 py-2 text-sm cursor-pointer'
+                            )}
+                          >
+                            {boxHasBlock ? `Remove "${content.name}" and box` : 'Remove box'}
+                          </a>
+                        </div>
+                    </div>
+                </div>
+                </div>
 
-            {contentType && contentType.option ? contentType.option(id, {settings, setSettings}) : null}
-        </> : null}
-        <div className='absolute right-0' style={{ bottom: '-2rem'}}>
-            <button onClick={() => onRemove(id)}
-                className="inline-flex items-center rounded border border-transparent bg-gray-300 px-1.5 py-1 text-xs font-medium text-white shadow-sm hover:bg-gray-700 focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:ring-offset-2"
-            >Remove</button>
+              </Popover.Panel>
+            </Transition>
         </div>
-    </div>
+    </Popover>
+//        </>)}}
+
 }
 
 

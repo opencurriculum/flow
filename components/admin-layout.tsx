@@ -42,6 +42,7 @@ export const AdminAppHeader = () => {
     var [flow, setFlow] = useState()
     var [step, setStep] = useState()
     var [app, setApp] = useState()
+    var [page, setPage] = useState()
     var [editNameOpen, setEditNameOpen] = useState(false)
     const [user, userID] = useContext(UserContext)
 
@@ -65,6 +66,11 @@ export const AdminAppHeader = () => {
     if (router.query.stepid){
         breadcrumb.push({ name: step && step.name || 'Untitled step', href: `/admin/app/${router.query.appid}/flow/${router.query.flowid}/step/${router.query.stepid}`, current: router.route === '/admin/app/[appid]/flow/[flowid]/step/[stepid]', kind: 'step' })
         previewURL = `/app/${router.query.appid}/flow/${router.query.flowid}/step/${router.query.stepid}`
+    }
+
+    if (router.query.pageid){
+        breadcrumb.push({ name: page && page.name || 'Untitled page', href: `/admin/app/${router.query.appid}/page/${router.query.pageid}`, current: router.route === '/admin/app/[appid]/page/[pageid]', kind: 'page' })
+        previewURL = `/app/${router.query.appid}/page/${router.query.pageid}`
     }
 
     useEffect(() => {
@@ -97,6 +103,16 @@ export const AdminAppHeader = () => {
         }
     }, [router.query.stepid])
 
+    useEffect(() => {
+        if (router.query.pageid){
+            getDoc(doc(db, "apps", router.query.appid, 'pages', router.query.pageid)).then(docSnapshot => {
+                if (docSnapshot.exists()){
+                    setPage(docSnapshot.data())
+                }
+            })
+        }
+    }, [router.query.pageid])
+
 
     var name, currentKind
     if (router.query.stepid){
@@ -105,6 +121,9 @@ export const AdminAppHeader = () => {
     } else if (router.query.flowid){
         name = flow && flow.name
         currentKind = 'flow'
+    } else if (router.query.pageid){
+        name = page && page.name
+        currentKind = 'page'
     }
 
     return <>
@@ -320,8 +339,13 @@ export const AdminAppHeader = () => {
             update={(name) => {
                 if (router.query.stepid){
                     updateDoc(doc(db, "flows", router.query.flowid, "steps", router.query.stepid), { name })
+                    setStep({ ...step, name })
                 } else if (router.query.flowid){
                     updateDoc(doc(db, "flows", router.query.flowid), { name })
+                    setFlow({ ...flow, name })
+                } else if (router.query.pageid){
+                    updateDoc(doc(db, "apps", router.query.appid, "pages", router.query.pageid), { name })
+                    setPage({ ...page, name })
                 }
             }}
         />

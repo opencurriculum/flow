@@ -15,12 +15,17 @@ service cloud.firestore {
       allow get
       allow create: if request.auth.uid != null
       allow list, update, delete: if request.auth.uid in resource.data.users
+
+      match /pages/{pageID} {
+        allow get
+        allow list, write: if request.auth.uid in get(/databases/$(database)/documents/apps/$(appID)).data.users
+      }
     }
 
     match /flows/{flowID}/{document=**} {
-      allow get
+      allow get, list
       allow create: if request.auth.uid != null
-      allow list, update, delete: if request.auth.uid in resource.data.users
+      allow update, delete: if request.auth.uid in resource.data.users
 
       match /steps/{stepID} {
         allow read
@@ -31,9 +36,8 @@ service cloud.firestore {
     match /experiments/{experimentID}/{document=**} {
       allow read
       allow update: if request.auth.uid != null
-
-      allow create, update, delete: if request.auth.uid in get(/databases/$(database)/documents/flows/$(resource.data.flow.id)).data.users
-
+      allow create: if request.auth.uid in get(request.resource.data.flow).data.users
+      allow delete: if request.auth.uid in get(resource.data.flow).data.users
     }
   }
 }

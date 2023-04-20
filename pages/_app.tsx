@@ -4,8 +4,8 @@ import {useEffect, useState, createContext} from 'react'
 import Cookies from 'js-cookie'
 import { v4 as uuidv4 } from 'uuid'
 import type { ReactElement, ReactNode } from 'react'
-import { FirebaseAppProvider, FirestoreProvider, AnalyticsProvider, StorageProvider, useFirebaseApp } from 'reactfire';
-import { getAnalytics, isSupported } from "firebase/analytics"
+import { FirebaseAppProvider, FirestoreProvider, AnalyticsProvider, StorageProvider, useFirebaseApp, useAnalytics } from 'reactfire';
+import { getAnalytics, isSupported, setUserId } from "firebase/analytics"
 import { getFirestore, connectFirestoreEmulator, enableIndexedDbPersistence } from "firebase/firestore"
 import { getStorage } from "firebase/storage";
 import {Login, useLogin} from '../components/login'
@@ -83,6 +83,19 @@ function DatabaseSupportedApp({ children }){
 
 function LoggedInApp({ children }){
     const [user, userID] = useLogin()
+
+    var analytics
+    try {
+        analytics = useAnalytics()
+    } catch (e){
+        console.log(e)
+    }
+
+    useEffect(() => {
+        if (analytics && userID){
+            setUserId(analytics, userID);
+        }
+    }, [userID])
 
     return <UserContext.Provider value={[user, userID]}>
         {children}
