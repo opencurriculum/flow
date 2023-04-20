@@ -367,7 +367,7 @@ const DraggableStep = ({ step, moveStep, setDuplicateStepToOpen, deleteStep }) =
 
 
 // Copied from https://headlessui.com/react/menu.
-function forwardedLink = (props, ref) => {
+var forwardedLink = (props, ref) => {
   let { href, children, ...rest } = props
   return (
     <Link href={href}>
