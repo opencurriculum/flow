@@ -53,11 +53,11 @@ function DatabaseSupportedApp({ children }){
     const storage = getStorage()
     const functions = getFunctions(app);
 
-    var analyticsInstance
-
-    if (typeof window !== 'undefined'){
-        analyticsInstance = getAnalytics(app)
-    }
+    const [analyticsInstance, setAnalyticsInstance] = useState()
+    isSupported().then(yes => yes ? setAnalyticsInstance(getAnalytics(app)) : null)
+    // if (typeof window !== 'undefined'){
+    //     analyticsInstance = getAnalytics(app)
+    // }
 
     if (process.env.NODE_ENV === 'development' && !global.connectedToFirestore) {
         connectFirestoreEmulator(firestoreInstance, 'localhost', 8080)
@@ -74,7 +74,11 @@ function DatabaseSupportedApp({ children }){
     return <FirestoreProvider sdk={firestoreInstance}>
         <StorageProvider sdk={storage}>
             {analyticsInstance ? <AnalyticsProvider sdk={analyticsInstance}>
-                {loggedInChildren}
+                <LoggedInApp>
+                    <AnalyticsEnabledApp>
+                        {loggedInChildren}
+                    </AnalyticsEnabledApp>
+                </LoggedInApp>
             </AnalyticsProvider> : loggedInChildren}
         </StorageProvider>
     </FirestoreProvider>
@@ -84,22 +88,23 @@ function DatabaseSupportedApp({ children }){
 function LoggedInApp({ children }){
     const [user, userID] = useLogin()
 
-    var analytics
-    try {
-        analytics = useAnalytics()
-    } catch (e){
-        console.log(e)
-    }
+    return <UserContext.Provider value={[user, userID]}>
+        {children}
+    </UserContext.Provider>
+}
+
+
+function AnalyticsEnabledApp({ children }){
+    const [user, userID] = useLogin()
+    const analytics = useAnalytics()
 
     useEffect(() => {
         if (analytics && userID){
             setUserId(analytics, userID);
         }
-    }, [userID])
+    }, [userID, analytics])
 
-    return <UserContext.Provider value={[user, userID]}>
-        {children}
-    </UserContext.Provider>
+    return children
 }
 
 

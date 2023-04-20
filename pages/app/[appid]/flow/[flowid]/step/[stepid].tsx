@@ -5,14 +5,14 @@ import {
     collection, getDocs, getDoc, doc, updateDoc, setDoc, arrayUnion,
     increment, Timestamp, documentId, query, where
 } from "firebase/firestore"
-import { logEvent, setUserId } from "firebase/analytics"
+import { logEvent, setUserId, isSupported } from "firebase/analytics"
 import { useRouter } from 'next/router'
 import {UserAppHeader} from '../../../../[appid].tsx'
 import { Dialog, Transition } from '@headlessui/react'
 import { CheckIcon, XMarkIcon, ExclamationTriangleIcon } from '@heroicons/react/24/outline'
 import update from 'immutability-helper'
 import Head from 'next/head'
-import { useFirestore, useAnalytics } from 'reactfire'
+import { useFirestore, useAnalytics, AnalyticsSdkContext } from 'reactfire'
 import { StepItem } from '../../../../../../components/step-item.tsx'
 import { getOrInitializeFlowExperiment } from '../../../../../../utils/experimentation.tsx'
 import { updateFlowProgressStateUponStepCompletion, StepContentTypes, LoadingSpinner } from '../../../../../../utils/common'
@@ -31,14 +31,9 @@ const Step = ({}) => {
 
     const router = useRouter(),
         db = useFirestore()
-    var analytics
 
     const [user, userID] = useContext(UserContext)
-    try {
-        analytics = useAnalytics()
-    } catch (e){
-        console.log(e)
-    }
+    var analytics = useContext(AnalyticsSdkContext)
 
     useEffect(() => {
         if (router.query.flowid && userID){

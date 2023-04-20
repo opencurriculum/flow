@@ -74,8 +74,6 @@ const Files: NextPageWithLayout = ({}: AppProps) => {
         }
     }, [currentFolder, router.query.appid])
 
-    console.log(files)
-
     return <div>
         <nav className="flex" aria-label="Breadcrumb">
           <ol role="list" className="flex items-center space-x-4">
