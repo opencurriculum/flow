@@ -112,7 +112,7 @@ const Settings: NextPageWithLayout = ({}: AppProps) => {
           </div>
           <div className="ml-3 text-sm">
             <label htmlFor="comments" className="font-medium text-gray-700">
-              Don't load prior responses/work
+              Don&lsquo;t load prior responses/work
             </label>
             <p id="comments-description" className="text-gray-500">
               Keeping this unchecked would mean that if the student opens a step they have done work on in the past, their past responses and work will be filled in and shown. Check this box if you are using dynamic answers based on other blocks.
