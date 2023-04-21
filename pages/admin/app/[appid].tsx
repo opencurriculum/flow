@@ -96,24 +96,15 @@ const UserApp: NextPageWithLayout =  ({}: AppProps) => {
 export function getTabs(page){
     const appid = router?.state.query.appid
 
-    var urlProps = { appid },
-        subpagePathname = '/admin/app/[appid]/[subpage]',
-        baseURL = `/admin/app/${appid}/`
 
     return [
       [
-          { name: 'Flows', href: baseURL, current: !page },
-          { name: 'Pages', href: {
-              pathname: subpagePathname, query: { ...urlProps, subpage: 'pages' }
-          }, current: page === 'pages' },
-          { name: 'Files', href: {
-              pathname: subpagePathname, query: { ...urlProps, subpage: 'files' }
-          }, current: page === 'files' }
+          { name: 'Flows', href: `/admin/app/${appid}`, current: !page },
+          { name: 'Pages', href: `/admin/app/${appid}/pages`, current: page === 'pages' },
+          { name: 'Files', href: `/admin/app/${appid}/files`, current: page === 'files' }
       ],
       [
-          { name: 'Settings', href: {
-              pathname: subpagePathname, query: { ...urlProps, subpage: 'settings' }
-          }, current: page === 'settings' }
+          { name: 'Settings', href: `/admin/app/${appid}/settings`, current: page === 'settings' }
       ]
     ]
 }

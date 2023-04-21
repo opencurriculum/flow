@@ -153,6 +153,12 @@ const UserApp: NextPage = ({}: AppProps) => {
         }
     }, [router.query.appid, userID])
 
+    useEffect(() => {
+        if (app?.homepage){
+            router.replace(app.homepage)
+        }
+    }, [app])
+
     return <div>
         <Head>
             <title>{app && app.name}</title>
@@ -161,7 +167,7 @@ const UserApp: NextPage = ({}: AppProps) => {
 
         <UserAppHeader db={db} />
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 my-4 w-3/12">
-            {flows && progress ? <ul role="list" className="space-y-10">
+            {app && !app.homepage && flows && progress ? <ul role="list" className="space-y-10">
                 {flows.map((flow, i) => <li key={i} className={"bg-white shadow overflow-hidden rounded-md text-center" + (progress[flow.id] === 100 ? ' opacity-30' : '')}>
                     <Link href={{
                         pathname: '/app/[appid]/flow/[flowid]' + window.location.search,
