@@ -96,7 +96,6 @@ const UserApp: NextPageWithLayout =  ({}: AppProps) => {
 export function getTabs(page){
     const appid = router?.state.query.appid
 
-
     return [
       [
           { name: 'Flows', href: `/admin/app/${appid}`, current: !page },

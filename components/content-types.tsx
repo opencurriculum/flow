@@ -740,7 +740,10 @@ const DesignSlatePopup = function({ open, setOpen, onSave, template, appID, flow
                             type="button"
                             className={classNames("inline-flex w-full justify-center rounded-md border border-transparent px-4 py-2 text-base font-medium text-white shadow-sm focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:ring-offset-2 sm:ml-3 sm:w-auto sm:text-sm bg-indigo-600 hover:bg-indigo-700")}
                             onClick={() => {
-                                onSave(url.replace('/show?', '').replace(`template=${template}&`, '').replace(`&mode=design`, ''))
+                                var query = new URLSearchParams(url.replace('/show?', ''))
+                                query.delete('template')
+                                query.delete('mode')
+                                onSave(query.toString())
                                 setOpen(false)
                             }}
                           >
@@ -769,6 +772,35 @@ const DesignSlatePopup = function({ open, setOpen, onSave, template, appID, flow
 }
 
 
+const Webpage = (body, formatting, {response, updateBody}) => <div className='h-full'>
+    {updateBody ? <IframeSelector /> : null}
+    <iframe style={{ width: '100%', height: '100%' }} src={body?.properties?.src} />
+</div>
+
+
+
+const Video = (body, formatting, {response, updateBody}) => {
+    var bodyEl = null
+    if (body?.properties?.src){
+        var isYoutube = body.properties.src.startsWith('https://www.youtube')
+
+        if (isYoutube){
+            bodyEl = <iframe style={{ width: '100%', height: '100%' }} src={body.properties.src} frameborder="0" allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture; web-share" allowfullscreen></iframe>
+
+        } else {
+            bodyEl = <video playsinline controls key={body.properties.src}>
+                <source src={body.properties.src} />
+            </video>
+        }
+    }
+
+    return <div className='h-full'>
+        {updateBody ? <IframeSelector /> : null}
+        {bodyEl}
+    </div>
+}
+
+
 const ContentTypes = {
     Text: {
         name: 'Text',
@@ -786,13 +818,13 @@ const ContentTypes = {
 
     DynamicText: {
         name: 'Dynamic Text',
-        editable: (body, formatting, {response}) => <div>
-            <div>{body?.properties?.formula && run(body?.properties?.formula, response)}</div>
-        </div>,
+        editable: (body, formatting, {response}) => <div
+            dangerouslySetInnerHTML={{ __html: body?.properties?.formula && run(body?.properties?.formula, response) }}
+        />,
         render: function(body, formatting, {response}){
-            return <div style={formatting}>
-                {body?.properties?.formula && run(body?.properties?.formula, response)}
-            </div>
+            return <div style={formatting}
+                dangerouslySetInnerHTML={{ __html: body?.properties?.formula && run(body?.properties?.formula, response) }}
+            />
         },
         properties: [
             {
@@ -986,7 +1018,7 @@ const ContentTypes = {
         editable: InteractiveVideo,
         designable: true,
         render: InteractiveVideo,
-        // responseProperties: [['filledSlots', ['slot', 'piece']]],
+        responseProperties: [['completedPrompts', ['label', 'response']]],
         disableFormatting: true
     },
 
@@ -995,7 +1027,30 @@ const ContentTypes = {
         editable: Hotspots,
         designable: true,
         render: Hotspots,
-        // responseProperties: [['filledSlots', ['slot', 'piece']]],
+        disableFormatting: true
+    },
+
+    Webpage: {
+        name: 'Webpage',
+        editable: Webpage,
+        render: Webpage,
+        properties: [
+            {
+                id: 'src', title: 'Webpage URL', kind: 'string'
+            }
+        ],
+        disableFormatting: true
+    },
+
+    Video: {
+        name: 'Video',
+        editable: Video,
+        render: Video,
+        properties: [
+            {
+                id: 'src', title: 'YouTube embed URL or direct file URL', kind: 'string'
+            }
+        ],
         disableFormatting: true
     }
 }

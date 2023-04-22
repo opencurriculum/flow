@@ -1,7 +1,9 @@
 import ContentTypes from '../components/content-types'
 import extend from "deep-extend"
-import {useState, useEffect, useRef} from 'react'
+import {useState, useEffect, useRef, useContext} from 'react'
 import * as formulajs from '@formulajs/formulajs'
+import { AnalyticsSdkContext } from 'reactfire'
+import { logEvent } from "firebase/analytics"
 
 
 export const blockStyleFn = (formatting, block) => {
@@ -66,12 +68,14 @@ export function updateFlowProgressStateUponStepCompletion(stepID, progress, setP
 
 const {Text, DynamicText, ShortResponseBox, LongResponseBox, Button,
     Image, ArrayType, Numberline, MultipleChoice, DragIntoSlots,
-    InteractiveVideo, Hotspots
+    InteractiveVideo, Hotspots, Webpage, Video
 } = ContentTypes
 export const StepContentTypes = [
     { kind: 'Text', ...Text },
     { kind: 'Dynamic Text', ...DynamicText },
     { kind: 'Image', ...Image },
+    { kind: 'Webpage', ...Webpage },
+    { kind: 'Video', ...Video },
     // { kind: 'Prompt', editable: Text.editable, render: Text.render },
     // { kind: 'Question', editable: Text.editable, render: Text.render },
 
@@ -124,6 +128,7 @@ const slateHost = process.env.NODE_ENV === 'development' ? 'http://localhost:500
 export function useResponse(stepID){
     const [response, setResponse] = useState({})
     const responseRef = useRef(response)
+    var analytics = useContext(AnalyticsSdkContext)
 
     var processIframeData = function(event){
         if (event.origin === slateHost && event.data?.data?.kind !== 'urlQueryChange'){
@@ -143,8 +148,15 @@ export function useResponse(stepID){
                 }
             }
 
-            event.data?.data.forEach(
+            event.data?.data?.forEach(
                 pieceOfData => eventResponses[`{${contentName}}.${pieceOfData.id}`] = pieceOfData.value)
+
+            if (event.data?.event){
+                var everythingExceptKind = { ...event.data?.event }
+                delete everythingExceptKind.kind
+
+                logEvent(analytics, event.data?.event.kind, everythingExceptKind)
+            }
 
             responseRef.current = { ...responseRef.current, [stepID]: {
                 ...(responseRef.current[stepID] || {}), ...eventResponses }
@@ -198,7 +210,7 @@ var nonExcelForumlae = {
     nonExcelForumlaeNames = Object.keys(nonExcelForumlae),
     allFormulaeNames = Object.keys(formulajs).concat(nonExcelForumlaeNames),
 
-    formulaJSRegex = new RegExp(`(${allFormulaeNames.join('|')})\\((?!.*(${allFormulaeNames.join('|')})\\().*?\\)`)
+    formulaJSRegex = new RegExp(`(${allFormulaeNames.join('|')})\\((?![\\s\\S]*(${allFormulaeNames.join('|')})\\()[\\s\\S]*?\\)`)
 
 
 function executeExcelFunction(fn){
@@ -259,9 +271,8 @@ export function run(value, response){
 
             // if (functionResult === undefined)
             //     return
-
             finalValue = finalValue.substring(0, excelFunctionMatch.index) + (
-                typeof(functionResult) === 'object' ? JSON.stringify(functionResult) : functionResult) + (
+                ['object', 'string'].indexOf(typeof(functionResult)) !== -1 ? JSON.stringify(functionResult) : functionResult) + (
                     finalValue.substring(excelFunctionMatch.index + excelFunctionMatch[0].length))
         }
     }
