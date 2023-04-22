@@ -785,7 +785,7 @@ const Video = (body, formatting, {response, updateBody}) => {
         var isYoutube = body.properties.src.startsWith('https://www.youtube')
 
         if (isYoutube){
-            bodyEl = <iframe style={{ width: '100%', height: '100%' }} src={body.properties.src} frameborder="0" allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture; web-share" allowfullscreen></iframe>
+            bodyEl = <iframe style={{ width: '100%', height: '100%' }} src={body.properties.src} frameBorder="0" allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture; web-share" allowFullScreen></iframe>
 
         } else {
             bodyEl = <video playsinline controls key={body.properties.src}>
