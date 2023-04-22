@@ -149,7 +149,7 @@ const Files: NextPageWithLayout = ({}: AppProps) => {
                      </button>
 
                  </div>
-                {['jpg', 'png', 'JPEG', 'JPG', 'bmp', 'gif'].indexOf(fileURL.pathname.split('/').slice(-1)[0].split('.')[1]) !== -1 ? <img src={file} alt="" className="pointer-events-none object-cover group-hover:opacity-75" /> : <div alt="" className="pointer-events-none object-cover group-hover:opacity-75" />}
+                {['jpg', 'png', 'jpeg', 'bmp', 'gif'].indexOf(fileURL.pathname.split('/').slice(-1)[0].split('.')[1].toLowerCase()) !== -1 ? <img src={file} alt="" className="pointer-events-none object-cover group-hover:opacity-75" /> : <div alt="" className="pointer-events-none object-cover group-hover:opacity-75" />}
                 <button type="button" className="absolute inset-0 focus:outline-none">
                   <span className="sr-only">View details for {file}</span>
                 </button>

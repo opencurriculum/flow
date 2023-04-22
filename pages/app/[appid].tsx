@@ -15,6 +15,7 @@ import {t, classNames} from '../../utils/common.tsx'
 import { useFirestore, useAnalytics } from 'reactfire'
 import { UserContext } from '../_app'
 import login from '../../components/login.tsx'
+import * as FullStory from '@fullstory/browser';
 
 
 export const UserAppHeader = ({ hideBack }) => {
@@ -45,6 +46,20 @@ export const UserAppHeader = ({ hideBack }) => {
     useEffect(() => {
         if (app?.requireLogin && user?.isAnonymous && !router.query.pageid){
             login()
+        }
+
+        if (app?.fullstoryOrgID){
+            FullStory.init({
+                orgId: app.fullstoryOrgID, recordCrossDomainIFrames: true,
+                devMode: process.env.NODE_ENV === 'development'
+            })
+
+            if (!user?.isAnonymous){
+                FullStory.identify(userID, {
+                    displayName: user.displayName,
+                    email: user.email
+                })
+            }
         }
     }, [app, user, router.query])
 

@@ -25,7 +25,8 @@ const Settings: NextPageWithLayout = ({}: AppProps) => {
         stepsAliasRef = useRef(),
         uploadInputRef = useRef(),
         requireLoginRef = useRef(),
-        homepageRef = useRef()
+        homepageRef = useRef(),
+        fullstoryOrgIDRef = useRef()
 
     const router = useRouter(),
         db = useFirestore()
@@ -41,6 +42,7 @@ const Settings: NextPageWithLayout = ({}: AppProps) => {
                 requireLoginRef.current.checked = appData.requireLogin || false
                 stepsAliasRef.current.value = appData.stepsAlias || ''
                 homepageRef.current.value = appData.homepage || ''
+                fullstoryOrgIDRef.current.value = appData.fullstoryOrgID || ''
             })
 
         }
@@ -265,6 +267,25 @@ const Settings: NextPageWithLayout = ({}: AppProps) => {
                       onBlur={(event) => {
                           if (event.target.value.length)
                             updateDoc(appDocRef, { homepage: event.target.value })
+                      }}
+                    />
+                  </div>
+              </div>
+
+              <div className="mt-4">
+                  <label htmlFor="email" className="block text-sm font-medium text-gray-700">
+                    Fullstory organization ID
+                  </label>
+                  <div className="mt-1">
+                    <input
+                      ref={fullstoryOrgIDRef}
+                      type="text"
+                      name="homepage"
+                      className="shadow-sm focus:ring-indigo-500 focus:border-indigo-500 block w-full sm:text-sm border-gray-300 rounded-md"
+                      placeholder="Leave blank if you don't have a Fullstory account"
+                      onBlur={(event) => {
+                          if (event.target.value.length)
+                            updateDoc(appDocRef, { fullstoryOrgID: event.target.value })
                       }}
                     />
                   </div>

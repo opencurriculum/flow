@@ -130,7 +130,7 @@ const ImageLibrary = function({ open, setOpen, insert, appID, flowID, stepID }){
     const uploadInputRef = useRef()
 
     useEffect(() => {
-        if (open){
+        if (open && !images.length){
             const listRef = ref(storage, `app/${appID}/flow`)
 
             listAll(listRef)
