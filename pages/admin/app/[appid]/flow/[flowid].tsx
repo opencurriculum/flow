@@ -1,6 +1,6 @@
 import type { NextPage } from 'next'
 import type { AppProps } from 'next/app'
-import {useState, useEffect, useRef, useContext, forwardRef} from 'react'
+import {useState, useEffect, useRef, useContext} from 'react'
 import { collection, getDocs, setDoc, getDoc, doc, updateDoc,
     getCollection, arrayUnion, writeBatch, deleteDoc, serverTimestamp } from "firebase/firestore"
 import { useRouter, router } from 'next/router'
@@ -15,7 +15,7 @@ import Head from 'next/head'
 import { EllipsisVerticalIcon } from '@heroicons/react/24/solid'
 import Layout, { TabbedPageLayout } from '../../../../../components/admin-layout'
 import type { NextPageWithLayout } from '../../../../_app'
-import { classNames } from '../../../../../utils/common.tsx'
+import { classNames, MyLink } from '../../../../../utils/common.tsx'
 import { useFirestore } from 'reactfire'
 import { UserContext } from '../../../../_app'
 import Cookies from 'js-cookie'
@@ -50,7 +50,11 @@ const Flow: NextPageWithLayout = ({}: AppProps) => {
                             docsSnapshot.forEach(doc => flowSteps.push(doc.data()))
 
                             const batch = writeBatch(db)
-                            setDoc(doc(db, "flows", newFlowID), { name: `Copy of ${docSnapshot.data().name}` })
+                            setDoc(doc(db, "flows", newFlowID), {
+                                name: `Copy of ${docSnapshot.data().name}`,
+                                timestamp: serverTimestamp(),
+                                users: docSnapshot.data().users
+                            })
                             updateDoc(doc(db, "apps", router.query.appid), { flows: arrayUnion(newFlowID) })
 
                             flowSteps.forEach(step => {
@@ -330,7 +334,6 @@ const DraggableStep = ({ step, moveStep, setDuplicateStepToOpen, deleteStep }) =
                   ].map((item) => (
                     <Menu.Item key={item.name}>
                       {({ active }) => {
-                          // console.log(item.name, active)
                           var props = {className: classNames('cursor-pointer',
                             active ? 'bg-gray-100 text-gray-900' : 'text-gray-700',
                             'block px-4 py-2 text-sm'
@@ -361,20 +364,6 @@ const DraggableStep = ({ step, moveStep, setDuplicateStepToOpen, deleteStep }) =
         </div>
     </li>
 }
-
-
-// Copied from https://headlessui.com/react/menu.
-var forwardedLink = (props, ref) => {
-  let { href, children, ...rest } = props
-  return (
-    <Link href={href}>
-      <a ref={ref} {...rest}>
-        {children}
-      </a>
-    </Link>
-  )
-}
-const MyLink = forwardRef(forwardedLink)
 
 
 const DuplicateStepTo = ({ db, stepID }) => {

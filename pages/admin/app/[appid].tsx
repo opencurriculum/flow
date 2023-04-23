@@ -16,7 +16,7 @@ import type { NextPageWithLayout } from '../_app'
 import { Menu, Transition, Dialog } from '@headlessui/react'
 import { EllipsisVerticalIcon } from '@heroicons/react/24/solid'
 import { Fragment } from 'react'
-import { classNames } from '../../../utils/common.tsx'
+import { classNames, MyLink } from '../../../utils/common.tsx'
 import Head from 'next/head'
 import { UserContext } from '../../_app'
 
@@ -157,18 +157,18 @@ const Flow = ({ flow, deleteFlow }) => {
                       }, name: 'Delete...'}
                   ].map((item) => (
                     <Menu.Item key={item.name}>
-                      {({ active }) => (
-                        <a
-                          href={item.href}
-                          onClick={item.onClick}
-                          className={classNames(
+                      {({ active }) => {
+                          var props = {className: classNames('cursor-pointer',
                             active ? 'bg-gray-100 text-gray-900' : 'text-gray-700',
                             'block px-4 py-2 text-sm'
                           )}
-                        >
-                          {item.name}
-                        </a>
-                      )}
+                          if (item.href){
+                              return <MyLink {...props} href={item.href}>{item.name}</MyLink>
+                          } else {
+                              props.onClick = item.onClick
+                              return <a {...props}>{item.name}</a>
+                          }
+                      }}
                     </Menu.Item>
                   ))}
                 </div>

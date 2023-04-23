@@ -1,9 +1,10 @@
 import ContentTypes from '../components/content-types'
 import extend from "deep-extend"
-import {useState, useEffect, useRef, useContext} from 'react'
+import {useState, useEffect, useRef, useContext, forwardRef} from 'react'
 import * as formulajs from '@formulajs/formulajs'
 import { AnalyticsSdkContext } from 'reactfire'
 import { logEvent } from "firebase/analytics"
+import Link from 'next/link'
 
 
 export const blockStyleFn = (formatting, block) => {
@@ -305,3 +306,18 @@ export function throttleCall(ref, fn, seconds){
     }, seconds * 1000);
     return throttleTimeouts[ref.current]
 }
+
+
+// Copied from https://headlessui.com/react/menu.
+var forwardedLink = (props, ref) => {
+  let { href, children, ...rest } = props
+  return (
+    <Link href={href}>
+      <a ref={ref} {...rest}>
+        {children}
+      </a>
+    </Link>
+  )
+}
+
+export const MyLink = forwardRef(forwardedLink)
