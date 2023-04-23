@@ -113,7 +113,7 @@ const EditableImage = (body, formatting, {updateBody, toggleSelectedContent, app
                 Pick from your app&#39;s images
             </button>
         </div>}
-        <ImageLibrary open={openLibrary} setOpen={setOpenLibrary} appID={appID} insert={image => updateBody(image)} />
+        <ImageLibrary open={openLibrary} setOpen={setOpenLibrary} appID={appID} insert={url => updateBody({ ...body, url })} />
 
     </div>
 }
