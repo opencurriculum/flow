@@ -43,7 +43,7 @@ export var ContentInput = (body, formatting, { updateBody, toggleSelectedContent
 
     return <div className="bg-white h-full">
         <div className="p-1 h-full">
-        <Editor editorState={editorState}
+        <Editor editorState={editorState} style={formatting}
             placeholder={`Add some text`}
             blockStyleFn={blockStyleFn.bind(this, formatting)}
             onChange={(newEditorState) => {

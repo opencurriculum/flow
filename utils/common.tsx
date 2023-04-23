@@ -244,7 +244,7 @@ export function run(value, response){
 
     for (prop in response){
         if (finalValue.indexOf(prop) !== -1){
-            finalValue = finalValue.replaceAll(prop, typeof(response[prop]) === 'object' ? JSON.stringify(response[prop]) : response[prop])
+            finalValue = finalValue.replaceAll(prop, ['object', 'string'].indexOf(typeof(response[prop])) !== -1 ? JSON.stringify(response[prop]) : response[prop])
         }
     }
 
