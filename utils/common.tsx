@@ -68,7 +68,7 @@ export function updateFlowProgressStateUponStepCompletion(stepID, progress, setP
 
 const {Text, DynamicText, ShortResponseBox, LongResponseBox, Button,
     Image, ArrayType, Numberline, MultipleChoice, DragIntoSlots,
-    InteractiveVideo, Hotspots, Webpage, Video
+    InteractiveVideo, Hotspots, Webpage, Video, Dropdown
 } = ContentTypes
 export const StepContentTypes = [
     { kind: 'Text', ...Text },
@@ -85,6 +85,7 @@ export const StepContentTypes = [
     { kind: 'Button', ...Button },
     // { kind: 'Check answer', ...CheckAnswer },
     // { kind: 'Response', ...Response },
+    { kind: 'Dropdown', ...Dropdown },
 
     { kind: 'Array', ...ArrayType },
     { kind: 'Numberline', ...Numberline },

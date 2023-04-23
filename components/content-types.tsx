@@ -565,6 +565,40 @@ const Textarea = ({ setResponse, response, formatting, stepID }) => {
 }
 
 
+const Dropdown = ({ setResponse, response, formatting, stepID, body }) => {
+    const selectRef = useRef()
+    const responseRef = useRef()
+    const [properties, setProperties] = useState(body?.properties)
+
+    var optionsAsArray = []
+    if (properties?.options){
+        optionsAsArray = Object.keys(properties.options)?.map(
+            id => properties.options[id]).sort((a, b) => a.position - b.position)
+    }
+
+    useEffect(() => {
+        if (response !== responseRef.current && selectRef.current !== document.activeElement){
+            responseRef.current = response
+
+            selectRef.current.value = response || '';
+        }
+    }, [stepID, response])
+
+    return <select
+      ref={selectRef}
+      id="dropdown"
+      name="dropdown"
+      className="block w-full rounded-md border-0 py-1.5 pl-3 pr-10 text-gray-900 ring-1 ring-inset ring-gray-300 focus:ring-2 focus:ring-indigo-600 sm:text-sm sm:leading-6"
+      onChange={(event) => {
+          console.log(event.target.value)
+          setResponse && setResponse(event.target.value)
+      } }
+    >
+      {optionsAsArray.map((o) => <option value={o.value}>{o.value}</option>)}
+    </select>
+}
+
+
 const ButtonInput = (body, formatting, { updateBody, toggleSelectedContent, isSelected, contentSettings, setContentSettings }) => {
     const isSelectedRef = useRef()
 
@@ -1054,7 +1088,28 @@ const ContentTypes = {
             }
         ],
         disableFormatting: true
+    },
+
+    Dropdown: {
+        name: 'Dropdown',
+        editable: (body, formatting, {updateBody, toggleSelectedContent}) => <Dropdown formatting={formatting} body={body} />,
+        render: (body, formatting, {contentFormatting, stepID, response, setResponse, name}) => <Dropdown setResponse={(value) => {
+                setResponse(`{${name}}`, value)
+            }}
+            response={response && response[`{${name}}`]}
+            formatting={formatting}
+            body={body}
+            stepID={stepID}
+        />,
+        properties: [
+            {
+                id: 'options', title: 'Options', kind: 'list', items: {
+                    kind: 'string'
+                }
+            },
+        ],
     }
+
 }
 
 export default ContentTypes
