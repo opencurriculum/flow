@@ -54,7 +54,7 @@ const UseStepData: NextPageWithLayout = ({}: AppProps) => {
                   <div>
                     <p className="text-sm text-gray-500">
                       {Object.keys(attempt.response).map((responseItemKey, i) => <div key={i}>
-                          {responseItemKey} <span className="font-medium text-gray-900">{attempt.response[responseItemKey]}</span>
+                          {responseItemKey} <span className="font-medium text-gray-900">{typeof(attempt.response[responseItemKey]) === 'object' ? JSON.stringify(attempt.response[responseItemKey]) : attempt.response[responseItemKey]}</span>
                       </div>)}
                     </p>
                   </div>

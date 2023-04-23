@@ -26,11 +26,15 @@ function getContentType(content, contentTypes){
 }
 
 
+var minGridHeight = typeof window !== 'undefined' ? window.innerHeight - (3 * parseFloat(
+    getComputedStyle(document.documentElement).fontSize)) - 20 : 0
+
 const WYSIWYGPanels = ({ context, layout, onRemove, onLayoutChange, onDrop, layoutContent,
     updateLayoutContent, formatting, updateFormatting, contentTypes, editableProps,
     formattingPanelAdditions, lockedContent, currentEvents, toggleEvent }) => {
     const [isContentBeingDragged, setIsContentBeingDragged] = useState(false)
     const [selectedContent, setSelectedContent] = useState()
+    const [gridHeight, setGridHeight] = useState()
     const currentEventsRef = useRef()
 
     useEffect(() => {
@@ -98,7 +102,7 @@ const WYSIWYGPanels = ({ context, layout, onRemove, onLayoutChange, onDrop, layo
         </div>
 
         <div className='flex-auto relative overflow-auto bg-gray-100' >
-            {layout && layoutContent ? <div className={styles.GridLayoutWrapper + ' mx-auto shadow-md'} style={{
+            {layout && layoutContent ? <div className={styles.GridLayoutWrapper + ' mx-auto shadow-md mb-4'} style={{
                 width: '1200px',
                 //minHeight: 'calc(100vh - 3rem - 20px)',
                 backgroundColor: '#fcfcfc'
@@ -106,7 +110,28 @@ const WYSIWYGPanels = ({ context, layout, onRemove, onLayoutChange, onDrop, layo
                 <GridLayout
                   className="layout"
                   layout={layout}
-                  onLayoutChange={onLayoutChange}
+                  onLayoutChange={newLayout => {
+                      var lowestItem = [null, 0], itemEnd
+                      newLayout.forEach(item => {
+                          itemEnd = item.y + item.h
+                          if (itemEnd > lowestItem[1]){
+                              lowestItem = [item, itemEnd]
+                          }
+                      })
+
+                      var toSetHeight = lowestItem[1] * 24
+                      if (toSetHeight > minGridHeight && gridHeight !== toSetHeight){
+                          // This 24 is completely arbitrary. I don't know
+                          // the proper calculation, and I couldn't determine it.
+                          // So I am just going safe.
+                          setGridHeight(toSetHeight)
+
+                      } else if (!gridHeight || (gridHeight !== minGridHeight && toSetHeight < minGridHeight)){
+                          setGridHeight(minGridHeight)
+                      }
+
+                      onLayoutChange(newLayout)
+                  }}
                   cols={36}
                   rowHeight={12}
                   width={1200}
@@ -141,12 +166,14 @@ const WYSIWYGPanels = ({ context, layout, onRemove, onLayoutChange, onDrop, layo
                         </div>
                     })}
                 </GridLayout>
+
                 {<style jsx global>{`
                     .${styles.GridLayoutWrapper} .react-grid-item.react-grid-placeholder {
                         background-color: rgb(226 232 240);
                     }
                     .${styles.GridLayoutWrapper} .react-grid-layout {
-                        min-height: calc(100vh - 3rem - 20px)
+                        // min-height: calc(100vh - 3rem - 20px)
+                        min-height: ${gridHeight + 'px'};
                     }
                 `}</style>}
             </div> : null}

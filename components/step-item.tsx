@@ -15,7 +15,7 @@ import {
 } from '../utils/experimentation.tsx'
 import styles from '../styles/components/StepAdmin.module.sass'
 import { useFirestore, useAnalytics } from 'reactfire'
-import { applyEventsToLayoutContent, useResponse, run, classNames } from '../utils/common'
+import { applyEventsToLayoutContent, useResponse, run, classNames, throttleCall } from '../utils/common'
 import { v4 as uuidv4 } from 'uuid'
 
 
@@ -32,51 +32,62 @@ export const StepItem = ({ userID, step, stepID, progress, experiment, flowSteps
     // Maintain the state of the last persisted attempt.
     var stepProgress = progress && progress.steps && progress.steps[stepID]
     const [attempts, setAttempts] = useState(stepProgress?.attempts)
+    const throttleRef = useRef()
 
     useEffect(() => {
-        if (response.hasOwnProperty(stepID)){
-            // Only persist the changed props.
-            var responseProps = Object.keys(response[stepID]),
-                responsePropsToPersist = []
+        throttleCall(throttleRef, () => {
+            if (response.hasOwnProperty(stepID)){
+                // Only persist the changed props.
+                var responseProps = Object.keys(response[stepID]),
+                    responsePropsToPersist = []
 
-            if (attempts){
-                ([...attempts]).reverse().forEach(attempt => {
-                    var prop;
-                    for (prop in attempt.response){
-                        if (responseProps.indexOf(prop) !== -1){
-                            if (JSON.stringify(attempt.response[prop]) === JSON.stringify(response[stepID][prop])){
-                                responseProps.splice(responseProps.indexOf(prop), 1)
-                            } else {
-                                responsePropsToPersist.push(prop)
+                if (attempts?.length){
+                    var allPropsSeen = [];
+                    ([...attempts]).reverse().forEach(attempt => {
+                        var prop
+                        for (prop in attempt.response){
+                            allPropsSeen.push(prop)
+                            if (responseProps.indexOf(prop) !== -1){
+                                if (JSON.stringify(attempt.response[prop]) === JSON.stringify(response[stepID][prop])){
+                                    responseProps.splice(responseProps.indexOf(prop), 1)
+                                } else {
+                                    responsePropsToPersist.push(prop)
+                                }
                             }
                         }
-                    }
-                })
-            } else {
-                responsePropsToPersist = responseProps;
-            }
+                    })
 
-            var responseWithChangedPropsOnly = {}
-            responsePropsToPersist.forEach(prop => {
-                responseWithChangedPropsOnly[prop] = response[stepID][prop]
-            })
-
-            if (Object.keys(responseWithChangedPropsOnly).length){
-                var latestAttempt = {
-                    timestamp: Timestamp.now(), response: responseWithChangedPropsOnly
+                    responseProps.forEach(rp => {
+                        if (allPropsSeen.indexOf(rp) === -1){
+                            responsePropsToPersist.push(rp)
+                        }
+                    })
+                } else {
+                    responsePropsToPersist = responseProps;
                 }
 
-                setAttempts(attempts => {
-                    var newAttempts = [...(attempts || [])]
-                    newAttempts.push(latestAttempt)
-                    return newAttempts
+                var responseWithChangedPropsOnly = {}
+                responsePropsToPersist.forEach(prop => {
+                    responseWithChangedPropsOnly[prop] = response[stepID][prop]
                 })
 
-                updateDoc(flowProgressRef, {
-                    [`steps.${stepID}.attempts`]: arrayUnion(latestAttempt)
-                })
+                if (Object.keys(responseWithChangedPropsOnly).length){
+                    var latestAttempt = {
+                        timestamp: Timestamp.now(), response: responseWithChangedPropsOnly
+                    }
+
+                    setAttempts(attempts => {
+                        var newAttempts = [...(attempts || [])]
+                        newAttempts.push(latestAttempt)
+                        return newAttempts
+                    })
+
+                    updateDoc(flowProgressRef, {
+                        [`steps.${stepID}.attempts`]: arrayUnion(latestAttempt)
+                    })
+                }
             }
-        }
+        }, 3)
     }, [response])
 
     var layout = step ? applyExperimentToLayout(step.layout && JSON.parse(step.layout), experiment, stepID) : null,
