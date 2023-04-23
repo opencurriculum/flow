@@ -6,8 +6,7 @@ import { collection, getDocs, setDoc, getDoc, doc, updateDoc,
 import { useRouter, router } from 'next/router'
 import Link from 'next/link'
 import { v4 as uuidv4 } from 'uuid'
-import { useDrag, useDrop, DndProvider } from 'react-dnd'
-import { HTML5Backend } from 'react-dnd-html5-backend'
+import { useDrag, useDrop } from 'react-dnd'
 import extend from 'deep-extend'
 import update from 'immutability-helper'
 import { Fragment } from 'react'
@@ -143,8 +142,7 @@ const Flow: NextPageWithLayout = ({}: AppProps) => {
             <title>{flow && flow.name}</title>
             <meta property="og:title" content={flow && flow.name} key="title" />
         </Head>
-        {steps ? <DndProvider backend={HTML5Backend}>
-            <ul role="list" className="space-y-3">{steps.map((step, i) => <DraggableStep
+        {steps ? <ul role="list" className="space-y-3">{steps.map((step, i) => <DraggableStep
                 key={i}
                 step={step}
                 moveStep={(fromPosition, toPosition) => {
@@ -197,8 +195,7 @@ const Flow: NextPageWithLayout = ({}: AppProps) => {
                 className='relative rounded-md rounded-lg border-2 border-gray-300 p-4 text-center text-gray-400 hover:text-gray-700 hover:border-gray-400 focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:ring-offset-2 cursor-pointer'>
                 + Add a step
             </li>
-            </ul>
-        </DndProvider> : null}
+            </ul> : null}
         {duplicateStepToOpen ? <DuplicateStepTo db={db} stepID={duplicateStepToOpen} /> : null}
     </>
 }

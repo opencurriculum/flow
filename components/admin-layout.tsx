@@ -12,13 +12,17 @@ import { EllipsisVerticalIcon } from '@heroicons/react/24/solid'
 import { UserContext } from '../pages/_app'
 import login, {logout} from '../components/login.tsx'
 import { PencilIcon } from '@heroicons/react/20/solid'
+import { DndProvider } from 'react-dnd'
+import { HTML5Backend } from 'react-dnd-html5-backend'
 
 
 export default function Layout({ children }) {
   return (
     <>
       <AdminAppHeader />
-      {children}
+      <DndProvider backend={HTML5Backend}>
+          {children}
+      </DndProvider>
     </>
   )
 }
