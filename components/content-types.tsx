@@ -594,7 +594,7 @@ const Dropdown = ({ setResponse, response, formatting, stepID, body }) => {
           setResponse && setResponse(event.target.value)
       } }
     >
-      {optionsAsArray.map((o) => <option value={o.value}>{o.value}</option>)}
+      {optionsAsArray.map((o) => <option key={o.id} value={o.value}>{o.value}</option>)}
     </select>
 }
 
