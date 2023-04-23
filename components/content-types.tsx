@@ -529,14 +529,15 @@ export const ResponseTemplate = ({ body, formatting, updateBody, toggleSelectedR
 
 const ResponseSpace = ({ setResponse, response, formatting, stepID }) => {
     const inputRef = useRef()
+    const responseRef = useRef()
 
     useEffect(() => {
-        if (response){
-            inputRef.current.value = response;
-        } else {
-            inputRef.current.value = '';
+        if (response !== responseRef.current && inputRef.current !== document.activeElement){
+            responseRef.current = response
+
+            inputRef.current.value = response || '';
         }
-    }, [stepID])
+    }, [stepID, response])
 
     return <input type='text' ref={inputRef}
         className={"shadow-sm focus:ring-indigo-500 focus:border-indigo-500 border-gray-300 rounded-md" + (formatting.display === 'inline-block' ? '' : ' block w-full')}
@@ -547,14 +548,15 @@ const ResponseSpace = ({ setResponse, response, formatting, stepID }) => {
 
 const Textarea = ({ setResponse, response, formatting, stepID }) => {
     const textareaRef = useRef()
+    const responseRef = useRef()
 
     useEffect(() => {
-        if (response){
-            textareaRef.current.value = response;
-        } else {
-            textareaRef.current.value = '';
+        if (response !== responseRef.current && textareaRef.current !== document.activeElement){
+            responseRef.current = response
+
+            textareaRef.current.value = response || '';
         }
-    }, [stepID])
+    }, [stepID, response])
 
     return <textarea ref={textareaRef}
         className="h-full block w-full rounded-md border-0 text-gray-900 shadow-sm ring-1 ring-inset ring-gray-300 placeholder:text-gray-400 focus:ring-2 focus:ring-inset focus:ring-indigo-600 sm:py-1.5 sm:text-sm sm:leading-6"

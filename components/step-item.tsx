@@ -31,8 +31,14 @@ export const StepItem = ({ userID, step, stepID, progress, experiment, flowSteps
 
     // Maintain the state of the last persisted attempt.
     var stepProgress = progress && progress.steps && progress.steps[stepID]
-    const [attempts, setAttempts] = useState(stepProgress?.attempts)
+    const [attempts, setAttempts] = useState()
     const throttleRef = useRef()
+    const stepIDRef = useRef()
+
+    useEffect(() => {
+        setAttempts(stepProgress?.attempts)
+        stepIDRef.current = stepID
+    }, [stepID])
 
     useEffect(() => {
         throttleCall(throttleRef, () => {
@@ -76,11 +82,14 @@ export const StepItem = ({ userID, step, stepID, progress, experiment, flowSteps
                         timestamp: Timestamp.now(), response: responseWithChangedPropsOnly
                     }
 
-                    setAttempts(attempts => {
-                        var newAttempts = [...(attempts || [])]
-                        newAttempts.push(latestAttempt)
-                        return newAttempts
-                    })
+                    // If we haven't moved to a different stepID.
+                    if (stepIDRef.current === stepID){
+                        setAttempts(attempts => {
+                            var newAttempts = [...(attempts || [])]
+                            newAttempts.push(latestAttempt)
+                            return newAttempts
+                        })
+                    }
 
                     updateDoc(flowProgressRef, {
                         [`steps.${stepID}.attempts`]: arrayUnion(latestAttempt)
