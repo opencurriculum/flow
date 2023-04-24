@@ -975,6 +975,7 @@ const OnClickEditor = ({ onClick, setOnClick }) => {
     var selectRef = useRef()
     var bodyRef = useRef()
     const inputRef = useRef()
+    const onClickRef = useRef()
 
     var throttleRef = useRef()
     var throttleCallbackRef = useRef()
@@ -993,16 +994,25 @@ const OnClickEditor = ({ onClick, setOnClick }) => {
             selectRef.current.value = onClick.action
         }
 
-        if (onClick && action !== onClick?.action) {
-            setAction(onClick.action || 'do-nothing')
+        if (onClick) {
+            if (action !== onClick?.action){
+                setAction(onClick.action || 'do-nothing')
 
-            setTimeout(() => {
-                if (['run-formula', 'open-link'].indexOf(onClick?.action) !== -1 && (
-                    bodyRef.current) && (bodyRef.current !== document.activeElement) && (
-                    bodyRef.current.value !== onClick.body)){
+                setTimeout(() => {
+                    if (['run-formula', 'open-link'].indexOf(onClick?.action) !== -1 && (
+                        bodyRef.current) && (bodyRef.current !== document.activeElement) && (
+                        bodyRef.current.value !== onClick.body)){
+                        bodyRef.current.value = onClick.body || ''
+                    }
+                })
+
+            } else if (onClick !== onClickRef.current){
+                if (['run-formula', 'open-link'].indexOf(onClick?.action) !== -1){
                     bodyRef.current.value = onClick.body || ''
                 }
-            })
+
+                onClickRef.current = onClick
+            }
         }
     }, [onClick])
 
