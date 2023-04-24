@@ -667,7 +667,10 @@ const DragIntoSlots = function(body, formatting, {response, updateBody, appID, f
                     var pieceToSet = pieces.find(piece => filledSlot.piece === piece.name)
 
                     // Set it on the particular slot.
-                    slots.find(slot => filledSlot.slot === slot.name).piece = pieceToSet
+                    var correctSlot = slots.find(slot => filledSlot.slot === slot.name)
+                    if (correctSlot && pieceToSet){
+                        correctSlot.piece = pieceToSet
+                    }
                 })
 
                 updatedQuery.delete('slot')
