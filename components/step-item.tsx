@@ -127,7 +127,7 @@ export const StepItem = ({ userID, step, stepID, progress, experiment, flowSteps
         lastUserResponse = { ...(lastUserResponse || {}), ...response[stepID] }
     }
 
-    return <div>
+    return <div key={experiment && experiment.current}>
         {step && progress ? <div className={styles.GridLayoutWrapper + ' mx-auto'} style={{ width: '1200px' }}><GridLayout
               className="layout"
               layout={layout}
