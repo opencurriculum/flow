@@ -442,13 +442,19 @@ const Step: NextPageWithLayout = ({}) => {
 
         } else if (experimentRef.current && experimentRef.current.current !== 'All'){
             const groupIndex = experimentRef.current.groups.findIndex(group => group.name === experimentRef.current.current),
-                experimentStep = experimentRef.current.groups[groupIndex].steps[router.query.stepid]
+                experimentStep = experimentRef.current.groups[groupIndex].steps[router.query.stepid] || []
 
             edits = experimentStep
 
             setEdits = (change) => {
                 setExperiment(experiment => {
-                    var updater = (es, c) => update(es, { groups: { [groupIndex]: { steps: { [router.query.stepid]: c } } } })
+                    var updater = (es, c) => {
+                        if (!es.groups[groupIndex].steps[router.query.stepid]){
+                            es = update(es, { groups: { [groupIndex]: { steps: { $merge: { [router.query.stepid]: [] } } }}})
+                        }
+
+                        return update(es, { groups: { [groupIndex]: { steps: { [router.query.stepid]: c } } } })
+                    }
 
                     if (typeof(change) === 'function'){
                         return change(
@@ -473,7 +479,7 @@ const Step: NextPageWithLayout = ({}) => {
             const groupIndex = experimentRef.current.groups.findIndex(group => group.name === experimentRef.current.current),
                 experimentStep = experimentRef.current.groups[groupIndex].steps[router.query.stepid]
 
-            lastEdit = experimentStep.reverse().find(
+            lastEdit = experimentStep && [...experimentStep].reverse().find(
                 change => change.prop === 'layoutContent' && change.id === id && change.op !== 'remove')
         }
         if (!lastEdit && layoutContent.hasOwnProperty(id)){
@@ -668,25 +674,26 @@ const Step: NextPageWithLayout = ({}) => {
     }
 
     var updateLayout = (newLayout) => {
-        if (experimentRef.current && experimentRef.current.current !== 'All'){
-            const groupIndex = experimentRef.current.groups.findIndex(group => group.name === experimentRef.current.current)
+        if (JSON.stringify(newLayout) !== JSON.stringify(experimentAppliedLayout)){
+            if (experimentRef.current && experimentRef.current.current !== 'All'){
+                const groupIndex = experimentRef.current.groups.findIndex(group => group.name === experimentRef.current.current)
 
-            var recentChangeToPropertyIndex = experimentRef.current.groups[groupIndex].steps[router.query.stepid].findIndex(
-                    change => change.prop === 'layout')
+                var recentChangeToPropertyIndex = experimentRef.current.groups[groupIndex].steps[router.query.stepid]?.findIndex(
+                        change => change.prop === 'layout')
 
-            if (recentChangeToPropertyIndex !== -1){
-                setExperiment(experiment => {
-                    return update(experiment, { groups: { [groupIndex]: { steps: { [router.query.stepid]: { [recentChangeToPropertyIndex]: { value: { $set: JSON.stringify(newLayout) } } } } } } })
-                })
+                if (recentChangeToPropertyIndex !== -1){
+                    setExperiment(experiment => {
+                        return update(experiment, { groups: { [groupIndex]: { steps: { [router.query.stepid]: { [recentChangeToPropertyIndex]: { value: { $set: JSON.stringify(newLayout) } } } } } } })
+                    })
+                } else {
+                    setExperiment(experiment => {
+                        return update(experiment, { groups: { [groupIndex]: { steps: { [router.query.stepid]: {$push: [{ prop: 'layout', value: JSON.stringify(newLayout) } ] } } } } })
+                    })
+                }
+
             } else {
-                setExperiment(experiment => {
-                    return update(experiment, { groups: { [groupIndex]: { steps: { [router.query.stepid]: {$push: [{ prop: 'layout', value: JSON.stringify(newLayout) } ] } } } } })
-                })
-            }
-
-        } else {
-            if (JSON.stringify(newLayout) !== JSON.stringify(layout.body))
                 setLayout({ body: newLayout, changed: true })
+            }
         }
     }
 
@@ -740,7 +747,7 @@ const Step: NextPageWithLayout = ({}) => {
 
         <EventsHeader events={events} />
 
-        <WYSIWYGPanels context='step'
+        <WYSIWYGPanels context='step' key={experiment && experiment.current}
             layout={experimentAppliedLayout}
             onLayoutChange={(newLayout) => {
                 updateLayout(newLayout)
