@@ -243,7 +243,8 @@ const BoxBody = ({ content, response, checkResponse, setResponse, contentFormatt
     }
 
     var isClickable = (content.properties?.onClick || contentEvents && contentEvents.click),
-        isClicked = isClickable && ((content.name === router.query['event:click']) || (window.location.href === content.properties?.onClick?.body))
+        // Note: We do window.location.origin + window.location.pathname to avoid capturing query.
+        isClicked = isClickable && ((content.name === router.query['event:click']) || ((window.location.origin + window.location.pathname) === content.properties?.onClick?.body))
 
     return <div data-contentname={content.name}
             className={classNames('h-full', isClickable ? 'cursor-pointer' : '',
@@ -255,7 +256,7 @@ const BoxBody = ({ content, response, checkResponse, setResponse, contentFormatt
                     if (content.properties.onClick.body.startsWith(window.location.origin)){
                         router.push(content.properties.onClick.body)
                     } else {
-                        window.location.href = content.body.properties.onClick.body
+                        window.location.href = content.body.properties.onClick.body + window.location.search
                     }
 
                 } else if (action === 'run-formula'){
