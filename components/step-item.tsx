@@ -254,9 +254,9 @@ const BoxBody = ({ content, response, checkResponse, setResponse, contentFormatt
 
                 if (action === 'open-link'){
                     if (content.properties.onClick.body.startsWith(window.location.origin)){
-                        router.push(content.properties.onClick.body)
+                        router.push(content.properties.onClick.body + window.location.search)
                     } else {
-                        window.location.href = content.body.properties.onClick.body + window.location.search
+                        window.location.href = content.body.properties.onClick.body
                     }
 
                 } else if (action === 'run-formula'){
