@@ -529,12 +529,9 @@ export const ResponseTemplate = ({ body, formatting, updateBody, toggleSelectedR
 
 const ResponseSpace = ({ setResponse, response, formatting, stepID }) => {
     const inputRef = useRef()
-    const responseRef = useRef()
 
     useEffect(() => {
-        if (response !== responseRef.current && inputRef.current !== document.activeElement){
-            responseRef.current = response
-
+        if (response !== inputRef.current.value && inputRef.current !== document.activeElement){
             inputRef.current.value = response || '';
         }
     }, [stepID, response])
@@ -548,12 +545,9 @@ const ResponseSpace = ({ setResponse, response, formatting, stepID }) => {
 
 const Textarea = ({ setResponse, response, formatting, stepID }) => {
     const textareaRef = useRef()
-    const responseRef = useRef()
 
     useEffect(() => {
-        if (response !== responseRef.current && textareaRef.current !== document.activeElement){
-            responseRef.current = response
-
+        if (response !== textareaRef.current.value && textareaRef.current !== document.activeElement){
             textareaRef.current.value = response || '';
         }
     }, [stepID, response])
@@ -591,7 +585,8 @@ const Dropdown = ({ setResponse, response, formatting, stepID, body }) => {
       className="block w-full rounded-md border-0 py-1.5 pl-3 pr-10 text-gray-900 ring-1 ring-inset ring-gray-300 focus:ring-2 focus:ring-indigo-600 sm:text-sm sm:leading-6"
       onChange={(event) => {
           setResponse && setResponse(event.target.value)
-      } }
+      }}
+      defaultValue={optionsAsArray?.length ? optionsAsArray[0].value : ''}
     >
       {optionsAsArray.map((o) => <option key={o.id} value={o.value}>{o.value}</option>)}
     </select>
@@ -650,7 +645,7 @@ const BasicDesignableContentType = function(body, formatting, {response, updateB
             e.stopPropagation()
         }} /> : null}
         {updateBody ? <IframeSelector /> : null}
-        <iframe src={iframeSrc} style={{ width: '100%', height: '100%' }}/>
+        <iframe src={iframeSrc} allowFullScreen style={{ width: '100%', height: '100%' }}/>
         <DesignSlatePopup open={designOpen} setOpen={setDesignOpen} onSave={query => {
             updateBody({ ...body, query })
         }} template={templateName} appID={appID} flowID={flowID} stepID={stepID} />
