@@ -124,7 +124,7 @@ export const StepItem = ({ userID, step, stepID, progress, experiment, flowSteps
 
     // If, however, we have a response in our current state, that's the one.
     if (response[stepID]){
-        lastUserResponse = response[stepID]
+        lastUserResponse = { ...(lastUserResponse || {}), ...response[stepID] }
     }
 
     return <div>

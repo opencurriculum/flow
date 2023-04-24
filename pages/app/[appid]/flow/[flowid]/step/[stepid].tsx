@@ -75,7 +75,7 @@ const Step = ({}) => {
     }, [router.query.stepid, userID])
 
     useEffect(() => {
-        if (flow && user && !(flow.progress && flow.progress[userID])){
+        if (flow && user && !(flow.progress && flow.progress[userID] && flow.progress[userID].name)){
             updateDoc(doc(db, "flows", router.query.flowid), {
                 [`progress.${userID}.name`]: user.displayName || `Anonymous ${userID.substring(0, 5)}`
             })
@@ -86,7 +86,7 @@ const Step = ({}) => {
                 [`progress.${userID}.steps.${router.query.stepid}.completed`]: 0
             })
         }
-    }, [flow, user])
+    }, [flow, user, router.query.stepid])
 
     useEffect(() => {
         if (progress){
