@@ -13,6 +13,32 @@ import { classNames } from '../../../../../../../utils/common'
 import { CheckIcon, XMarkIcon } from '@heroicons/react/20/solid'
 
 
+function displayData(response){
+    var isObject = typeof(response) === 'object'
+
+    if (isObject){
+        var el = []
+        if (response instanceof Array){
+            response.forEach((responseItem, i) => {
+                el.push(<div className="ml-2" key={i}>{displayData(responseItem)}</div>)
+            })
+        } else if (response !== undefined) {
+            try {
+                Object.keys(response).forEach(responseItemKey => {
+                    el.push(<div className="ml-2" key={responseItemKey}>{responseItemKey}: {displayData(response[responseItemKey])}</div>)
+                })
+            } catch(e){
+                return JSON.stringify(response)
+            }
+        }
+
+        return el
+    } else {
+         return response
+    }
+}
+
+
 const UseStepData: NextPageWithLayout = ({}: AppProps) => {
     const [userStepProgress, setUserStepProgress] = useState()
     const router = useRouter(),
@@ -54,8 +80,9 @@ const UseStepData: NextPageWithLayout = ({}: AppProps) => {
                   <div>
                     <p className="text-sm text-gray-500">
                       {Object.keys(attempt.response).map((responseItemKey, i) => <div key={i}>
-                          {responseItemKey} <span className="font-medium text-gray-900">{typeof(attempt.response[responseItemKey]) === 'object' ? JSON.stringify(attempt.response[responseItemKey]) : attempt.response[responseItemKey]}</span>
-                      </div>)}
+                              {responseItemKey} <span className="font-medium text-gray-900">{displayData(attempt.response[responseItemKey])}</span>
+                          </div>
+                      )}
                     </p>
                   </div>
                   <div className="whitespace-nowrap text-right text-sm text-gray-500">
