@@ -32,7 +32,7 @@ export const StepItem = ({ userID, step, stepID, progress, experiment, flowSteps
     // Maintain the state of the last persisted attempt.
     var stepProgress = progress && progress.steps && progress.steps[stepID]
     const [attempts, setAttempts] = useState()
-    const throttleRef = useRef()
+    const throttleRef = useRef(uuidv4())
     const stepIDRef = useRef()
 
     useEffect(() => {
