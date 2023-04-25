@@ -96,7 +96,7 @@ const UseStepData: NextPageWithLayout = ({}: AppProps) => {
         )) : <div className="text-center mt-6">
           <DocumentChartBarIcon className="mx-auto h-12 w-12 text-gray-400" />
           <h3 className="mt-2 text-sm font-semibold text-gray-900">No data yet.</h3>
-          <p className="mt-1 text-sm text-gray-500">You'll see data here when students respond on the step.</p>
+          <p className="mt-1 text-sm text-gray-500">You&lsquo;ll see data here when students respond on the step.</p>
         </div>) : <LoadingSpinner />}
       </ul>
     </div>
