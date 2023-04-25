@@ -9,8 +9,9 @@ import { useFirestore } from 'reactfire'
 import Link from 'next/link'
 import {getTabs} from '../../[flowid]'
 import { UserContext } from '../../../../../../_app'
-import { classNames } from '../../../../../../../utils/common'
+import { classNames, LoadingSpinner } from '../../../../../../../utils/common'
 import { CheckIcon, XMarkIcon } from '@heroicons/react/20/solid'
+import { DocumentChartBarIcon } from '@heroicons/react/24/solid'
 
 
 function displayData(response){
@@ -58,7 +59,7 @@ const UseStepData: NextPageWithLayout = ({}: AppProps) => {
     return <>
     <div className="flow-root">
       <ul role="list" className="-mb-8">
-        {attempts?.map((attempt, attemptIdx) => (
+        {attempts ? (attempts.length ? attempts.map((attempt, attemptIdx) => (
           <li key={attemptIdx}>
             <div className="relative pb-8">
               {attemptIdx !== attempts.length - 1 ? (
@@ -92,7 +93,11 @@ const UseStepData: NextPageWithLayout = ({}: AppProps) => {
               </div>
             </div>
           </li>
-        ))}
+        )) : <div className="text-center mt-6">
+          <DocumentChartBarIcon className="mx-auto h-12 w-12 text-gray-400" />
+          <h3 className="mt-2 text-sm font-semibold text-gray-900">No data yet.</h3>
+          <p className="mt-1 text-sm text-gray-500">You'll see data here when students respond on the step.</p>
+        </div>) : <LoadingSpinner />}
       </ul>
     </div>
     </>
