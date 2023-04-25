@@ -36,7 +36,7 @@ const Data: NextPageWithLayout = ({}: AppProps) => {
         }
     }, [router.query.flowid, db])
 
-    var peopleIDs = flow?.progress && Object.keys(flow.progress)
+    var peopleIDs = flow?.progress && Object.keys(flow.progress).sort()
 
     return <>
         <div className="px-4 sm:px-6 lg:px-8">

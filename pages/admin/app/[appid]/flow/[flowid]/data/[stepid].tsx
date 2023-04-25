@@ -24,7 +24,7 @@ function displayData(response){
             })
         } else if (response !== undefined) {
             try {
-                Object.keys(response).forEach(responseItemKey => {
+                Object.keys(response).sort().forEach(responseItemKey => {
                     el.push(<div className="ml-2" key={responseItemKey}>{responseItemKey}: {displayData(response[responseItemKey])}</div>)
                 })
             } catch(e){
@@ -32,7 +32,7 @@ function displayData(response){
             }
         }
 
-        return el
+        return <div className="mb-2">{el}</div>
     } else {
          return response
     }
