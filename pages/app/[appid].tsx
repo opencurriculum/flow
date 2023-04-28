@@ -44,8 +44,16 @@ export const UserAppHeader = ({ hideBack }) => {
     }, [router.query.appid])
 
     useEffect(() => {
-        if (app?.requireLogin && user?.isAnonymous && !router.query.pageid){
-            login()
+        if (app){
+            // NOTE: In future, this should check the URL or component rendered
+            // to determine the same.
+            var isNeitherFlowNorPage = !router.query.flowid && !router.query.pageid,
+                isHomepage = isNeitherFlowNorPage || (
+                    app.homepage ? router.asPath === new URL(app.homepage).pathname : false)
+
+            if (!isHomepage && app.requireLogin && user?.isAnonymous){
+                login()
+            }
         }
 
         if (app?.fullstoryOrgID){
