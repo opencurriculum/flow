@@ -54,7 +54,7 @@ export const UserAppHeader = ({ hideBack }) => {
                 devMode: process.env.NODE_ENV === 'development'
             })
 
-            if (!user?.isAnonymous){
+            if (user && !user?.isAnonymous){
                 FullStory.identify(userID, {
                     displayName: user.displayName,
                     email: user.email
