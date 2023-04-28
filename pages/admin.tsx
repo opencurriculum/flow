@@ -83,7 +83,7 @@ const Admin: NextPageWithLayout = ({ }: AppProps) => {
                               <a onClick={() =>{
                                   router.push(`/admin/app/new`)
                               }}
-                                className="relative flex items-center space-x-3 rounded-lg border border-gray-300 px-6 py-5 shadow-sm focus-within:ring-2 focus-within:ring-indigo-500 focus-within:ring-offset-2 hover:border-gray-400 cursor-pointer"
+                                className="relative flex items-center space-x-3 rounded-lg border border-gray-300 px-6 py-5 shadow-sm focus-within:ring-2 focus-within:ring-indigo-500 focus-within:ring-offset-2 hover:border-gray-400 cursor-pointer text-slate-900"
                               >+ Create new app</a>
                             </li>
                           </ul>
@@ -99,7 +99,8 @@ const Admin: NextPageWithLayout = ({ }: AppProps) => {
                                   pathname: '/admin/app/[appid]/flow/[flowid]',
                                   query: { appid: 'none', flowid: flow.id }
                               }}>
-                            <a className="relative flex items-center space-x-3 rounded-lg border border-gray-300 bg-white px-6 py-5 shadow-sm focus-within:ring-2 focus-within:ring-indigo-500 focus-within:ring-offset-2 hover:border-gray-400">
+                            <a className="relative flex items-center space-x-3 rounded-lg border border-gray-300 bg-white px-6 py-5 shadow-sm focus-within:ring-2 focus-within:ring-indigo-500 focus-within:ring-offset-2 hover:border-gray-400
+                            text-slate-900">
                               {flow.name}
                             </a></Link>
                           </li>
@@ -109,7 +110,8 @@ const Admin: NextPageWithLayout = ({ }: AppProps) => {
                           <a onClick={() => {
                               router.push(`/admin/app/none/flow/new`)
                           }}
-                            className="relative flex items-center space-x-3 rounded-lg border border-gray-300 px-6 py-5 shadow-sm focus-within:ring-2 focus-within:ring-indigo-500 focus-within:ring-offset-2 hover:border-gray-400 cursor-pointer"
+                            className="relative flex items-center space-x-3 rounded-lg border border-gray-300 px-6 py-5 shadow-sm focus-within:ring-2 focus-within:ring-indigo-500 focus-within:ring-offset-2 hover:border-gray-400 cursor-pointer
+                            text-slate-900"
                           >+ Create new flow</a>
                         </li>
                       </ul>
