@@ -101,7 +101,7 @@ const WYSIWYGPanels = ({ context, layout, onRemove, onLayoutChange, onDrop, layo
             </div>
         </div>
 
-        <div className='flex-auto relative overflow-auto bg-gray-100' >
+        <div className='flex-auto relative overflow-auto bg-gray-100'>
             {layout && layoutContent ? <div className={styles.GridLayoutWrapper + ' mx-auto shadow-md mb-4'} style={{
                 width: '1200px',
                 //minHeight: 'calc(100vh - 3rem - 20px)',
@@ -172,8 +172,7 @@ const WYSIWYGPanels = ({ context, layout, onRemove, onLayoutChange, onDrop, layo
                         background-color: rgb(226 232 240);
                     }
                     .${styles.GridLayoutWrapper} .react-grid-layout {
-                        // min-height: calc(100vh - 3rem - 20px)
-                        min-height: ${gridHeight + 'px'};
+                        min-height: ${gridHeight ? (gridHeight + 'px') : 'calc(100vh - 3rem - 20px)'};
                     }
                 `}</style>}
             </div> : null}
