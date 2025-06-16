@@ -295,6 +295,6 @@ const BoxBody = ({ content, response, checkResponse, setResponse, contentFormatt
                 }
 
             }}>
-            {render(content.body, formatting, {contentFormatting, stepID, checkResponse, response, setResponse, name: content.name })}
+            {render(content.body, formatting, {contentFormatting, stepID, checkResponse, response, setResponse, name: content.name }, {})}
     </div>
 }

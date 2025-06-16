@@ -14,7 +14,7 @@ import { getAppFlows, getFlowsProgress } from '../../utils/store'
 import {t, classNames} from '../../utils/common.tsx'
 import { useFirestore, useAnalytics } from 'reactfire'
 import { UserContext } from '../_app'
-import login from '../../components/login.tsx'
+import login, {createUser} from '../../components/login.tsx'
 import * as FullStory from '@fullstory/browser';
 
 
@@ -167,7 +167,12 @@ const UserApp: NextPage = ({}: AppProps) => {
                                 setProgress(flowsProgress)
                             })
                         } else {
-                            setDoc(userRef, { name: 'Someone something' })
+                            if (user.isAnonymous){
+                                setDoc(userRef, { name: 'Someone something' })
+                            } else {
+                                createUser(user)
+                            }
+
                             setProgress({})
                         }
                     })

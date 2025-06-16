@@ -24,6 +24,22 @@ export function logout(){
 }
 
 
+export function createUser(u){
+    setDoc(doc(db, 'users', u.uid), {
+        name: u.displayName,
+        email: u.email,
+        created: serverTimestamp(),
+        photoURL: u.photoURL,
+    }).then(() => {
+        // Transfer anonymous user stuff to new account.
+        httpsCallable(functions, 'transferFromAnonymousAccount')(
+            { from: Cookies.get('userID'), to: u.uid })
+
+        Cookies.remove('userID')
+    })
+}
+
+
 export function useLogin(){
     const [user, setUser] = useState()
     const [userID, setUserID] = useState()
@@ -54,18 +70,7 @@ export function useLogin(){
         } else if (u && !u.isAnonymous && !user){
             getDoc(doc(db, "users", u.uid)).then(docSnapshot => {
                 if (!docSnapshot.exists()){
-                    setDoc(doc(db, 'users', u.uid), {
-                        name: u.displayName,
-                        email: u.email,
-                        created: serverTimestamp(),
-                        photoURL: u.photoURL,
-                    }).then(() => {
-                        // Transfer anonymous user stuff to new account.
-                        httpsCallable(functions, 'transferFromAnonymousAccount')(
-                            { from: Cookies.get('userID'), to: u.uid })
-
-                        Cookies.remove('userID')
-                    })
+                    createUser(u)
                 }
             })
         }

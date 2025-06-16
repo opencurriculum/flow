@@ -9,10 +9,7 @@ import { useStorage } from 'reactfire'
 import { v4 as uuidv4 } from 'uuid'
 import { CursorArrowRaysIcon, CheckCircleIcon } from '@heroicons/react/24/outline'
 import { Dialog, Transition } from '@headlessui/react'
-
-
-
-const slateHost = process.env.NODE_ENV === 'development' ? 'http://localhost:5000' : 'https://slate-eta.vercel.app'
+import { SLATE_CONTENT_TYPES } from './slate-content-types'
 
 
 export var ContentInput = (body, formatting, { updateBody, toggleSelectedContent, selectContent }) => {
@@ -289,40 +286,8 @@ const DesignSelector = ({ onClick }) => {
 }
 
 
-function serializeProperty(key, value, response){
-    if (value?.startsWith('=')){
-        return `${key}=${encodeURIComponent(run(value.substring(1), response))}`
-
-    } else if (value) {
-        return `${key}=${encodeURIComponent(value)}`
-    }
-}
-
-
-const ArrayType = function(body, formatting, {response, updateBody}){
-    const [properties, setProperties] = useState(body?.properties)
-    const query = useIframeQuery(body, response, (properties) => {
-        // var number = Object.keys(properties).map(p => properties[p]).find(
-        //     property => property.id === 'number')?.value
-        var number = properties.number
-
-        if (number)
-            return `number=${number}`
-    })
-
-    if (body?.properties && query === undefined)
-        return <div className="pt-2 mx-auto"><LoadingSpinner /></div>
-
-    return <div className='h-full'>
-        {/* Bad way to figure out if this is editable or render */}
-        {updateBody ? <IframeSelector /> : null}
-        <iframe src={`${slateHost}/show?template=array&${query || ''}`} style={{ width: '100%', height: '100%' }}/>
-    </div>
-}
-
-
 let iframeQuerylineUpdateTimeout
-function useIframeQuery(body, response, serialize){
+export function useIframeQuery(body, response, serialize){
     const [query, setQuery] = useState()
     const queryRef = useRef()
 
@@ -349,132 +314,6 @@ function useIframeQuery(body, response, serialize){
     }, [body?.properties, response])
 
     return query
-}
-
-
-let numberlineUpdateTimeout
-const Numberline = function(body, formatting, {updateBody}){
-    // piece=race%20track|13&piece=horse|6
-    const [properties, setProperties] = useState(body?.properties)
-    const [query, setQuery] = useState()
-    const queryRef = useRef()
-
-    function serializePieces(properties){
-        var serializedPieces = [], {pieces, makepiececopy, scales, initialScale, range, partsOfIntegers, slideBy} = properties
-            // propertiesAsArray = Object.keys(properties).map(
-            //     p => properties[p]),
-            // pieces = propertiesAsArray.find(property => property?.id === 'pieces')?.value,
-            // makepiececopy = propertiesAsArray.find(property => property?.id === 'makepiececopy')?.value
-
-        if (pieces){
-            var piecesAsArray = Object.keys(pieces)?.map(
-                id => pieces[id]).sort((a, b) => a.position - b.position)
-            if (piecesAsArray.length){
-                piecesAsArray.forEach(piece => {
-                    serializedPieces.push(`piece=${piece.items.find(prop => prop.title === 'Name').value}|${piece.items.find(prop => prop.title === 'Length').value}`)
-                })
-            }
-        }
-
-        if (makepiececopy !== undefined){
-            serializedPieces.push(`makepiececopy=${makepiececopy}`)
-        }
-
-        if (scales){
-            var scalesAsArray = Object.keys(scales)?.map(
-                id => scales[id]).sort((a, b) => a.position - b.position)
-            serializedPieces.push(`scales=${scalesAsArray.map(scale => scale.value).join(',')}`)
-        }
-
-        if (initialScale !== undefined){
-            serializedPieces.push(`initialScale=${initialScale}`)
-        }
-
-        if (range && range.Start !== undefined && range.End !== undefined){
-            serializedPieces.push(`range=${range.Start.value},${range.End.value}`)
-        }
-
-        if (partsOfIntegers){
-            serializedPieces.push(`partsOfIntegers=fractions`)
-        }
-
-        if (slideBy !== undefined){
-            serializedPieces.push(`slideBy=${slideBy}`)
-        }
-
-        return serializedPieces.join('&')
-    }
-
-    useEffect(() => {
-        if (body?.properties){
-            var serializedPiecesQuery = serializePieces(body.properties)
-
-            if (serializedPiecesQuery.length && queryRef.current !== serializedPiecesQuery){
-                clearTimeout(numberlineUpdateTimeout)
-                // setSaving(true)
-                numberlineUpdateTimeout = setTimeout(function(){
-                    setQuery(serializedPiecesQuery)
-
-                    // Persist this change.
-                    clearTimeout(numberlineUpdateTimeout)
-                }.bind(this), 5000);
-            }
-
-            queryRef.current = serializedPiecesQuery
-        }
-    }, [body?.properties])
-
-    if (body?.properties && query === undefined)
-        return <div className="pt-2 mx-auto"><LoadingSpinner /></div>
-
-    return <div className='h-full'>
-        {/* Bad way to figure out if this is editable or render */}
-        {updateBody ? <IframeSelector /> : null}
-        <iframe src={`${slateHost}/show?template=numberline&${query || ''}`} style={{ width: '100%', height: '100%' }}/>
-    </div>
-}
-
-
-const MultipleChoice = function(body, formatting, {updateBody, toggleSelectedContent, response, stepID}){
-    // Example: option=asd&option=qwer&option=zxc&option=yuop
-    const [properties, setProperties] = useState(body?.properties)
-
-    const query = useIframeQuery(body, response, (properties) => {
-        var serializedChoices = [], {choices, shuffle} = properties
-            // propertiesAsArray = Object.keys(properties).map(
-            //     p => properties[p]),
-            // choices = propertiesAsArray.find(property => property.id === 'choices')?.value,
-            // shuffle = propertiesAsArray.find(property => property?.id === 'shuffle')?.value
-
-        if (choices){
-            var choicesAsArray = Object.keys(choices)?.map(
-                id => choices[id]).sort((a, b) => a.position - b.position)
-            if (choicesAsArray.length){
-                choicesAsArray.forEach(choice => {
-                    var serializeOption = serializeProperty('option', `${choice.value}`, response),
-                        serializedProperty = serializeOption + `�${choice.id}`
-
-                    if (serializeOption !== 'option=undefined' && serializeOption !== 'option=null')
-                        serializedChoices.push(serializedProperty)
-                })
-            }
-        }
-
-        if (!updateBody && (shuffle !== undefined)){
-            serializedChoices.push(`shuffle=${shuffle}`)
-        }
-
-        return serializedChoices.join('&')
-    })
-
-    if (body?.properties && query === undefined)
-        return <div className="pt-2 mx-auto"><LoadingSpinner /></div>
-
-    return <div className='h-full'>
-        {/* Bad way to figure out if this is editable or render */}
-        {updateBody ? <IframeSelector /> : null}
-        <iframe src={`${slateHost}/show?template=multiple-choice&${query || ''}`} style={{ width: '100%', height: '100%' }}/>
-    </div>
 }
 
 
@@ -617,192 +456,6 @@ const ButtonInput = (body, formatting, { updateBody, toggleSelectedContent, isSe
 }
 
 
-const BasicDesignableContentType = function(body, formatting, {response, updateBody, appID, flowID, stepID}, templateName, progressMergingFn){
-    const [designOpen, setDesignOpen] = useState()
-    const [query, setQuery] = useState(progressMergingFn ? progressMergingFn(body?.query) : body?.query)
-    const bodyRef = useRef(body)
-
-    useEffect(() => {
-        if (bodyRef !== body){
-            bodyRef.current = body
-        }
-    }, [body])
-
-    useEffect(() => {
-        if (updateBody && !designOpen){
-            setTimeout(() => {
-                setQuery(body?.query)
-            }, 1000)
-        }
-    }, [designOpen])
-
-    var iframeSrc = `${slateHost}/show?template=${templateName}${query ? `&${query}` : ''}`
-
-    return <div className='h-full'>
-        {/* Bad way to figure out if this is editable or render */}
-        {updateBody ? <DesignSelector onClick={e => {
-            setDesignOpen(iframeSrc + '&mode=design')
-            e.stopPropagation()
-        }} /> : null}
-        {updateBody ? <IframeSelector /> : null}
-        <iframe src={iframeSrc} allowFullScreen style={{ width: '100%', height: '100%' }}/>
-        <DesignSlatePopup open={designOpen} setOpen={setDesignOpen} onSave={query => {
-            updateBody({ ...body, query })
-        }} template={templateName} appID={appID} flowID={flowID} stepID={stepID} />
-    </div>
-}
-
-
-const DragIntoSlots = function(body, formatting, {response, updateBody, appID, flowID, stepID, name}){
-    return BasicDesignableContentType(...[...arguments].slice(0, 3), 'drag-into-slots', (query) => {
-        if (query && !updateBody && response){
-            var updatedQuery = new URLSearchParams(query)
-
-            var slots = updatedQuery.getAll('slot').map(slot => JSON.parse(slot)),
-                pieces = updatedQuery.getAll('piece').map(piece => JSON.parse(piece))
-
-            if (response[`{${name}}.filledSlots`] && response[`{${name}}.filledSlots`].length){
-                response[`{${name}}.filledSlots`].forEach(filledSlot => {
-                    // Find the piece.
-                    var pieceToSet = pieces.find(piece => filledSlot.piece === piece.name)
-
-                    // Set it on the particular slot.
-                    var correctSlot = slots.find(slot => filledSlot.slot === slot.name)
-                    if (correctSlot && pieceToSet){
-                        correctSlot.piece = pieceToSet
-                    }
-                })
-
-                updatedQuery.delete('slot')
-
-                var updatedQueryString = updatedQuery.toString()
-                slots.forEach(slot => {
-                    updatedQueryString += `&slot=${encodeURIComponent(JSON.stringify(slot))}`
-                })
-
-                updatedQuery = new URLSearchParams(updatedQueryString)
-            }
-
-            return updatedQuery.toString()
-        }
-
-        return query
-    })
-}
-
-
-const InteractiveVideo = function(body, formatting, {response, updateBody, appID, flowID, stepID}){
-    return BasicDesignableContentType(...[...arguments].slice(0, 3), 'interactive-video')
-}
-
-
-const Hotspots = function(body, formatting, {response, updateBody, appID, flowID, stepID}){
-    return BasicDesignableContentType(...[...arguments].slice(0, 3), 'hotspots')
-}
-
-
-const DesignSlatePopup = function({ open, setOpen, onSave, template, appID, flowID, stepID }){
-    const iframeRef = useRef()
-    const cancelButtonRef = useRef(null)
-    const [url, setUrl] = useState(open)
-
-    const [openLibrary, setOpenLibrary] = useState(false)
-
-    const onDesignSlateMessageRef = useRef(function(setUrl, event){
-        if (event?.data?.data?.hasOwnProperty('kind') && event.data?.data?.kind === 'urlQueryChange'){
-            setUrl(event.data.data.value)
-        }
-    }.bind(null, setUrl))
-
-    useEffect(() => {
-        if (open){
-            window.addEventListener('message', onDesignSlateMessageRef.current)
-        } else {
-            window.removeEventListener('message', onDesignSlateMessageRef.current)
-        }
-
-        return () => {
-            window.removeEventListener('message', onDesignSlateMessageRef.current)
-        }
-    }, [open])
-
-    return <div>
-        <Transition.Root show={!!open} as={Fragment}>
-          <Dialog as="div" className="relative z-10" initialFocus={cancelButtonRef} onClose={setOpen}>
-            <Transition.Child
-              as={Fragment}
-              enter="ease-out duration-300"
-              enterFrom="opacity-0"
-              enterTo="opacity-100"
-              leave="ease-in duration-200"
-              leaveFrom="opacity-100"
-              leaveTo="opacity-0"
-            >
-              <div className="fixed inset-0 bg-gray-500 bg-opacity-75 transition-opacity" />
-            </Transition.Child>
-
-            <div className="fixed inset-0 z-10 overflow-y-auto">
-              <div className="flex min-h-full items-end justify-center p-4 text-center sm:items-center sm:p-0">
-                <Transition.Child
-                  as={Fragment}
-                  enter="ease-out duration-300"
-                  enterFrom="opacity-0 translate-y-4 sm:translate-y-0 sm:scale-95"
-                  enterTo="opacity-100 translate-y-0 sm:scale-100"
-                  leave="ease-in duration-200"
-                  leaveFrom="opacity-100 translate-y-0 sm:scale-100"
-                  leaveTo="opacity-0 translate-y-4 sm:translate-y-0 sm:scale-95"
-                >
-                  <Dialog.Panel className="relative transform overflow-hidden rounded-lg bg-white text-left shadow-xl transition-all sm:my-8 sm:w-full sm:max-w-5xl">
-                    <div className="bg-white">
-                      <div>
-                        {open ? <iframe ref={iframeRef} src={open} className='w-full' style={{ height: '30rem' }} /> : null}
-                      </div>
-                    </div>
-                    <div className="bg-gray-50 px-4 py-3 sm:flex sm:px-6">
-                        <div className="flex-auto">
-                            <button
-                              type="button"
-                              className="mt-3 inline-flex w-full justify-center rounded-md border border-gray-300 bg-white px-4 py-2 text-base font-medium text-gray-700 shadow-sm hover:bg-gray-50 focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:ring-offset-2 sm:mt-0 sm:w-auto sm:text-sm"
-                              onClick={() => setOpenLibrary(true)}
-                            >
-                              Open image library
-                            </button>
-                        </div>
-                        <div className="sm:flex sm:flex-row-reverse">
-                          <button
-                            type="button"
-                            className={classNames("inline-flex w-full justify-center rounded-md border border-transparent px-4 py-2 text-base font-medium text-white shadow-sm focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:ring-offset-2 sm:ml-3 sm:w-auto sm:text-sm bg-indigo-600 hover:bg-indigo-700")}
-                            onClick={() => {
-                                var query = new URLSearchParams(url.replace('/show?', ''))
-                                query.delete('template')
-                                query.delete('mode')
-                                onSave(query.toString())
-                                setOpen(false)
-                            }}
-                          >
-                            Save
-                          </button>
-                          <button
-                            type="button"
-                            className="mt-3 inline-flex w-full justify-center rounded-md border border-gray-300 bg-white px-4 py-2 text-base font-medium text-gray-700 shadow-sm hover:bg-gray-50 focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:ring-offset-2 sm:mt-0 sm:ml-3 sm:w-auto sm:text-sm"
-                            onClick={() => setOpen(false)}
-                            ref={cancelButtonRef}
-                          >
-                            Cancel
-                          </button>
-                      </div>
-                    </div>
-                  </Dialog.Panel>
-                </Transition.Child>
-              </div>
-            </div>
-          </Dialog>
-        </Transition.Root>
-
-        <ImageLibrary open={openLibrary} setOpen={setOpenLibrary}
-            appID={appID} flowID={flowID} stepID={stepID} />
-    </div>
-}
 
 
 const Webpage = (body, formatting, {response, updateBody}) => <div className='h-full'>
@@ -831,6 +484,29 @@ const Video = (body, formatting, {response, updateBody}) => {
         {updateBody ? <IframeSelector /> : null}
         {bodyEl}
     </div>
+}
+
+
+function transformSlateContentType(contentType){
+    return {
+        name: contentType.name,
+        editable: addExtrasToContentTypeEditable(contentType.component),
+        render: contentType.component,
+        properties: contentType.properties,
+        responseProperties: contentType.responseProperties,
+        disableFormatting: true
+    }
+}
+
+
+function addExtrasToContentTypeEditable(contentTypeEditable){
+    return function(){
+        return contentTypeEditable(...arguments, {ImageLibrary, imageLibraryProps: {
+            appID: arguments[2].appID, flowID: arguments[2].flowID, stepID: arguments[2].stepID
+        },
+            IframeSelector, DesignSelector
+        })
+    }
 }
 
 
@@ -968,100 +644,20 @@ const ContentTypes = {
 
     },
 
-    ArrayType: {
-        name: 'Array',
-        editable: ArrayType,
-        render: ArrayType,
-        properties: [
-            {
-                id: 'number', title: 'Number of boxes', kind: 'string'
-            }
-        ],
-        responseProperties: ['columns', 'rows', 'remainder'],
-        disableFormatting: true
-    },
+    ArrayType: transformSlateContentType(
+        SLATE_CONTENT_TYPES.find(ct => ct.name === 'Array')),
 
-    Numberline: {
-        name: 'Numberline',
-        editable: Numberline,
-        render: Numberline,
-        properties: [
-            {
-                id: 'pieces', title: 'Pieces available', kind: 'list', items: {
-                    kind: 'object', items: [
-                        { kind: 'string', title: 'Name' },
-                        { kind: 'number', title: 'Length' }
-                    ]
-                }
-            },
-            { id: 'makepiececopy', kind: 'boolean', title: 'Duplicate pieces that get dropped on numberline' },
-            {
-                id: 'scales', title: 'Scale (zoom) levels', kind: 'list', items: {
-                    kind: 'number'
-                }
-            },
-            {
-                id: 'initialScale', title: 'Scale at the start', kind: 'number'
-            },
-            {
-                id: 'range', kind: 'object', title: 'Range', items: [
-                    { kind: 'number', title: 'Start' },
-                    { kind: 'number', title: 'End' }
-                ]
-            },
-            {
-                id: 'partsOfIntegers', title: 'Show fractions instead of decimals under 1', kind: 'boolean'
-            },
-            {
-                id: 'slideBy', title: 'Slide numberline forward and backward by (at scale=1)', kind: 'number'
-            }
+    MultipleChoice: transformSlateContentType(
+        SLATE_CONTENT_TYPES.find(ct => ct.name === 'Multiple choice answer')),
 
-        ],
-        responseProperties: ['scale', 'range', ['pieces', ['title', 'length', 'line', 'position']] ],
-        disableFormatting: true
-    },
+    DragIntoSlots: transformSlateContentType(
+        SLATE_CONTENT_TYPES.find(ct => ct.name === 'Drag into slots')),
 
-    MultipleChoice: {
-        name: 'Multiple choice answer',
-        editable: MultipleChoice,
-        render: MultipleChoice,
-        properties: [
-            {
-                id: 'choices', title: 'Choices', kind: 'list', items: {
-                    kind: 'string', title: 'Option'
-                }
-            },
-            { id: 'shuffle', kind: 'boolean', title: 'Shuffle order for students' }
-        ],
-        responseProperties: [['selected', { 0: ['id', 'content', 'index']} ]],
-        disableFormatting: true
-    },
+    InteractiveVideo: transformSlateContentType(
+        SLATE_CONTENT_TYPES.find(ct => ct.name === 'Interactive video')),
 
-    DragIntoSlots: {
-        name: 'Drag into slots',
-        editable: DragIntoSlots,
-        designable: true,
-        render: DragIntoSlots,
-        responseProperties: [['filledSlots', ['slot', 'piece']]],
-        disableFormatting: true
-    },
-
-    InteractiveVideo: {
-        name: 'Interactive video',
-        editable: InteractiveVideo,
-        designable: true,
-        render: InteractiveVideo,
-        responseProperties: [['completedPrompts', ['label', 'response']]],
-        disableFormatting: true
-    },
-
-    Hotspots: {
-        name: 'Hotspots',
-        editable: Hotspots,
-        designable: true,
-        render: Hotspots,
-        disableFormatting: true
-    },
+    Hotspots: transformSlateContentType(
+        SLATE_CONTENT_TYPES.find(ct => ct.name === 'Hotspots')),
 
     Webpage: {
         name: 'Webpage',
